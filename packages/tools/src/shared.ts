@@ -25,3 +25,23 @@ export const usable = (el: Element): boolean =>
 
 /** The user asked for reduced motion. */
 export const reducedMotion = (): boolean => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** How long `go_to` and `go_back` wait for the address to change after they navigate. */
+export const NAVIGATE_WAIT_MS = 3000;
+
+/**
+ * Resolves true once `reached()` is true of the address, false after `ms`. A client router changes the address a
+ * moment after a link's click or `history.back()` (Next.js: once the route's payload arrives). Answering only then
+ * means the new page's tools register right after the answer, where a chat waiting for the tools to settle sees them.
+ */
+export function addressSettles(reached: () => boolean, ms = NAVIGATE_WAIT_MS): Promise<boolean> {
+  const until = Date.now() + ms;
+  return new Promise((resolve) => {
+    const check = (): void => {
+      if (reached()) resolve(true);
+      else if (Date.now() >= until) resolve(false);
+      else setTimeout(check, 25);
+    };
+    check();
+  });
+}

@@ -1,0 +1,187 @@
+---
+title: Style the cursor and the chat
+description: "Give the agent your brand: one custom property recolours the cursor, its rings and the chat's accent, and a few more set the chat's surfaces, corners and typeface, in light and dark."
+sidebar:
+  label: 10. Style the cursor and the chat
+---
+
+The cursor and the chat ship with a neutral black look. Both are styled with **CSS custom properties**: you set a few
+values in a stylesheet of your own and never touch their markup. The chat's accent follows the cursor's colour, so
+one property, `--agent`, brands both.
+
+## A complete example
+
+One file holds the whole theme. The same file works in every framework.
+
+<View title="Vite">
+
+<include meta='title="src/agent.css"'>/_examples/shared/agent.css</include>
+
+Import it in your entry file, with the two stylesheets you already have:
+
+```tsx src/main.tsx
+import "@webmcp-agents/core/cursor.css";
+import "@webmcp-agents/chat/chat.css";
+import "./agent.css"; // [!code highlight]
+```
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/agent.css"'>/_examples/shared/agent.css</include>
+
+Import it in the root layout, with the stylesheets you already have:
+
+```tsx app/layout.tsx
+import "@webmcp-agents/core/cursor.css";
+import "./globals.css";
+import "./agent.css"; // [!code highlight]
+```
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/agent.css"'>/_examples/shared/agent.css</include>
+
+Link it from the root route, with the stylesheets you already have:
+
+```tsx src/routes/__root.tsx
+import agentCss from "../agent.css?url"; // [!code highlight]
+
+// In head(), in `links`:
+{ rel: "stylesheet", href: agentCss }, // [!code highlight]
+```
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/agent.css"'>/_examples/shared/agent.css</include>
+
+Import it in your layout, with the stylesheet you already have:
+
+```astro src/layouts/Layout.astro
+---
+import "@webmcp-agents/core/cursor.css";
+import "../agent.css"; // [!code highlight]
+---
+```
+
+</View>
+
+Every selector in the file starts with `html`. The library's own rules are written on `:root` and `.wa-chat`, and
+between two rules of the same weight the one that loads last wins, which depends on how your framework orders
+stylesheets. The extra `html` makes yours heavier, so they win wherever the file is imported.
+
+## The cursor
+
+`--agent` is the agent's colour. The arrow and the name tag are filled with it, and everything else is worked out from
+it: the focus ring and outlines, the soft fill of the ripple and the halo, the colour of the waiting state. Set the
+others only when you want them to differ.
+
+| Property | What it colours | Default |
+|---|---|---|
+| `--agent` | The arrow and the name tag. | `#111111` |
+| `--agent-ink` | The text on the name tag. | `#ffffff` |
+| `--agent-strong` | The focus ring, the ripple's edge and the dashed outlines. | `--agent` |
+| `--agent-wait` | The same parts while the cursor waits for the person's click. | `--agent` |
+| `--agent-edge` | A thin light line around the ring and the ripple, so a dark agent shows on a dark page. | white at 60% |
+
+Set them on the root element (`html:root`, as in the example). The soft fills are computed there, so `--agent` set
+on a deeper element does not reach them.
+
+The name in the tag is not CSS: it is the `name` option of the visuals
+([`installAgentVisuals`](/reference/core/install-agent-visuals)). Motion is not yours to restyle either: the cursor
+writes its own position every frame, and it already honours `prefers-reduced-motion`.
+
+## The chat
+
+The chat reads `--agent` for its accent: the launcher, the send button, the person's own messages, focus outlines. Its
+other properties are set on its host element, `.wa-chat`:
+
+| Property | What it sets | Default (light) |
+|---|---|---|
+| `--wa-chat-accent`, `--wa-chat-accent-ink` | The accent and the text on it, when the chat should not follow the cursor. | `--agent`, `--agent-ink` |
+| `--wa-chat-bg`, `--wa-chat-fg` | The panel and its text. | `#ffffff`, `#111111` |
+| `--wa-chat-muted` | Secondary text. | `#5f6368` |
+| `--wa-chat-line`, `--wa-chat-soft` | Borders, and the fill of chips and tool calls. | black at 10% and 5% |
+| `--wa-chat-radius` | The panel's corners. | `14px` |
+| `--wa-chat-font` | The typeface. | the system font |
+| `--wa-chat-gap` | The distance from the corner of the window. | `20px` |
+
+To give the chat a different accent from the cursor (in light; [dark mode](#dark-mode) has its own):
+
+```css src/agent.css
+html .wa-chat {
+  --wa-chat-accent: #0f766e;
+  --wa-chat-accent-ink: #ffffff;
+}
+```
+
+## Dark mode
+
+The chat has a dark look of its own. It turns on with the system setting (`prefers-color-scheme`), or with
+`data-theme="dark"` on the chat or any element around it; `data-theme="light"` keeps it light. So a site with its own
+theme switch that writes `data-theme` on `<html>` needs nothing more.
+
+The accent adapts by itself. On the dark panel it is a light tint of `--agent` with dark text on it: the default
+near-black agent becomes a light grey, a brand blue a light blue. You do not set a second colour for dark.
+
+What you changed on `.wa-chat` yourself applies in light only, since the chat's dark rules are heavier than
+`html .wa-chat`. That goes for a surface (`--wa-chat-bg`, `--wa-chat-fg`) and for an accent of the chat's own. Give
+each its dark partner, under the same condition the chat uses:
+
+```css src/agent.css
+html[data-theme="dark"] .wa-chat {
+  --wa-chat-bg: #0f172a;
+  --wa-chat-fg: #e2e8f0;
+  --wa-chat-accent: #5eead4;
+}
+```
+
+A site that follows the system setting instead wraps the same rule in `@media (prefers-color-scheme: dark)`.
+
+The cursor has no dark variant to switch: the arrow carries a white edge and the ring a light one, so it reads on
+both.
+
+## One part of the chat
+
+Every part of the chat has a class that starts with `wa-chat__` (`wa-chat__launcher`, `wa-chat__panel`,
+`wa-chat__header`, `wa-chat__bubble`, `wa-chat__composer`, `wa-chat__send`, `wa-chat__tool`). The stylesheet sits
+outside any cascade layer and most of its rules are a single class, so a selector with `html` in front overrides
+them:
+
+```css src/agent.css
+html .wa-chat__launcher {
+  border-radius: 12px;
+}
+```
+
+Prefer the properties where one exists: the class names are the chat's own markup and follow it when it changes.
+A rule of the chat that is longer than one class (a part in one state, such as a docked panel) needs your selector
+to name that state too. For a chat built from your own components instead, see [shadcn chat blocks](/more/shadcn-chat-blocks).
+
+## Try it
+
+Start the app and call a tool, from the chat or from the [devtools](/build/devtools). The arrow, its name tag and
+the ring around the field it types into are in your colour, and so are the chat's launcher and send button. Switch
+your system to dark: the chat's panel turns dark and its buttons take a light tint of your colour.
+
+If nothing changes, the file is not loaded: check the import in the view above.
+
+## Options you'll use most
+
+| Property | Set on | What it is for |
+|---|---|---|
+| `--agent` | `html:root` | The agent's colour, for the cursor and the chat's accent. |
+| `--agent-ink` | `html:root` | Text on the name tag and on the chat's accent. |
+| `--agent-strong` | `html:root` | Rings and outlines in another shade. |
+| `--wa-chat-accent` | `html .wa-chat` | An accent for the chat alone; add a dark partner. |
+| `--wa-chat-bg`, `--wa-chat-fg` | `html .wa-chat` | The chat's panel and text; add a dark pair. |
+| `--wa-chat-radius` | `html .wa-chat` | The chat's corners. |
+| `--wa-chat-font` | `html .wa-chat` | The chat's typeface. |
+
+Every property, class and state: [`cursor.css`](/reference/core/cursor-css) and
+[`<AgentChat>` theming](/reference/chat/agent-chat#theming).

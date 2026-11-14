@@ -14,6 +14,7 @@ import { toUIMessages } from "../adapter/wire";
 import { flattenWebAgents, type WebAgent } from "../agent";
 import { notOnPage } from "../shared";
 import type { AgentMessage } from "../types";
+import { describeModelError } from "./model-error";
 import { modelAvailability, ModelUnavailableError, parseModelId, providerOptionsFor, type ReasoningLevel, resolveModel } from "./models";
 import { DEFAULT_SYSTEM_PROMPT } from "./system-prompt";
 import { type ChatRequest, chatRequestSchema, isCrossSite, LIMITS, readCappedText, samePagePath } from "./validate";
@@ -240,8 +241,9 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
           // A bad tool call goes back to the model as that call's error: say exactly what was wrong.
           if (NoSuchToolError.isInstance(err)) return notOnPage(err.toolName);
           if (InvalidToolInputError.isInstance(err)) return `Error [invalid_input]: Invalid input for "${err.toolName}": ${err.message}`;
-          console.error("[web-agents/chat] model error:", err);
-          return "The assistant had a problem answering. Try again.";
+          const { message, log } = describeModelError(err);
+          console.error(`[web-agents/chat] model error: ${log}`);
+          return message;
         },
       });
       return withCookie(streamed, renewal);

@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/chat",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "A chat widget whose agent operates the live page through its WebMCP tools: defineWebAgent (instructions, tool subsets, sub-agents), a cloud adapter for any frontier model, a server handler on the AI SDK and a Vite dev plugin.",
   "license": "MIT",

@@ -1,5 +1,13 @@
 # @webmcp-agents/core
 
+## 0.3.0
+
+### Minor Changes
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`2c75ea5`](https://github.com/webmcp-agents/webmcp-agents/commit/2c75ea5f62e2a18e1e74f0dce7fb39a21786df82) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - A tool's `target` function may return a promise: open the UI its control lives in (a ⌘K palette, a drawer), wait for it, return it. The call waits for it (up to `OPEN_TARGET_MS`, 3 s) before the cursor moves, so the values are typed into the opened UI.
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`7d491df`](https://github.com/webmcp-agents/webmcp-agents/commit/7d491df776898c48bf0a80203aa6ca99e539aa68) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - The cursor stays in step. Calls that overlap share one hand: the later call takes it and the earlier one finishes without a press, instead of both pressing mid-flight. A press lands on the frame that draws it, waits under way end when the person takes over, and the ring of a control pressed while the person was busy follows the page. A password is never read out (`fill` carries `"••••"`), and status is announced by the tool's title. `cursor.css`: `--agent` alone recolours the agent (the other colours derive from it), a new `--agent-edge` keeps the ring visible on dark pages, the ring no longer depends on the page's `box-sizing`, and the spotlight follows `--agent-z`. `locate` reads a name without `aria-hidden` and `hidden` parts and with an image's `alt`; a parameter's field by `name` is always a native field.
+
 ## 0.2.0
 
 ### Minor Changes

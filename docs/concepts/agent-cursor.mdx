@@ -99,7 +99,9 @@ The cursor goes to the tool's control, then to each field it types into, then ba
 | **At rest** | It sways gently around its tip, a little more while waiting for the person. |
 | **Reduced motion** | Under `prefers-reduced-motion`, everything snaps and fades. |
 
-Tool status is also announced in a polite live region for screen readers.
+Tool status is also announced in a polite live region for screen readers, by the tool's `title` (or its id read as words). A value typed into a password field is never read out, and its `fill` event carries `"••••"`.
+
+When two calls overlap there is still one hand: the later call takes it, and the earlier one finishes without a press (its values are written in one step). A call waiting for the person's click gets the hand back when the other call is done.
 
 ## Spotlight
 
@@ -133,13 +135,13 @@ after it:
 
 ```css styles.css
 :root {
-  --agent: #4f46e5;        /* fill for the arrow and the tag */
-  --agent-strong: #4338ca; /* outlines, rings and borders */
+  --agent: #4f46e5;        /* the arrow and the tag; rings, outlines and soft fills follow it */
+  --agent-strong: #4338ca; /* optional: outlines, rings and borders in another shade */
   --agent-ink: #ffffff;    /* text on the tag */
-  --agent-wait: #4f46e5;   /* while waiting for the person to confirm */
 }
 ```
 
+[Style the cursor and the chat](/build/style-the-cursor-and-chat) walks through it, with the chat and dark mode;
 [`cursor.css`](/reference/core/cursor-css) lists every custom property, class and state.
 
 :::warning[Don't use showModal() for drawers]

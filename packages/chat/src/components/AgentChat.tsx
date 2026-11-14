@@ -9,7 +9,7 @@
  * here never counts as "the user took over" for the agent cursor.
  */
 import { UI_HOST_ATTR } from "@webmcp-agents/core";
-import { type CSSProperties, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { WebAgent } from "../agent";
 import { useAgentChat } from "../session/use-agent-chat";
@@ -49,8 +49,44 @@ export interface AgentChatProps {
   suggestions?: string[] | false;
   /** Extra class on the host element (theme with the `--wa-chat-*` properties). */
   className?: string;
-  /** sessionStorage key for the conversation; `false` keeps it in memory. Default "web-agents:chat". */
+  /**
+   * sessionStorage key for the conversation; `false` keeps it in memory. Default "web-agents:chat". Whether the panel
+   * is open is kept next to it (`<key>:open`), so a page load (a navigation the agent made without the app's router,
+   * a reload) brings the chat back as it was.
+   */
   storageKey?: string | false;
+}
+
+/**
+ * The panel's open state, kept in sessionStorage under `key`. Read after the first render (the server's HTML and the
+ * first render match) but before the first paint (a layout effect), so a panel saved closed never flashes open or
+ * docks the page; written only when it is changed, never by an effect (StrictMode runs effects twice in
+ * development, and an effect would save the not-yet-restored state over the saved one).
+ */
+function useOpen(defaultOpen: boolean, key: string | false): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(defaultOpen);
+  useLayoutEffect(() => {
+    if (!key) return;
+    try {
+      const saved = sessionStorage.getItem(key);
+      if (saved !== null) setOpen(saved === "1");
+    } catch {
+      // storage blocked: the chat starts as `defaultOpen`
+    }
+  }, [key]);
+  const change = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      if (!key) return;
+      try {
+        sessionStorage.setItem(key, next ? "1" : "0");
+      } catch {
+        // storage blocked or full: only the open state is lost
+      }
+    },
+    [key],
+  );
+  return [open, change];
 }
 
 function useHost(className: string | undefined, position: string): HTMLElement | null {
@@ -89,7 +125,7 @@ export function AgentChat({
 
   const host = useHost(className, position);
   const side = position === "bottom-left" ? "left" : "right";
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useOpen(defaultOpen, storageKey === false ? false : `${storageKey ?? "web-agents:chat"}:open`);
   const dock = useDock(open && layout === "docked", side);
   useEffect(() => {
     if (host) host.dataset.layout = layout;

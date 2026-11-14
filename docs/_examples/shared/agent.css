@@ -1,0 +1,13 @@
+/* One colour for the agent: the arrow, the tag, the rings and the
+   chat's accent all follow --agent. `html` in front of a selector
+   makes the rule win wherever this file is imported. */
+html:root {
+  --agent: #4f46e5;
+  --agent-ink: #ffffff;
+}
+
+/* The chat: its own corners and typeface. */
+html .wa-chat {
+  --wa-chat-radius: 10px;
+  --wa-chat-font: "Inter", system-ui, sans-serif;
+}

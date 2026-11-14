@@ -1,5 +1,17 @@
 # @webmcp-agents/tools
 
+## 0.3.0
+
+### Minor Changes
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`dbbc44c`](https://github.com/webmcp-agents/webmcp-agents/commit/dbbc44cef83e03dd0d7d8e02ef2797c3ae5df48b) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - `goTo({ navigate })`: your router's navigation, for a page with no link on screen. The page changes without a page load, so the chat, the cursor and calls in flight stay.
+
+### Patch Changes
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`dbbc44c`](https://github.com/webmcp-agents/webmcp-agents/commit/dbbc44cef83e03dd0d7d8e02ef2797c3ae5df48b) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - `go_to` and `go_back` answer once the address has changed (up to 3 s), not at the click. A client router such as Next.js changes it a moment later; answering first let a chat send its next step before the new page's tools had registered, so the agent could not use them. When the address never changes, `go_to` says so instead of "Opened".
+- Updated dependencies [[`2c75ea5`](https://github.com/webmcp-agents/webmcp-agents/commit/2c75ea5f62e2a18e1e74f0dce7fb39a21786df82), [`7d491df`](https://github.com/webmcp-agents/webmcp-agents/commit/7d491df776898c48bf0a80203aa6ca99e539aa68)]:
+  - @webmcp-agents/core@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

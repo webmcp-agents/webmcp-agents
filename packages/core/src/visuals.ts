@@ -28,6 +28,7 @@
 import { confirmPrompt, type FieldStep, STAGE, type Stage, type Staged, stages } from "./confirm";
 import { agentCursor, reduced, wait, type SpotlightOptions } from "./cursor";
 import { type AgentEvent, emit } from "./events";
+import { words } from "./locate";
 import { errorText, isAbortError } from "./result";
 import { type YieldOptions, watchUserInput } from "./user-yield";
 import { type FieldControl, type FieldValue, isCheckbox, isControl, writeControl } from "./write";
@@ -110,6 +111,11 @@ interface Run {
   unseen?: boolean;
   /** A parked WebTool's control may change while it waits (a header that folds away): how to find it again. */
   where?: () => Element | null;
+  /**
+   * Another call's move took the hand (there is one hand): the rest of this run plays unseen, its values written at
+   * once, until the hand is handed back to a run that waits for the person (`followParked`).
+   */
+  lost?: boolean;
   /** Guards linger timers, so a late one can't end a newer run of the same tool. */
   generation: number;
 }
@@ -223,6 +229,13 @@ function start({
     );
 
   const runs = new Map<string, Run>();
+  /** Move the hand for `run`. False once another call's move has taken it (see `Run.lost`). */
+  const go = async (run: Run, el: Element): Promise<boolean> => {
+    if (!run.lost) run.lost = !(await agentCursor.moveTo(el));
+    return !run.lost;
+  };
+  /** A tool as a screen reader should say it: its title, else its id read as words. */
+  const spoken = (name: string): string => stages.get(name)?.tool.title ?? words(name);
   /** A WebTool's own control (its target, a `toolname` marker, or the control named like it); any other tool's `toolname` element. */
   const byTool = (name: string, args?: unknown): Element | null => {
     const stage = stages.get(name);
@@ -297,7 +310,11 @@ function start({
     };
     // Another call is waiting for the person: the hand is this call's for now, without the other's prompt
     // (`finish` hands it back).
-    for (const other of runs.values()) if (other.parked) agentCursor.unpark();
+    for (const other of runs.values())
+      if (other.parked) {
+        other.lost = true;
+        agentCursor.unpark();
+      }
     runs.set(toolName, run);
     claimRecentFills(run);
     return run;
@@ -341,16 +358,18 @@ function start({
 
       const run = startRun(toolName, el);
       const form = el instanceof HTMLFormElement ? el : null;
-      agentCursor.say(`${toolName} started`);
+      agentCursor.say(`${spoken(toolName)} started`);
 
       if (!form) {
         // Imperative tool registered before the layer was installed (or sync off):
         // it has already run, so animate after the fact.
-        await agentCursor.moveTo(el);
+        const arrived = await go(run, el);
         if (runs.get(toolName) !== run) return;
-        el.setAttribute("data-agent-active", "");
-        agentCursor.highlight(el);
-        await agentCursor.click();
+        if (arrived) {
+          el.setAttribute("data-agent-active", "");
+          agentCursor.highlight(el);
+          await agentCursor.click();
+        }
         setTimeout(() => finish(toolName, run.generation), linger);
         return;
       }
@@ -359,7 +378,7 @@ function start({
       // head for the first field, or the form itself if nothing was filled.
       await wait(0);
       if (!isCurrent(toolName, run)) return;
-      if (run.fills.length === 0) await agentCursor.moveTo(form);
+      if (run.fills.length === 0) await go(run, form);
       if (!isCurrent(toolName, run)) return;
 
       await playFields(run, toolName);
@@ -373,7 +392,7 @@ function start({
       }
 
       // The browser is pausing for the user: park on the button.
-      await agentCursor.moveTo(btn);
+      await go(run, btn);
       if (!isCurrent(toolName, run)) return;
       const prompt = `Click "${labelOf(btn, "submit")}" to confirm`;
       park(run, btn, prompt);
@@ -410,15 +429,17 @@ function start({
       run.parked = false;
       agentCursor.unpark();
 
-      const reach = async (): Promise<void> => {
+      /** Resolves true with the hand on the submit button, false when there is nothing to press with it. */
+      const reach = async (): Promise<boolean> => {
         await playFields(run, toolName);
         const btn = submitButtonOf(form);
-        if (btn) {
-          // After a confirmation pause the cursor is already resting on the button.
-          if (!wasParked) await agentCursor.moveTo(btn);
-          agentCursor.highlight(btn);
-        }
+        // After a confirmation pause the cursor is already resting on the button (unless another call borrowed it).
+        if (!btn || !(wasParked ? !run.lost : await go(run, btn))) return !btn && !run.lost;
+        agentCursor.highlight(btn);
+        return true;
       };
+      /** The press, with the hand when it is this run's. */
+      const press = (seen: boolean, onPress?: () => void): unknown => (seen ? agentCursor.click(onPress) : onPress?.());
 
       // A cancelled or superseded run has already been reported and finished.
       const live = (): boolean => runs.get(toolName) === run;
@@ -427,7 +448,7 @@ function start({
           (result) => {
             if (!live()) return result;
             report({ type: "result", tool: toolName, result, ms: performance.now() - run.startedAt });
-            agentCursor.say(`${toolName} done`);
+            agentCursor.say(`${spoken(toolName)} done`);
             setTimeout(() => finish(toolName, run.generation), linger);
             return result;
           },
@@ -441,7 +462,7 @@ function start({
 
       if (!sync) {
         // Let the page handle the submit now; animate, then release the agent's result.
-        const shown = reach().then(() => agentCursor.click());
+        const shown = reach().then((seen) => press(seen));
         const respond = e.respondWith?.bind(e);
         if (!respond) {
           void shown.then(() => settle(Promise.resolve(undefined)));
@@ -474,10 +495,10 @@ function start({
       else void settled.catch(() => {}); // no one to answer, but the run still settles and finishes
       const cancelled = (): void => answer(Promise.reject(new DOMException("Tool execution cancelled", "AbortError")));
 
-      void reach().then(() => {
+      void reach().then((seen) => {
         // Cancelled (or superseded) while the cursor travelled: the page must never see this submit.
         if (!live()) return cancelled();
-        return agentCursor.click(() => {
+        return press(seen, () => {
           if (!live()) return cancelled();
           const replay = new SubmitEvent("submit", { bubbles: true, cancelable: true, submitter: e.submitter });
           let answered = false;
@@ -547,7 +568,7 @@ function start({
     if (!anchor) return runUnseen(tool, args, ctx, execute);
 
     report({ type: "start", tool: tool.name, at: performance.now(), args });
-    agentCursor.say(`${tool.name} started`);
+    agentCursor.say(`${spoken(tool.name)} started`);
     const run = startRun(tool.name, anchor);
     /** `requireConfirmation`: the tool's execute waits for the user's click itself, so the cursor parks instead of clicking. */
     const confirm = !!el && !!staged?.confirm;
@@ -573,16 +594,18 @@ function start({
       // The confirm gate opens once the values are on screen (no gate timeout: the user decides), and the cursor parks.
       if (confirm) release();
       if (!el || settled || !current()) return release(); // nothing to press, or superseded: don't hold the tool
-      await agentCursor.moveTo(el);
+      const arrived = await go(run, el);
       if (settled || !current()) return release();
       el.setAttribute("data-agent-active", "");
       if (!confirm) {
+        if (!arrived) return release(); // the hand is another call's: this one runs without a press
         // forced: pressed while the person was busy, the control still glows (see GhostCursor.click)
         agentCursor.highlight(el, true);
         return agentCursor.click(release);
       }
       const prompt = confirmPrompt(el, tool.name);
-      run.where = () => stage?.at(args) ?? null;
+      // the staged input: an async target's control is remembered per call, by that input
+      run.where = () => stage?.at(staged?.input ?? args) ?? null;
       park(run, el, prompt);
       log({ type: "park", tool: tool.name, prompt }); // the gate itself emits it to onAgentEvent
     })();
@@ -591,18 +614,18 @@ function start({
       await Promise.race([pressed, cancelled]);
       const result = await execute();
       settled = true;
-      if (confirm && current()) {
+      if (confirm && current() && !run.lost) {
         // The cursor clicks only after the user confirmed.
         if (run.parked) agentCursor.unpark();
         agentCursor.highlight(run.parkedOn ?? el, true);
         void agentCursor.click();
       }
       report({ type: "result", tool: tool.name, result, ms: performance.now() - run.startedAt });
-      agentCursor.say(`${tool.name} done`);
+      agentCursor.say(`${spoken(tool.name)} done`);
       return result;
     } catch (err) {
       settled = true;
-      if (run.parked && current()) agentCursor.unpark(); // the shared cursor may be parked for another tool by now
+      if (run.parked && current() && !run.lost) agentCursor.unpark(); // the shared cursor may be parked for another tool by now
       reportFailure(tool.name, err, run.startedAt);
       throw err;
     } finally {
@@ -633,13 +656,13 @@ function start({
   }
 
   // ---------- helpers ----------
-  /** Park the cursor on the control `run` waits on. */
+  /** Park the cursor on the control `run` waits on; a run that lost the hand waits unseen until it is handed back. */
   function park(run: Run, el: Element, prompt: string): void {
     run.parked = true;
     run.parkedOn = el;
     run.prompt = prompt;
     run.unseen = agentCursor.isYielded();
-    agentCursor.park(prompt, el);
+    if (!run.lost) agentCursor.park(prompt, el);
   }
 
   /**
@@ -651,6 +674,9 @@ function start({
   function followParked(back = false): void {
     for (const [toolName, run] of runs) {
       if (!run.parked || !run.parkedOn) continue;
+      // Not while another call has the hand: `finish` hands it back.
+      if (run.lost && !back) continue;
+      run.lost = false;
       const el = run.where?.() ?? run.parkedOn;
       const moved = el !== run.parkedOn;
       if (!moved && !back) continue;
@@ -687,19 +713,24 @@ function start({
       for (const step of fills) {
         const { field, name, to } = step;
         if (runs.get(toolName) !== run) return;
-        await agentCursor.moveTo(field);
+        /** The hand is on the field. Without it (another call's now) the value is written in one step, unshown. */
+        const seen = await go(run, field);
         if (step.done) continue; // the gate gave up waiting and the tool wrote it itself
-        agentCursor.highlight(field);
-        agentCursor.say(`${toolName}: ${name} = ${JSON.stringify(to)}`);
+        // A password is typed like any value, but never read out or handed to listeners.
+        const value = (field as HTMLInputElement).type === "password" ? "••••" : to;
+        if (seen) {
+          agentCursor.highlight(field);
+          agentCursor.say(`${spoken(toolName)}: ${name} = ${JSON.stringify(value)}`);
+        }
         // A custom widget (a role, no native control) is shown, never written: the tool's `fill` sets it.
         if (isControl(field)) {
           step.done = true;
           const from = step.from ?? fieldValue(field);
-          if (sync) await typeInto(field, to, from, !!steps);
-          agentCursor.flash();
-          report({ type: "fill", tool: toolName, field: name, value: to, from, control: field });
+          if (sync) await (seen ? typeInto(field, to, from, !!steps) : writeField(field, to, !!steps));
+          if (seen) agentCursor.flash();
+          report({ type: "fill", tool: toolName, field: name, value, from, control: field });
         }
-        await wait(isControl(field) ? 60 : 300);
+        if (seen) await wait(isControl(field) ? 60 : 300);
       }
     })();
     return run.fieldsDone;

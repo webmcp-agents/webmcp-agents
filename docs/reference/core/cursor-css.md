@@ -22,16 +22,12 @@ import "@webmcp-agents/core/cursor-native.css";
 
 ## Example
 
-Recolour the agent after the import. A cursor, tag and rings in your brand blue:
+Recolour the agent after the import. One property gives a cursor, tag, rings and soft fills in your brand blue; the others follow it unless you set them:
 
 ```css app.css
 /* after importing @webmcp-agents/core/cursor.css */
 :root {
   --agent: #1d4ed8;
-  --agent-strong: #1d4ed8;
-  --agent-soft: rgba(29, 78, 216, 0.14);
-  --agent-wait: #1d4ed8;
-  --agent-wait-soft: rgba(29, 78, 216, 0.18);
 }
 ```
 
@@ -43,14 +39,15 @@ The stylesheet has no JavaScript options; it is configured with custom propertie
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `--agent` | color | `#111111` | The agent's colour: fill for the arrow and the tag's background. |
+| `--agent` | color | `#111111` | The agent's colour: fill for the arrow and the tag's background. The properties below default to it. |
 | `--agent-ink` | color | `#ffffff` | Text on the tag. |
-| `--agent-strong` | color | `#111111` | Outlines, rings and borders. |
-| `--agent-soft` | color | `rgba(17, 17, 17, 0.14)` | Soft fill for the halo, ripple and ring flash. |
-| `--agent-wait` | color | `#111111` | Colour while the cursor waits for the person's click. |
-| `--agent-wait-soft` | color | `rgba(17, 17, 17, 0.18)` | Soft fill while waiting for the person. |
+| `--agent-strong` | color | `var(--agent)` | Outlines, rings and borders. |
+| `--agent-soft` | color | `--agent-strong` at 14% | Soft fill for the halo, ripple, ring flash and (at 3%) the form an agent is filling. A `color-mix()` of `--agent-strong`. |
+| `--agent-wait` | color | `var(--agent)` | Colour while the cursor waits for the person's click. |
+| `--agent-wait-soft` | color | `--agent-wait` at 18% | Soft fill while waiting for the person. A `color-mix()` of `--agent-wait`. |
+| `--agent-edge` | color | `rgb(255 255 255 / 0.6)` | A 1 px light line around the ring and the ripple, like the arrow's white edge, so a dark agent stays visible on a dark page. `transparent` removes it. |
 | `--agent-ease-out` | easing | `cubic-bezier(0.22, 1, 0.36, 1)` | Easing for fades. |
-| `--agent-z` | integer | `2147483000` | Base z-index for the cursor, ripple and tag; the ring sits at `calc(var(--agent-z) - 1)`. Devtools and chat render at `calc(var(--agent-z) + 100)`, so raise it only if you must sit above them. |
+| `--agent-z` | integer | `2147483000` | Base z-index for the cursor, ripple and tag; the ring sits at `calc(var(--agent-z) - 1)`, the spotlight at `calc(var(--agent-z) - 2000)`. Devtools and chat render at `calc(var(--agent-z) + 100)`, so raise it only if you must sit above them. |
 
 ### Spotlight properties
 
@@ -71,7 +68,7 @@ What it styles:
 | `.agent-ripple` | The click ripple at the tip. |
 | `.agent-tag` | The name tag. Hidden when empty. |
 | `.agent-ring` | The focus ring that glides between elements; flashes on click, pulses while waiting. |
-| `.agent-spotlight` | The blur and dim layer (z-index `2147481000`). Never takes pointer events. |
+| `.agent-spotlight` | The blur and dim layer, 2000 below `--agent-z`. Never takes pointer events. |
 | `.agent-sr-only` | The visually hidden live region for screen readers. |
 | `form[data-tool-form-active]` | The form the agent is filling (the polyfill sets the attribute): dashed outline. |
 | `button[data-tool-submit-active]` | The submit button the polyfill paused on. |
@@ -82,6 +79,8 @@ State classes the layer toggles: `is-visible`, `is-waiting`, `is-flashing`, and 
 ## Notes
 
 - Under `prefers-reduced-motion: reduce`, transitions shrink to a 0.1 s opacity fade and the halo, ring wait and ring flash animations stop.
+- Set the properties on `:root`, where the stylesheet declares them: the derived ones (`--agent-strong`, `--agent-soft`, `--agent-wait`, `--agent-wait-soft`) are computed there, so `--agent` set on a deeper element does not reach them.
+- The ring, tag and ripple are `box-sizing: border-box` themselves: they sit the same on a page with no CSS reset.
 - The stylesheet is unlayered on purpose: an app's plain `button { color: inherit }` beats any `@layer` rule, so layered library rules would lose to an app's reset.
 
 ### `cursor-native.css`
@@ -94,6 +93,7 @@ State classes the layer toggles: `is-visible`, `is-waiting`, `is-flashing`, and 
 
 ## See also
 
+- [Style the cursor and the chat](../../build/style-the-cursor-and-chat.mdx), a worked example with dark mode
 - [The agent cursor](../../concepts/agent-cursor.mdx)
 - [`installAgentVisuals`](./install-agent-visuals.md)
 - [`UI_HOST_ATTR`](./ui-host-attr.md)

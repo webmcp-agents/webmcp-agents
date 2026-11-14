@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/devtools",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Devtools for WebMCP pages: see the tools on screen, run them from a generated form, watch every call.",
   "license": "MIT",

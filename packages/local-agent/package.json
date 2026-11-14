@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/local-agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "An on-device agent for @webmcp-agents/chat: a small model in a Web Worker (transformers.js, WebGPU/WASM) or Chrome's built-in Prompt API. No server, no key, nothing leaves the browser.",
   "license": "MIT",

@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/tools",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Common WebMCP tools, ready-made: get_time, get_location, get_page, go_to, go_back, scroll_to and set_theme. Framework-free, SSR-safe, one factory per tool.",
   "license": "MIT",

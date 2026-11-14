@@ -128,14 +128,25 @@ describe("waitForConfirmation", () => {
   it("is cancelled when the person scrolls, but not by a scroll already under way", async () => {
     const { el } = button();
     await userEvent.hover(el);
-    const ac = new AbortController();
-    const confirmed = waitForConfirmation('[toolname="t_confirm"]', ac.signal, "t_confirm").then(
-      () => "confirmed",
-      (err: { code?: string }) => err.code,
+    // Momentum from before the prompt: the gesture is already under way when the gate opens, inside its first wheel
+    // event, so no round trip to the browser driver sits between them (a loaded runner took longer than the gesture
+    // gap when the gate opened first). The rest come back-to-back in the same command.
+    let confirmed!: Promise<string | undefined>;
+    const opened = new Promise<void>((resolve) =>
+      addEventListener(
+        "wheel",
+        () => {
+          confirmed = waitForConfirmation('[toolname="t_confirm"]', new AbortController().signal, "t_confirm").then(
+            () => "confirmed",
+            (err: { code?: string }) => err.code,
+          );
+          resolve();
+        },
+        { capture: true, once: true },
+      ),
     );
-    // Momentum from before the prompt: back-to-back wheel events with no gap, in one command (one round trip per
-    // event spaced them more than the gesture gap on a CI runner).
     await userEvent.wheel(el, { delta: { y: 1 }, times: 4 });
+    await opened;
     expect(await Promise.race([confirmed, timeout(50)])).toBe("timeout");
     await timeout(300); // the gesture ends
     await userEvent.wheel(el, { delta: { y: 1 } });

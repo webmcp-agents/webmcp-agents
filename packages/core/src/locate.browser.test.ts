@@ -36,6 +36,20 @@ describe("locate", () => {
     expect(locate({ role: "button", name: "Nothing like it" })).toBeNull();
   });
 
+  it("names a control by the text a person reads: no hidden parts, an image by its alt", () => {
+    fixture(`
+      <button id="ligature" type="button"><span class="material-icons" aria-hidden="true">add_shopping_cart</span> Add to cart</button>
+      <button id="collapsed" type="button">Save <span hidden>(unsaved changes)</span></button>
+      <button id="image" type="button"><img alt="Close dialog" src="data:,"></button>
+      <button id="nested" type="button"><span><b>Check</b>out <i aria-hidden="true">→</i></span></button>
+      <button id="comment" type="button"><!-- icon --><span aria-hidden="true">x</span>Remove</button>`);
+    expect(locateAll({ role: "button", name: "Add to cart" }).map((el) => el.id)).toEqual(["ligature"]);
+    expect(locate({ role: "button", name: "Save" })?.id).toBe("collapsed");
+    expect(locate({ role: "button", name: "Close dialog" })?.id).toBe("image");
+    expect(locate({ role: "button", name: "Checkout" })?.id).toBe("nested");
+    expect(locate({ role: "button", name: "Remove" })?.id).toBe("comment");
+  });
+
   it("skips what a person could not use: hidden, inert, aria-hidden, disabled, library UI", () => {
     fixture(`
       <button id="display-none" type="button" style="display: none">Save</button>
@@ -141,7 +155,8 @@ describe("locateField", () => {
     const root = fixture(
       '<div><button id="named" type="button" name="quantity">Quantity</button><button id="from" type="button">Add</button></div>',
     );
-    // a control whose `name` is the parameter counts whatever it is; a label match is limited to field roles
+    // a label match is limited to field roles, a `name` match to native fields (a button has a `name` too)
     expect(locateField("amount", 1, undefined, "Quantity", root.querySelector("#from"))).toBeNull();
+    expect(locateField("quantity", 1, undefined, undefined, root.querySelector("#from"))).toBeNull();
   });
 });

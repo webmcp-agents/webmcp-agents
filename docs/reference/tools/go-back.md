@@ -34,7 +34,7 @@ None: the tool takes no input.
 
 ## Answer
 
-A sentence (`string`): `Went back to /products?color=blue.` (the previous entry's path, query and hash, or the full URL when it is on another origin), or `Went back one page.` when the browser cannot say where.
+A sentence (`string`). When the previous entry is in this document (a client router's), once the address has changed (up to 3 s, so the previous page's tools are registered by the agent's next step): `Went back to /products?color=blue.` (the previous entry's path, query and hash, or the full URL when it is on another origin). When it is another document, at once, before the page goes: `Going back to /products: the page is loading.` Without the Navigation API, at once: `Went back one page.`
 
 With no previous page (`navigation.canGoBack` is `false`, or, without the Navigation API, `history.length` is 1) it fails with `unavailable`: `There is no previous page to go back to in this tab.`
 

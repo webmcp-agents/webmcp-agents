@@ -77,6 +77,12 @@ export interface AgentMessage {
   id: string;
   role: "user" | "assistant";
   parts: AgentPart[];
+  /**
+   * Where the page was (path, query and hash) when the person sent this message (user), or when the run that wrote it ended (assistant). The
+   * session sets it; when the two differ across a turn, the person changed pages themself in between and the model is
+   * told so (`withPageMoves`). Never sent to the server as is.
+   */
+  page?: string;
 }
 
 /** What an adapter reports while it runs, in order. */

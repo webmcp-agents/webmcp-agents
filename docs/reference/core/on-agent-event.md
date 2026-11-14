@@ -34,7 +34,7 @@ One object per event, discriminated by `type`.
 | `type` | Other fields | When |
 |---|---|---|
 | `start` | `tool: string`, `at: number`, `args?: unknown` | A tool run started (the first lifecycle signal seen). `at` is `performance.now()`. `args` is what the agent passed, when known (tools from `defineWebTool` and `useWebTool`; declarative forms only show `fill`s). A call whose input fails its schema still starts and answers with the error, without the cursor moving. |
-| `fill` | `tool: string`, `field: string`, `value: string \| boolean` | The agent's value went into a field, once the cursor has typed it. `field` is the parameter's name for a tool (the control's `name` for a declarative form); the value is a boolean for a checkbox. A custom widget the cursor only visited emits none. |
+| `fill` | `tool: string`, `field: string`, `value: string \| boolean` | The agent's value went into a field, once the cursor has typed it. `field` is the parameter's name for a tool (the control's `name` for a declarative form); the value is a boolean for a checkbox, and `"••••"` for a password field. A custom widget the cursor only visited emits none. |
 | `park` | `tool: string`, `prompt: string` | The tool is waiting for the person: the browser paused on a submit button, a tool is waiting for their click on its control, or the page asked them something (see [`waitingForUser`](./waiting-for-user.md)). `prompt` says what to do. |
 | `result` | `tool: string`, `result: unknown`, `ms: number` | The tool answered the agent. `ms` is measured from the run's start. |
 | `error` | `tool: string`, `error: string`, `ms: number` | The tool failed; `error` is the text the agent got. |

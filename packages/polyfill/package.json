@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/polyfill",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Deprecated: the document.modelContext (WebMCP) polyfill now ships in @webmcp-agents/core (@webmcp-agents/core/polyfill), and the provider loads it itself. This package re-exports it.",
   "license": "MIT",

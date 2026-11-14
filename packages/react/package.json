@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/react",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "React bindings for WebMCP tools: a provider that turns tools on per route or component, inline tools bound to state, the agent cursor, and the devtools in development.",
   "license": "MIT",

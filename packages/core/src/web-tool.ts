@@ -114,8 +114,10 @@ export interface WebToolConfig<I = unknown, O = unknown> {
    * "clear cart"), among buttons, links, tabs, menu items and switches. Say it when the name differs or depends on
    * the call: a locator (`{ role: "button", name: "Empty the cart" }`), a CSS selector, or a function of the input
    * returning either or the element (`({ lineId }) => ({ role: "button", name: \`Remove ${names[lineId]}\` })`).
-   * A target that matches nothing falls back to an element marked `toolname="<id>"`, then to the name. A tool with
-   * no control on the page runs at once, unseen.
+   * A function may return a promise, for a control that isn't on the page until something opens (a ⌘K palette, a
+   * drawer): open it, wait for the control, return it. The call waits up to 3 s for it before the cursor moves and
+   * the fields are found, so the cursor types into the opened UI. A target that matches nothing falls back to an
+   * element marked `toolname="<id>"`, then to the name. A tool with no control on the page runs at once, unseen.
    */
   target?: ToolTarget | TargetFn<I>;
   /**
@@ -313,10 +315,19 @@ export interface ToModelContextToolOptions {
 /**
  * A per-call target: the control for this input, as a locator, a CSS selector or the element. It gets the validated
  * input when the call runs, but the arguments as sent (possibly none) when a run is animated after the fact, so read
- * them defensively; a throw counts as no target. Declared as a method so a `WebTool<Input>` still fits where a
+ * them defensively; a throw counts as no target. A promise is awaited once per call, when the call starts (up to
+ * `OPEN_TARGET_MS`); later checks during the same call (the confirm gate following its control) reuse what it
+ * resolved to instead of opening again, and nothing else ever calls it (a rejection counts as no target). Declared as a method so a `WebTool<Input>` still fits where a
  * `WebTool<unknown>` is expected (registries hold mixed tools).
  */
-export type TargetFn<I> = { pick(input: I): ToolTarget | Element | null | undefined }["pick"];
+export type TargetFn<I> = {
+  pick(input: I): ToolTarget | Element | null | undefined | PromiseLike<ToolTarget | Element | null | undefined>;
+}["pick"];
+
+/** How long a call waits for an async `target` (the UI it opens) before it goes on without one. */
+export const OPEN_TARGET_MS = 3000;
+
+const isThenable = (value: unknown): value is PromiseLike<unknown> => !!value && typeof (value as { then?: unknown }).then === "function";
 
 /** Chrome 150 passed the arguments as a JSON string. */
 const fromJson = (args: unknown): unknown => (typeof args === "string" ? JSON.parse(args || "{}") : args);
@@ -325,11 +336,29 @@ const fromJson = (args: unknown): unknown => (typeof args === "string" ? JSON.pa
 export function toModelContextTool(tool: WebTool, { context, calls }: ToModelContextToolOptions = {}): ModelContextTool {
   // Ids are [a-zA-Z0-9_.-]: safe inside a quoted attribute selector without CSS.escape (absent in Node).
   const fallback = `[toolname="${tool.id}"]`;
-  /** The target for this call: a function target sees the input; a throwing one, or one building invalid CSS, counts as none. */
-  const targetFor = (input: unknown): ToolTarget | Element | undefined => {
+  /**
+   * What an async target (one opening UI) resolved to as each call started, by that call's parsed input: later checks
+   * of the same call reuse it, never opening again, and calls that overlap never see each other's.
+   */
+  const opened = new WeakMap<object, ToolTarget | Element | undefined>();
+  /** The target opens UI: only a call's start may call it (an `async` function is known before its first call). */
+  let opens = tool.target?.constructor?.name === "AsyncFunction";
+  /**
+   * The target for this call: a function target sees the input; a throwing one, or one building invalid CSS, counts
+   * as none. `fresh`: as a call starts, the only time an async target is called.
+   */
+  const targetFor = (input: unknown, fresh?: boolean): ToolTarget | Element | PromiseLike<unknown> | undefined => {
     if (typeof tool.target !== "function") return tool.target;
+    if (!fresh && input && typeof input === "object" && opened.has(input)) return opened.get(input);
+    if (!fresh && opens) return undefined;
     try {
       const target = tool.target(fromJson(input)) ?? undefined;
+      if (isThenable(target)) {
+        opens = true;
+        if (fresh) return target;
+        target.then(undefined, () => {}); // opened outside a call's start (only before `opens` was known): dropped
+        return undefined;
+      }
       if (typeof target === "string" && typeof document !== "undefined") document.querySelector(target); // throws on invalid CSS
       return target;
     } catch {
@@ -339,12 +368,15 @@ export function toModelContextTool(tool: WebTool, { context, calls }: ToModelCon
   /**
    * Every element this call may act on, in order: the tool's own target, else an element marked `toolname`, else
    * the controls named like the tool. `what` describes them for an error; `named` when they were found by name,
-   * where several is ambiguous.
+   * where several is ambiguous. `target`: already known (an async one, awaited when the call started).
    */
-  const resolve = (input: unknown): { hits: Element[]; what: string; named?: boolean; by: ToolControls["by"] } => {
+  const resolve = (
+    input: unknown,
+    known = targetFor(input),
+  ): { hits: Element[]; what: string; named?: boolean; by: ToolControls["by"] } => {
     const name = tool.title ?? words(tool.id);
     if (typeof document === "undefined") return { hits: [], what: name, by: "name" };
-    const target = targetFor(input);
+    const target = isThenable(known) ? undefined : known;
     const all = (selector: string): Element[] => {
       try {
         return [...document.querySelectorAll(selector)];
@@ -374,7 +406,25 @@ export function toModelContextTool(tool: WebTool, { context, calls }: ToModelCon
       const input = await tool.parse(fromJson(args));
       // A valid call the person started takes over from a confirmation still waiting (an agent's call never does).
       supersedeWaiting(tool.id);
-      const { hits, what } = resolve(input);
+      let target = targetFor(input, true);
+      // An async target opens the UI its control lives in: wait for it (not forever) before looking for anything.
+      // A rejection counts as no target, like a throw.
+      if (isThenable(target)) {
+        let timer: number | undefined;
+        const found = await Promise.race([
+          Promise.resolve(target).then(
+            (t) => (t ?? undefined) as ToolTarget | Element | undefined,
+            () => undefined,
+          ),
+          new Promise<undefined>((done) => {
+            timer = window.setTimeout(done, OPEN_TARGET_MS);
+          }),
+        ]);
+        clearTimeout(timer);
+        target = found;
+        if (input && typeof input === "object") opened.set(input, found);
+      }
+      const { hits, what } = resolve(input, target);
       const el = pick(hits);
       const fields: FieldStep[] = [];
       if (typeof document !== "undefined") {

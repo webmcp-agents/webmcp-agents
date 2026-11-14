@@ -64,10 +64,6 @@
   --font-code: var(--blume-ff-ibm-plex-mono, ui-monospace), ui-monospace, "SF Mono", Menlo, monospace;
   /* The agent cursor in the page's blue (cursor.css reads these). */
   --agent: #2563eb;
-  --agent-strong: #2563eb;
-  --agent-soft: rgb(37 99 235 / 0.16);
-  --agent-wait: #2563eb;
-  --agent-wait-soft: rgb(37 99 235 / 0.2);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

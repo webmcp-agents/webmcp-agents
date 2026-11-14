@@ -33,7 +33,7 @@ pnpm install
 pnpm dev                                   # every app with HMR into package source: playground :5173, ecommerce :5174, flights :5175,
                                            # nextjs :5176, the website (landing + docs) :4321
 pnpm check                                 # biome ci + typecheck + test + build + size (what CI runs)
-pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10 KB, whole package ≤ 17.75 KB
+pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.45 KB, whole package ≤ 18.4 KB
                                            # (the polyfill chunk, loaded on demand, is reported, not counted)
 pnpm typecheck | pnpm test | pnpm build    # via turbo
 pnpm lint / pnpm format                    # biome
@@ -135,7 +135,7 @@ capture/                the docs media harness: playwright.config.ts (webServer 
                         projects), *.capture.ts, encode.mjs (ffmpeg → docs/media, budgets: clips ≤ 1.5 MB, hero.gif ≤ 3 MB)
 docs/                   the docs site's content (apps/docs renders it), ordered by framework and by step (docs/README.md
                         "How these docs are written"): (get-started)/ (index.mdx, installation/ with one page per framework),
-                        build/ (the ten-page path), concepts/, security/ (locking /api/chat: sessions, tool allowlist, Turnstile, limits),
+                        build/ (the eleven-page path), concepts/, security/ (locking /api/chat: sessions, tool allowlist, Turnstile, limits),
                         more/ (incl. deploy.md), examples/, reference/<package>/<api>.md
                         (one file per public API, one template); _examples/ holds the code the pages show as real files that
                         type-check (`@webmcp-agents/docs-examples`), pulled in with <include>; framework-specific code sits in
@@ -322,6 +322,13 @@ mid-run (the cursor must vanish and the tool still complete).
   redirect page (`pages/docs/demos.astro`) to `/demos`.
 - `scripts/record-demo.sh` waits for the cursor's own parked state (`.agent-cursor.is-waiting`) before the trusted
   click: native Chrome sets `:tool-submit-active` as soon as a call starts, before the cursor has typed.
+- There is one hand. `moveTo` resolves `false` when another call's move took it; visuals.ts moves through `go(run, el)`,
+  which marks the run `lost`: it then plays unseen (values written in one step, no ring, no press) and never takes the
+  hand back, except a run parked for the person, which gets it back when the other call finishes (`followParked`).
+  New cursor steps in visuals.ts go through `go`, never `agentCursor.moveTo` directly (only `followParked` does).
+- A press lands on the frame that draws the hand at the bottom of its scale spring (`PRESS_AT`; `update` ends the
+  wait), so the ripple and the page's reaction paint together; `wait()`s under way end when the cursor yields.
+- A password field is typed like any other, but its value is `"••••"` in the live region and in the `fill` event.
 - A backgrounded tab (`document.hidden`) counts as "yielded": calls run at once, nothing animates. A hidden Browser
   pane that reports itself visible but fires no rAF is slower, not stuck: each move lands by timer (`STALLED_MS`
   after it should have). Show the pane before driving the site's tools there if you want to see or time the cursor.

@@ -2,7 +2,26 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AgentMessage } from "../types";
 import { DownIcon, RestoreIcon } from "./icons";
 import { Text } from "./Text";
-import { ToolCallCard } from "./ToolCallCard";
+import { delegateAnswer, ToolCallCard } from "./ToolCallCard";
+
+const normalize = (text: string): string => text.replace(/\s+/g, " ").trim();
+
+/**
+ * The parts to show. A reply that only repeats, word for word, what a sub-agent just answered (already shown in its
+ * card) is left out: models relay a delegate's answer even when told not to.
+ */
+function visibleParts(message: AgentMessage): AgentMessage["parts"] {
+  const answers = new Set<string>();
+  return message.parts.filter((p) => {
+    if (p.type === "reasoning") return false;
+    if (p.type === "tool") {
+      const answer = delegateAnswer(p);
+      if (answer) answers.add(answer);
+      return true;
+    }
+    return p.type !== "text" || (!!p.text.trim() && !answers.has(normalize(p.text)));
+  });
+}
 
 function Message({
   message,
@@ -12,7 +31,7 @@ function Message({
   onRestore?: (messageId: string) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
-  const visible = message.parts.filter((p) => p.type !== "reasoning" && (p.type !== "text" || p.text.trim()));
+  const visible = visibleParts(message);
   if (visible.length === 0) return null;
   const user = message.role === "user";
   return (

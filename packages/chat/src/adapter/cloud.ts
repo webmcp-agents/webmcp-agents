@@ -100,9 +100,12 @@ function window(history: AgentMessage[]): AgentMessage[] {
   return history.slice(start);
 }
 
-/** The history as the server takes it: a sub-agent's nested run stays in the browser (the server sees the call and its result). */
+/** The history as the server takes it: a sub-agent's nested run stays in the browser (the server sees the call and its result); `page` stamps stay too (`withPageMoves` already turned a change of page into text). */
 const forServer = (history: AgentMessage[]): AgentMessage[] =>
-  history.map((m) => ({ ...m, parts: m.parts.map((p) => (p.type === "tool" && p.agent ? { ...p, agent: undefined } : p)) }));
+  history.map(({ page: _page, ...m }) => ({
+    ...m,
+    parts: m.parts.map((p) => (p.type === "tool" && p.agent ? { ...p, agent: undefined } : p)),
+  }));
 
 /** An agent backed by `/api/chat` (a frontier model on your server); tools run on the page. Create it once per page. */
 export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter {

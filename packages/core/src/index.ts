@@ -13,7 +13,15 @@ export type { AgentEvent } from "./events";
 export { UI_HOST_ATTR } from "./user-yield";
 
 // tools
-export { defineWebTool, isWebMCPAvailable, registerWebTool, toModelContextTool, WebToolInputError, webToolSignature } from "./web-tool";
+export {
+  defineWebTool,
+  isWebMCPAvailable,
+  OPEN_TARGET_MS,
+  registerWebTool,
+  toModelContextTool,
+  WebToolInputError,
+  webToolSignature,
+} from "./web-tool";
 export { ConfirmationUnavailableError } from "./confirm";
 export type {
   Register,

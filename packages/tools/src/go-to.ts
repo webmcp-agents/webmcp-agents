@@ -6,7 +6,7 @@
  *   goTo({ pages: { home: "/", cart: "/cart", orders: "/orders" } })
  */
 import { defineWebTool, RESPONSE_GRACE_MS, type WebTool, WebToolError } from "@webmcp-agents/core";
-import { type CommonToolOptions, usable } from "./shared";
+import { addressSettles, type CommonToolOptions, usable } from "./shared";
 
 /** Options for `goTo`. */
 export interface GoToOptions extends CommonToolOptions {
@@ -15,6 +15,12 @@ export interface GoToOptions extends CommonToolOptions {
    * `{ home: "/", cart: "/cart", orders: "/orders" }`. Names read best short and plain.
    */
   pages: Readonly<Record<string, string>>;
+  /**
+   * Your router's navigation, used when no link to the page is on screen: `(to) => router.push(to)` (Next.js, whose
+   * router only exists in React: hand it over from a component), React Router's `navigate`, TanStack's. The page
+   * changes without a load, so the chat, the cursor and calls in flight stay. Default: a page load.
+   */
+  navigate?: (to: string) => unknown;
 }
 
 /** What `go_to` takes. */
@@ -42,7 +48,7 @@ function linkTo(url: URL): HTMLAnchorElement | undefined {
 }
 
 /** The `go_to` tool: navigate to one of `pages` by name. */
-export function goTo({ id = "go_to", description, pages }: GoToOptions): WebTool<GoToInput, string> {
+export function goTo({ id = "go_to", description, pages, navigate }: GoToOptions): WebTool<GoToInput, string> {
   const names = Object.keys(pages ?? {});
   if (names.length === 0) throw new TypeError(`${id}: pass the pages it may open, e.g. goTo({ pages: { home: "/", cart: "/cart" } }).`);
   for (const name of names) {
@@ -70,14 +76,34 @@ export function goTo({ id = "go_to", description, pages }: GoToOptions): WebTool
       const url = urlFor((input as Partial<GoToInput> | undefined)?.page);
       return url ? linkTo(url) : undefined;
     },
-    execute: ({ page }) => {
+    execute: async ({ page }) => {
       const url = urlFor(page);
       if (!url) throw new WebToolError("invalid_input", `There is no page "${page}". The pages are: ${list}.`);
       if (samePage(url, new URL(location.href))) return `Already on ${page} (${pages[page]}).`;
       const link = linkTo(url);
       if (link) {
-        link.click();
-        return `Opened ${page} (${pages[page]}).`;
+        // A client router takes the click (and calls preventDefault): wait for it to change the address. Otherwise
+        // the browser loads the page, and this document goes before the address would change here: answer now.
+        let routed = true;
+        const seen = (e: Event): void => {
+          routed = e.defaultPrevented;
+        };
+        addEventListener("click", seen, { once: true });
+        try {
+          link.click();
+        } finally {
+          removeEventListener("click", seen);
+        }
+        if (!routed && !samePage(url, new URL(location.href))) return `Opening ${page} (${pages[page]}): the page is loading.`;
+        return (await addressSettles(() => samePage(url, new URL(location.href))))
+          ? `Opened ${page} (${pages[page]}).`
+          : `Clicked the link to ${page} (${pages[page]}), but the address has not changed yet. Check with get_page before using that page's tools.`;
+      }
+      if (navigate) {
+        await navigate(url.pathname + url.search + url.hash);
+        return (await addressSettles(() => samePage(url, new URL(location.href))))
+          ? `Opened ${page} (${pages[page]}).`
+          : `Asked the site to open ${page} (${pages[page]}), but the address has not changed yet. Check with get_page before using that page's tools.`;
       }
       // a full page load: answer first, so the agent hears it before this document goes
       setTimeout(() => location.assign(url.href), RESPONSE_GRACE_MS);

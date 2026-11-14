@@ -32,6 +32,7 @@ import type { GoToInput, GoToOptions } from "@webmcp-agents/tools";
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `pages` | `Readonly<Record<string, string>>` | required | The pages an agent may open: a name the agent picks from, and the path (or same-site URL) it opens, e.g. `{ home: "/", cart: "/cart", orders: "/orders" }`. Short, plain names read best. |
+| `navigate` | `(to: string) => unknown` | a page load | Your router's navigation, used when no link to the page is on screen: `(to) => router.push(to)` (Next.js: hand the router over from a component), React Router's `navigate`. The page changes without a load, so the chat, the cursor and calls in flight stay. |
 | `id` | `string` | `"go_to"` | The tool's name (`a-z A-Z 0-9 _ . -`, 1 to 128). |
 | `description` | `string` | lists the pages, and says to use it when the user asks to go to one or when a tool needed lives on that page | What the agent reads to decide when to call it. |
 
@@ -39,8 +40,9 @@ import type { GoToInput, GoToOptions } from "@webmcp-agents/tools";
 
 A sentence (`string`):
 
-- `Opened cart (/cart).` after clicking the page's own link;
-- `Opening cart (/cart): the page is loading.` when there was no link and the URL is loaded (the call answers first, then loads after `RESPONSE_GRACE_MS`, so the agent hears it before this document goes);
+- `Opened cart (/cart).` after clicking the page's own link, once the address is that page. A client router changes it a moment after the click (Next.js: once the route's payload arrives), so the call waits for it, up to 3 s: the new page's tools register right after the answer, where a chat waiting for the tools to settle sees them before its next step;
+- `Clicked the link to cart (/cart), but the address has not changed yet. Check with get_page before using that page's tools.` when the address has not changed within those 3 s;
+- `Opening cart (/cart): the page is loading.` when the link's click was not taken by a client router (no `preventDefault`: the browser loads the page, so the call answers at once), or when there was no link and no `navigate`, and the URL is loaded (the call answers first, then loads after `RESPONSE_GRACE_MS`, so the agent hears it before this document goes);
 - `Already on cart (/cart).` when the URL already is the current one.
 
 An unknown name fails with `invalid_input` and lists the pages.

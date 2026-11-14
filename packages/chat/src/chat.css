@@ -38,6 +38,8 @@
     --wa-chat-soft: rgba(255, 255, 255, 0.07);
     --wa-chat-danger: #ff8a80;
     --wa-chat-success: #6fcf8f;
+    --wa-chat-accent: var(--wa-chat-fg);
+    --wa-chat-accent-ink: var(--wa-chat-bg);
   }
 }
 [data-theme="dark"] .wa-chat,
@@ -49,6 +51,22 @@
   --wa-chat-soft: rgba(255, 255, 255, 0.07);
   --wa-chat-danger: #ff8a80;
   --wa-chat-success: #6fcf8f;
+  --wa-chat-accent: var(--wa-chat-fg);
+  --wa-chat-accent-ink: var(--wa-chat-bg);
+}
+/* Dark: the accent sits on a dark panel, so it is never darker than a light tint of the agent's colour (the
+   default near-black agent becomes a light grey, a brand blue a light blue), with dark text on it. Where the
+   browser cannot derive a colour, the rules above use the panel's own text colour instead. */
+@supports (color: oklch(from red l c h)) {
+  @media (prefers-color-scheme: dark) {
+    .wa-chat:not([data-theme="light"]) {
+      --wa-chat-accent: oklch(from var(--agent, #111111) max(l, 0.8) c h);
+    }
+  }
+  [data-theme="dark"] .wa-chat,
+  .wa-chat[data-theme="dark"] {
+    --wa-chat-accent: oklch(from var(--agent, #111111) max(l, 0.8) c h);
+  }
 }
 .wa-chat *,
 .wa-chat *::before,

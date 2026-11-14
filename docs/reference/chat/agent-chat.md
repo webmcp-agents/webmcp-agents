@@ -44,7 +44,7 @@ const adapters = [
 | `layout` | `"docked" \| "floating"` | `"docked"` | `"docked"`: beside the page, full height, resizable; the page makes room. `"floating"`: a pop-over in the corner. |
 | `suggestions` | `string[] \| false` | derived from the page's tools | Starter prompts for an empty conversation. `false` hides them. |
 | `className` | `string` | — | Extra class on the host element, for theming with the `--wa-chat-*` properties. |
-| `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation. `false` keeps it in memory only. |
+| `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation. Whether the panel is open is kept next to it (`<key>:open`), so after a page load (a navigation made without the app's router, a reload) the chat comes back as it was. `false` keeps both in memory only. |
 
 ## Returns
 
@@ -85,7 +85,13 @@ layer. Override the custom properties on `.wa-chat` (or on your `className`):
 | `--wa-chat-gap` | `20px` (`16px` below 640 px) |
 
 Dark mode follows `prefers-color-scheme` (unless an ancestor or the host has `data-theme="light"`), or
-`data-theme="dark"` on an ancestor or the host.
+`data-theme="dark"` on an ancestor or the host. It changes the surfaces, and the accent with them: in dark,
+`--wa-chat-accent` is a light tint of `--agent` (its lightness raised to at least 0.8 in OKLCH, hue kept) and
+`--wa-chat-accent-ink` is the panel's background, so the default near-black agent stays readable on the dark panel.
+Browsers without relative colour syntax use the panel's text colour as the accent. The dark rules are two selectors
+deep: an override of your own for dark needs the same condition (`[data-theme="dark"] .wa-chat`, or the media query).
+
+A worked example, with the cursor: [Style the cursor and the chat](/build/style-the-cursor-and-chat).
 
 ## Notes
 

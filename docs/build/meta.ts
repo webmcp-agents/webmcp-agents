@@ -14,6 +14,7 @@ export default defineMeta({
     "define-an-agent",
     "add-the-chat",
     "call-an-agent",
+    "style-the-cursor-and-chat",
     "devtools",
   ],
 });

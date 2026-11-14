@@ -8,7 +8,7 @@ import { z } from "zod";
 import { cleanupFixtures, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "./test-utils";
 import { toolErrorCode, WebToolError } from "./result";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
-import { defineWebTool, registerWebTool, type WebTool, type WebToolConfig } from "./web-tool";
+import { defineWebTool, OPEN_TARGET_MS, registerWebTool, type WebTool, type WebToolConfig } from "./web-tool";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const byId = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -121,6 +121,99 @@ describe("a tool's control and fields", () => {
     await sleep(80);
     await call(id, { line: "C", how: "element" });
     expect(seen).toEqual(["row-a", "row-b", "row-c"]);
+  });
+
+  it("awaits an async target that opens the UI its control lives in, then types into the field found there", async () => {
+    const id = uniqueName("t_palette");
+    const host = fixture('<button id="opener" type="button">Search</button><div id="slot"></div>');
+    let opens = 0;
+    let at: string | undefined;
+    let typed: string | undefined;
+    tool({
+      id,
+      title: "Search",
+      inputSchema: z.object({ query: z.string() }),
+      // Like a ⌘K palette: nothing is on the page until it opens, a frame later.
+      target: () => {
+        opens++;
+        return new Promise<Element | null>((resolve) =>
+          setTimeout(() => {
+            host.querySelector("#slot")!.innerHTML = '<input id="palette" name="query" aria-label="Search the catalog">';
+            resolve(byId("palette"));
+          }, 30),
+        );
+      },
+      execute: () => {
+        at = pressed();
+        typed = byId<HTMLInputElement>("palette").value;
+      },
+    });
+    const res = await call(id, { query: "boots" });
+    expect(resultText(res)).not.toMatch(/^Error/);
+    expect(opens).toBe(1);
+    expect(at).toBe("palette");
+    expect(typed).toBe("boots");
+    expect(rec.types()).toContain("fill");
+  });
+
+  it("goes on with the name when an async target never resolves", { timeout: OPEN_TARGET_MS + 5000 }, async () => {
+    const id = uniqueName("t_never");
+    fixture('<button id="named" type="button">Never opens</button>');
+    let at: string | undefined;
+    tool({
+      id,
+      title: "Never opens",
+      target: () => new Promise<Element>(() => {}),
+      execute: () => {
+        at = pressed();
+      },
+    });
+    const started = performance.now();
+    await call(id);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(OPEN_TARGET_MS - 50);
+    expect(at).toBe("named");
+  });
+
+  it("goes on with the name when an async target rejects, like a throwing one", async () => {
+    const id = uniqueName("t_rejects");
+    fixture('<button id="named" type="button">Rejects</button>');
+    let at: string | undefined;
+    tool({
+      id,
+      title: "Rejects",
+      target: () => Promise.reject(new Error("the palette did not open")),
+      execute: () => {
+        at = pressed();
+      },
+    });
+    const res = await call(id);
+    expect(resultText(res)).not.toMatch(/^Error/);
+    expect(at).toBe("named");
+  });
+
+  it("calls an async target only as a call starts, and each call keeps its own control", async () => {
+    const id = uniqueName("t_rows");
+    const host = fixture('<div id="slot"></div>');
+    const opened: string[] = [];
+    tool({
+      id,
+      title: "Open row",
+      inputSchema: z.object({ row: z.string() }),
+      target: async ({ row }: { row: string }) => {
+        opened.push(row);
+        await sleep(20);
+        host.querySelector("#slot")!.insertAdjacentHTML("beforeend", `<button id="row-${row}" type="button">Row ${row}</button>`);
+        return byId(`row-${row}`);
+      },
+      execute: () => {},
+    });
+    const results = await Promise.all([call(id, { row: "a" }), call(id, { row: "b" })]);
+    for (const res of results) expect(resultText(res)).not.toMatch(/^Error/);
+    expect(opened.sort()).toEqual(["a", "b"]);
+    // looking a control up outside a call (the devtools, a run animated after the fact) never opens anything
+    const { stages } = await import("./confirm");
+    expect(stages.get(id)?.at({ row: "c" })).toBeNull();
+    expect(opened.sort()).toEqual(["a", "b"]);
   });
 
   it("runs unseen when nothing matches, and says so once in the development console", async () => {

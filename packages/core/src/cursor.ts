@@ -36,12 +36,29 @@ export const reduced = (): boolean => {
   return reducedMotion?.matches ?? false;
 };
 
+/** Waits under way, so they can end the moment the person takes over. */
+const waits = new Set<() => void>();
+const endWaits = (): void => {
+  for (const done of waits) done();
+  waits.clear();
+};
+
 /**
  * setTimeout as a promise. Collapses to 0 when the user prefers reduced motion,
- * or while the cursor has yielded to the user (nothing is on screen to wait for).
+ * or while the cursor has yielded to the user (nothing is on screen to wait for);
+ * one already under way ends when the cursor yields.
  */
 export const wait = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, reduced() || agentCursor.isYielded() ? 0 : ms));
+  new Promise((resolve) => {
+    waits.add(resolve);
+    setTimeout(
+      () => {
+        waits.delete(resolve);
+        resolve();
+      },
+      reduced() || agentCursor.isYielded() ? 0 : ms,
+    );
+  });
 
 /** Pixel inside the 24×24 cursor box that sits exactly on the target: the arrow's tip. */
 const HOTSPOT: Vec = { x: 4, y: 4 };
@@ -94,10 +111,18 @@ function pinned(el: Element): boolean {
   return false;
 }
 
-/** Scroll `el` to the middle when it is outside the viewport or within 64 px of its edge. */
-function revealIfNeeded(el: Element): void {
+/**
+ * Scroll `el` to the middle when it is outside the viewport or within 64 px of its edge. A box larger than the
+ * viewport can never be shown whole: there, only the point the hand lands on has to be in view.
+ */
+function revealIfNeeded({ el, point }: Aim): void {
   const r = el.getBoundingClientRect();
-  const out = (margin: number): boolean => r.top < margin || r.bottom > innerHeight - margin || r.left < 0 || r.right > innerWidth;
+  const p = point(r);
+  const out = (margin: number): boolean => {
+    const [top, bottom] = r.height > innerHeight - margin * 2 ? [p.y, p.y] : [r.top, r.bottom];
+    const [left, right] = r.width > innerWidth ? [p.x, p.x] : [r.left, r.right];
+    return top < margin || bottom > innerHeight - margin || left < 0 || right > innerWidth;
+  };
   // A pinned control in view is as visible as it gets: centring it would only drag the page along under it.
   if (!out(64) || (!out(0) && pinned(el))) return;
   el.scrollIntoView({ block: "center", inline: "nearest", behavior: reduced() ? "auto" : "smooth" });
@@ -111,6 +136,10 @@ const STALLED_MS = 2500;
 const EDGE = 24;
 /** How often a resting hand checks that the control it pressed is still under it, in ms. */
 const REST_CHECK_MS = 100;
+
+/** How far down the press the click lands (the scale springs from 1 to 0.8), and how long it waits for that frame, in ms. */
+const PRESS_AT = 0.83;
+const PRESS_MS = 250;
 
 /** True when `el` has a box: a `display: none` one reports the page's corner as its place. */
 const hasBox = (el: Element): boolean => el.isConnected && !!el.getClientRects()[0];
@@ -203,7 +232,10 @@ class GhostCursor {
   private aim: Aim | null = null;
   private lastGoal: Vec = { x: 0, y: 0 };
   private travel: Travel | null = null;
-  private arrival: (() => void) | null = null;
+  /** Settles the move under way: true, or false when another move took the hand first. */
+  private arrival: ((arrived: boolean) => void) | null = null;
+  /** End the waits for the bottom of a press (see `click`); presses that overlap each wait for that frame. */
+  private readonly presses = new Set<() => void>();
   private ringTarget: Element | null = null;
   /** Until when the current move waits for its target to scroll into view (see `REVEAL_MS`). */
   private revealBy = 0;
@@ -254,23 +286,24 @@ class GhostCursor {
   }
 
   /**
-   * Glide to `el`. Resolves on arrival, or as soon as another move supersedes this one. A target outside the viewport
-   * is scrolled into view first (`reveal: false` leaves the page alone), and the hand lands once it is there: it
-   * waits at the viewport's edge meanwhile, so a press is never out of sight.
+   * Glide to `el`. Resolves true on arrival, and false as soon as another move supersedes this one: the hand is
+   * that move's now, so the caller must not press with it. A target outside the viewport is scrolled into view first
+   * (`reveal: false` leaves the page alone), and the hand lands once it is there: it waits at the viewport's edge
+   * meanwhile, so a press is never out of sight.
    */
-  moveTo(el: Element, reveal = true): Promise<void> {
+  moveTo(el: Element, reveal = true): Promise<boolean> {
     // Yielded or detached: arrive at once and show nothing. Never scroll the page under a user who is interacting.
     // Same for an element with no box (display: none, e.g. a hidden form field): it would aim at the page's corner.
     if (!this.ensure() || this.away() || !hasBox(el)) {
-      this.arrival?.();
+      this.arrival?.(true);
       this.arrival = null;
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
-    if (reveal) revealIfNeeded(el);
+    const aim = aimAt(el);
+    if (reveal) revealIfNeeded(aim);
     this.rest = null;
     this.revealBy = performance.now() + REVEAL_MS;
 
-    const aim = aimAt(el);
     const goal = this.goalOf(aim);
     if (!this.visible) this.appear(goal);
     this.spotFrozen = false;
@@ -288,7 +321,7 @@ class GhostCursor {
             duration: travelTime(dist, aim.size),
           };
 
-    this.arrival?.();
+    this.arrival?.(false);
     return new Promise((resolve) => {
       this.arrival = resolve;
       this.kick();
@@ -297,7 +330,7 @@ class GhostCursor {
         () => {
           if (this.arrival !== resolve) return;
           this.arrival = null;
-          resolve();
+          resolve(true);
         },
         (this.travel?.duration ?? 0) + STALLED_MS,
       );
@@ -379,9 +412,19 @@ class GhostCursor {
     const aim = this.aim;
     this.scale.target = 0.8;
     this.kick();
-    await wait(70);
+    // The press lands in the frame that draws the hand at the bottom (`update` ends this wait), so the ripple and the
+    // page's reaction are painted with it. The timer is for a pane that draws no frames.
+    await new Promise<void>((resolve) => {
+      const done = (): void => {
+        this.presses.delete(done);
+        resolve();
+      };
+      this.presses.add(done);
+      void wait(PRESS_MS).then(done);
+    });
     // Another call's move began meanwhile (or the layer was torn down): the hand is its now, this press only runs.
-    if (this.mounted && this.aim === aim) {
+    // Hidden meanwhile: no ripple without a hand.
+    if (this.mounted && this.visible && this.aim === aim) {
       this.ripple();
       // Let go BEFORE the page reacts: the click is done, so whatever moves next
       // (a row inserted above, a cart that empties) must not drag the cursor along.
@@ -401,7 +444,7 @@ class GhostCursor {
   release(keepRing = false): void {
     this.aim = null;
     this.travel = null;
-    this.arrival?.();
+    this.arrival?.(true);
     this.arrival = null;
     this.spotFrozen = true;
     if (!keepRing) this.highlight(null);
@@ -438,9 +481,10 @@ class GhostCursor {
     if (!this.visible) return;
     this.visible = false;
     this.rest = null;
+    this.aim = null; // nothing to track, and a removed control must not be kept alive
     this.hiddenAt = performance.now();
     this.travel = null;
-    this.arrival?.();
+    this.arrival?.(true);
     this.arrival = null;
     this.cursorEl.classList.remove("is-visible");
     this.tagEl.classList.remove("is-visible");
@@ -466,8 +510,9 @@ class GhostCursor {
     this.travel = null;
     this.aim = null;
     this.rest = null;
-    this.arrival?.();
+    this.arrival?.(true);
     this.arrival = null;
+    endWaits();
     if (!this.mounted) return;
     if (!this.parked) this.highlight(null);
     this.cursorEl.classList.add("is-yielded");
@@ -513,8 +558,9 @@ class GhostCursor {
     this.attached = false;
     cancelAnimationFrame(this.raf);
     this.raf = 0;
-    this.arrival?.();
+    this.arrival?.(true);
     this.arrival = null;
+    endWaits();
     this.aim = null;
     this.travel = null;
     this.ringTarget = null;
@@ -526,6 +572,7 @@ class GhostCursor {
     this.lastUserPoint = null;
     this.hiddenAt = 0;
     this.spotHiddenAt = 0;
+    this.scale.snap(1); // a press cut short must not keep the next install's frames running
     if (!this.mounted) return;
     this.mounted = false;
     for (const el of [this.spotEl, this.ringEl, this.tagEl, this.cursorEl, this.liveEl]) el.remove();
@@ -656,8 +703,9 @@ class GhostCursor {
     this.render();
 
     const fading = now - this.hiddenAt < 520;
-    // A parked ring outlives a yield; keep it tracking its button while the page scrolls.
-    const tracking = this.visible || (this.parked && this.ringTarget !== null);
+    // A ring can outlive the hand (parked through a yield, or on a control pressed while the person was busy):
+    // keep it on its element while the page scrolls.
+    const tracking = this.visible || this.ringTarget !== null;
     this.raf = tracking || fading || !this.scale.isAtRest(0.002) ? requestAnimationFrame(this.frame) : 0;
   };
 
@@ -694,7 +742,7 @@ class GhostCursor {
     if (this.arrival && !this.travel && distance(tip, carrot) < 2.5 && (!offscreen || now > this.revealBy)) {
       const resolve = this.arrival;
       this.arrival = null;
-      resolve();
+      resolve(true);
     }
 
     // 3. Rocking: fades in once the hand has settled, fades out the moment it moves.
@@ -706,6 +754,7 @@ class GhostCursor {
     this.tilt.target = clamp(this.pos.velocity("x") * 0.008, -10, 10);
     this.stepSpring(this.tilt, dt, still);
     this.stepSpring(this.scale, dt, still);
+    if (this.scale.value < PRESS_AT) for (const done of this.presses) done();
 
     // 4. Tag trails the tip.
     const tagGoal = this.tagGoal(tip);
@@ -773,18 +822,21 @@ class GhostCursor {
 
     if (this.ringTarget) {
       this.ringEl.style.transform = `translate3d(${this.ring.get("x") - sx}px, ${this.ring.get("y") - sy}px, 0)`;
-      this.ringEl.style.width = `${Math.max(0, this.ring.get("w"))}px`;
-      this.ringEl.style.height = `${Math.max(0, this.ring.get("h"))}px`;
+      // Whole px: a settling spring then stops changing the size (a layout property) long before it is at rest.
+      this.ringEl.style.width = `${Math.max(0, Math.round(this.ring.get("w")))}px`;
+      this.ringEl.style.height = `${Math.max(0, Math.round(this.ring.get("h")))}px`;
     }
 
     if (this.spotTarget) {
       // Full-viewport layer with a rounded hole (even-odd), so only the focus stays sharp.
       const w = innerWidth;
       const h = innerHeight;
-      const x = this.spot.get("x") - sx;
-      const y = this.spot.get("y") - sy;
-      const sw = this.spot.get("w");
-      const sh = this.spot.get("h");
+      // To 0.1 px: the spring closes in on its target for seconds, and every new value restyles the whole layer.
+      const tenth = (v: number): number => Math.round(v * 10) / 10;
+      const x = tenth(this.spot.get("x") - sx);
+      const y = tenth(this.spot.get("y") - sy);
+      const sw = tenth(this.spot.get("w"));
+      const sh = tenth(this.spot.get("h"));
       // Even-odd: a point inside two holes is filled again, so UI holes leave out the spotlight window's box.
       const box = { left: x, top: y, right: x + sw, bottom: y + sh };
       const ui = this.uiHoles

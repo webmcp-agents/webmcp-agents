@@ -4,6 +4,8 @@ import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import "../src/chat.css";
 import { AgentChat } from "../src/components/AgentChat";
+import { MessageList } from "../src/components/MessageList";
+import { ToolCallCard } from "../src/components/ToolCallCard";
 import { act } from "react";
 import type { AdapterStatus, AgentAdapter, AgentRunRequest, AgentStreamPart } from "../src/types";
 import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "./browser-utils";
@@ -67,6 +69,73 @@ describe("<AgentChat>", () => {
     expect(q(".wa-chat__panel")!.hidden).toBe(true);
     expect(document.activeElement).toBe(launcher);
     await screen.unmount();
+  });
+
+  it("shows a sub-agent's answer once: in its nested run, not again as the card's result", async () => {
+    const answer = "Opened order 1014. It arrives Tuesday.";
+    const screen = await render(
+      <ToolCallCard
+        part={{
+          type: "tool",
+          id: "d1",
+          name: "delegate_to_orders",
+          input: { task: "Open my last order" },
+          state: "done",
+          output: { content: [{ type: "text", text: answer }] },
+          agent: {
+            id: "orders",
+            messages: [
+              { id: "u", role: "user", parts: [{ type: "text", text: "Open my last order" }] },
+              { id: "a", role: "assistant", parts: [{ type: "text", text: answer }] },
+            ],
+          },
+        }}
+      />,
+    );
+    const card = screen.container.querySelector(".wa-chat__tool")!;
+    expect(card.textContent?.split(answer).length).toBe(2); // exactly once
+    expect(card.querySelector(".wa-chat__tool-result")).toBeNull();
+  });
+
+  it("leaves out a reply that only repeats a sub-agent's answer, and keeps one that adds to it", async () => {
+    const answer = "Opened order 1014.\n- Total: $344";
+    const delegate = (id: string) => ({
+      type: "tool" as const,
+      id,
+      name: "delegate_to_orders",
+      input: { task: "Open my last order" },
+      state: "done" as const,
+      output: { content: [{ type: "text" as const, text: answer }] },
+      agent: { id: "orders", messages: [{ id: `${id}a`, role: "assistant" as const, parts: [{ type: "text" as const, text: answer }] }] },
+    });
+    const screen = await render(
+      <MessageList
+        thinking={false}
+        messages={[
+          { id: "m1", role: "assistant", parts: [delegate("d1"), { type: "text", text: "Opened order 1014.   - Total: $344" }] },
+          { id: "m2", role: "assistant", parts: [delegate("d2"), { type: "text", text: "It is waiting for your click on Reorder." }] },
+        ]}
+      />,
+    );
+    const top = (id: string) => [...screen.container.querySelectorAll(`[data-role="assistant"]`)][id === "m1" ? 0 : 1]!;
+    expect(top("m1").querySelectorAll(":scope > .wa-chat__bubble")).toHaveLength(0);
+    expect(top("m2").querySelector(":scope > .wa-chat__bubble")?.textContent).toContain("waiting for your click");
+  });
+
+  it("comes back open after a page load when it was open, and closed when it was closed", async () => {
+    const adapter = fakeAdapter(async function* () {
+      yield { type: "finish", reason: "stop" };
+    });
+    const key = uniqueName("chat");
+    const first = await render(<AgentChat adapter={adapter} storageKey={key} />);
+    await userEvent.click(q<HTMLButtonElement>(".wa-chat__launcher")!);
+    expect(sessionStorage.getItem(`${key}:open`)).toBe("1");
+    await first.unmount(); // what a page load does to it
+
+    await render(<AgentChat adapter={adapter} storageKey={key} />);
+    await until(() => q(".wa-chat__launcher")?.getAttribute("aria-expanded") === "true", 2000, "the chat to reopen");
+    await userEvent.keyboard("{Escape}");
+    expect(sessionStorage.getItem(`${key}:open`)).toBe("0");
   });
 
   it("shows a tool card running → waiting for the person → done, from a real paused form", async () => {

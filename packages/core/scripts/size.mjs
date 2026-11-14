@@ -35,11 +35,21 @@ const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
  * a background tab and a frame-less pane add about 0.7 KB to both: 9.96 KB and 17.2 KB. Budgets raised to 10 KB and
  * 17.25 KB. The confirm gate's 10 s limit and a person's own call cancelling a waiting confirmation add about 0.2 KB
  * outside the visuals (17.41 KB): the whole-package budget went to 17.5 KB. The person clicking elsewhere or
- * scrolling cancelling a waiting confirmation (2026-11-11) adds about 0.3 KB (17.71 KB): budget 17.75 KB.
+ * scrolling cancelling a waiting confirmation (2026-11-11) adds about 0.3 KB (17.71 KB): budget 17.75 KB. An async
+ * `target` (2026-11-13: open the ⌘K palette or drawer a control lives in, then type there) adds about 0.1 KB
+ * (17.82 KB): budget 17.85 KB.
+ *
+ * The cursor in step (2026-11-13): one hand for calls that overlap (a move says whether it arrived; a run that lost
+ * the hand plays unseen), the press landing on the frame that draws it, waits that end on a yield, a ring that keeps
+ * its frames, a reveal by landing point, masked passwords, spoken tool titles and a name read without hidden parts
+ * add about 0.42 KB to the visuals (10.38 KB) and 0.45 KB to the whole package (18.27 KB). Budgets raised to
+ * 10.4 KB and 18.3 KB. Presses that overlap each landing on their frame, and an async target remembered per call
+ * (never opened outside a call's start, a rejection counting as none) add about 0.1 KB (10.41 KB and 18.39 KB):
+ * budgets 10.45 KB and 18.4 KB.
  */
 const CHECKS = [
-  { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10 * KB },
-  { name: "whole package", exports: "*", budget: 17.75 * KB },
+  { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.45 * KB },
+  { name: "whole package", exports: "*", budget: 18.4 * KB },
 ];
 
 async function size(exports) {

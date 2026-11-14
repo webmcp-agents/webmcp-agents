@@ -5,12 +5,9 @@
 
 :root {
   /* agent cursor theme: ink, like the rest of the store (this file loads after @webmcp-agents/core/cursor.css) */
+  /* rings, outlines and soft fills follow --agent */
   --agent: oklch(0.145 0 0);
   --agent-ink: oklch(1 0 0);
-  --agent-strong: oklch(0.145 0 0);
-  --agent-soft: oklch(0.145 0 0 / 0.14);
-  --agent-wait: oklch(0.145 0 0);
-  --agent-wait-soft: oklch(0.145 0 0 / 0.18);
 }
 
 @layer base {

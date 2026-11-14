@@ -11,12 +11,9 @@
   --ring: oklch(0.53 0.17 254 / 60%);
   --background: oklch(0.985 0.002 250);
 
+  /* rings, outlines and soft fills follow --agent (cursor.css) */
   --agent: #1c6bd2;
   --agent-ink: #ffffff;
-  --agent-strong: #1c6bd2;
-  --agent-soft: rgb(28 107 210 / 0.16);
-  --agent-wait: #1c6bd2;
-  --agent-wait-soft: rgb(28 107 210 / 0.2);
 }
 
 @layer base {

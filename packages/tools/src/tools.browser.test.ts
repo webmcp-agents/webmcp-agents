@@ -103,6 +103,40 @@ describe("go_to", () => {
     expect(clicked).toEqual(["Cart"]);
   });
 
+  it("answers once the router has changed the address, not at the click", async () => {
+    const root = fixture(`<a href="/later">Later</a><a href="/never">Never</a>`);
+    // like Next.js: the URL changes once the route's payload has arrived, a moment after the click
+    root.addEventListener("click", (e) => {
+      const a = (e.target as Element).closest("a")!;
+      e.preventDefault();
+      if (a.textContent === "Later") setTimeout(() => history.pushState(null, "", "/later"), 300);
+    });
+    const tool = registered((id) => goTo({ id, pages: { later: "/later", never: "/never" } }));
+    const started = performance.now();
+    expect(await tool.invoke({ page: "later" })).toBe("Opened later (/later).");
+    expect(performance.now() - started).toBeGreaterThanOrEqual(290);
+    expect(location.pathname).toBe("/later");
+    // a router that never moves: the tool says so instead of claiming the page is open
+    expect(await tool.invoke({ page: "never" })).toMatch(/^Clicked the link to never \(\/never\), but the address has not changed yet/);
+  }, 10_000);
+
+  it("without a link on the page, uses the app's router when given one (no page load)", async () => {
+    const pushed: string[] = [];
+    const tool = registered((id) =>
+      goTo({
+        id,
+        pages: { checkout: "/checkout?step=1" },
+        navigate: (to) => {
+          pushed.push(to);
+          setTimeout(() => history.pushState(null, "", to), 100);
+        },
+      }),
+    );
+    expect(await tool.invoke({ page: "checkout" })).toBe("Opened checkout (/checkout?step=1).");
+    expect(pushed).toEqual(["/checkout?step=1"]);
+    expect(location.pathname + location.search).toBe("/checkout?step=1");
+  });
+
   it("opens only the listed pages", async () => {
     const tool = registered((id) => goTo({ id, pages: { cart: "/cart" } }));
     await expect(tool.invoke({ page: "admin" })).rejects.toMatchObject({

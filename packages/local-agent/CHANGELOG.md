@@ -1,5 +1,13 @@
 # @webmcp-agents/local-agent
 
+## 0.3.0
+
+### Patch Changes
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`ca29ebc`](https://github.com/webmcp-agents/webmcp-agents/commit/ca29ebccc3a29059582a0520f135addf0a9c6f35) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - The chat notices when the person changes pages themself between turns (a new path, query or hash): the next message reaches the model with a one-line note ("went from /shop to /product/… on their own"), so "add that item" means the page they are on, not the last turn's results. Turns where the page didn't move send exactly what they did before. The on-device agent ranks its tools by what the person wrote, never by that note.
+- Updated dependencies [[`428f45e`](https://github.com/webmcp-agents/webmcp-agents/commit/428f45e5b44d7a278bf8f951d6e27d3451ae4777), [`2d7f81d`](https://github.com/webmcp-agents/webmcp-agents/commit/2d7f81d846f4b11cd802734fafa4f47ec2605434), [`b14a728`](https://github.com/webmcp-agents/webmcp-agents/commit/b14a728a7cb9b9167dafdef105c80cc1ecef9306), [`ca29ebc`](https://github.com/webmcp-agents/webmcp-agents/commit/ca29ebccc3a29059582a0520f135addf0a9c6f35), [`868c746`](https://github.com/webmcp-agents/webmcp-agents/commit/868c746dbc50cbefe6a19cc11cdcdf88b4a1ca9f), [`2d7f81d`](https://github.com/webmcp-agents/webmcp-agents/commit/2d7f81d846f4b11cd802734fafa4f47ec2605434)]:
+  - @webmcp-agents/chat@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

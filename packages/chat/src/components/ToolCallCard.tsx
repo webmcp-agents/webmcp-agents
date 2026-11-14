@@ -14,6 +14,15 @@ const STATUS: Record<ToolPart["state"], { label: string; data: string }> = {
 };
 
 /** `add_to_cart` → "Add to cart". */
+/**
+ * A sub-agent's answer as its nested run shows it: the text of its last reply, whitespace collapsed ("" when that reply
+ * has no text, so the tool's output is the only place the answer is shown).
+ */
+export function delegateAnswer(part: ToolPart): string {
+  const last = part.agent?.messages.filter((m) => m.role === "assistant").at(-1);
+  return (last?.parts.map((p) => (p.type === "text" ? p.text : "")).join("\n") ?? "").replace(/\s+/g, " ").trim();
+}
+
 export const toolLabel = (name: string): string => {
   const words = name.replace(/[_.-]+/g, " ").trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
@@ -64,7 +73,10 @@ export function ToolCallCard({ part }: { part: ToolPart }) {
   const delegate = isDelegateTool(part.name);
   const task = delegate && part.input && typeof part.input === "object" ? (part.input as { task?: unknown }).task : undefined;
   const args = delegate ? (typeof task === "string" ? task : "") : summarize(part.input);
-  const result = part.state === "done" ? outputText(part.output) : part.state === "error" ? part.error || outputText(part.output) : "";
+  // A sub-agent's answer is its last reply, already shown in its nested run: the card doesn't print it twice.
+  const answered = !!delegateAnswer(part);
+  const result =
+    part.state === "done" ? (answered ? "" : outputText(part.output)) : part.state === "error" ? part.error || outputText(part.output) : "";
   return (
     <div className="wa-chat__tool" data-status={status.data} data-agent={delegate || undefined}>
       <div className="wa-chat__tool-head">

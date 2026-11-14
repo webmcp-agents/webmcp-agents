@@ -1,5 +1,13 @@
 # @webmcp-agents/react
 
+## 0.3.0
+
+### Patch Changes
+
+- Updated dependencies [[`2c75ea5`](https://github.com/webmcp-agents/webmcp-agents/commit/2c75ea5f62e2a18e1e74f0dce7fb39a21786df82), [`7d491df`](https://github.com/webmcp-agents/webmcp-agents/commit/7d491df776898c48bf0a80203aa6ca99e539aa68)]:
+  - @webmcp-agents/core@0.3.0
+  - @webmcp-agents/devtools@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

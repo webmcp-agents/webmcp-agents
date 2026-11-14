@@ -67,7 +67,7 @@ calls `loadWebMCPPolyfill()`, or imports `@webmcp-agents/core/polyfill` (`instal
 `@webmcp-agents/core/polyfill/auto`.
 
 Bundle budgets (min+gz, `pnpm --filter @webmcp-agents/core size`): the visuals alone (`installAgentVisuals`,
-`onAgentEvent`) 10 KB (measured 9.96 KB); the whole package 17.75 KB (measured 17.71 KB). The polyfill chunk (2.45 KB)
+`onAgentEvent`) 10.4 KB (measured 10.38 KB); the whole package 18.3 KB (measured 18.27 KB). The polyfill chunk (2.45 KB)
 is loaded on demand and not counted.
 
 ## Docs

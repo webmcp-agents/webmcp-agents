@@ -1,5 +1,25 @@
 # @webmcp-agents/chat
 
+## 0.3.0
+
+### Minor Changes
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`2d7f81d`](https://github.com/webmcp-agents/webmcp-agents/commit/2d7f81d846f4b11cd802734fafa4f47ec2605434) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - The default system prompt says the page exposes WebMCP tools that a visible cursor performs, and asks the model to show rather than tell: use the tools that put what the user asked for on the page, step by step as a person would, and say only what the tools did. It also says the tool list is read again at every step, so a model that navigated uses the new page's tools instead of concluding from an earlier step that they are missing. The delegation note no longer asks to relay a sub-agent's answer (the chat already shows it); a delegate card no longer prints that answer a second time, and a reply that only repeats it word for word is left out.
+
+### Patch Changes
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`428f45e`](https://github.com/webmcp-agents/webmcp-agents/commit/428f45e5b44d7a278bf8f951d6e27d3451ae4777) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - In dark mode the chat's accent is a light tint of `--agent` with dark text on it, instead of the agent's own colour: the default near-black launcher and send button were all but invisible on the dark panel. A brand colour keeps its hue. An explicit `--wa-chat-accent` for dark now needs the dark condition in its selector.
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`2d7f81d`](https://github.com/webmcp-agents/webmcp-agents/commit/2d7f81d846f4b11cd802734fafa4f47ec2605434) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - `<AgentChat>` keeps whether its panel is open in sessionStorage next to the conversation (`<storageKey>:open`), so a page load (a navigation an agent made without the app's router, a reload) brings the chat back open.
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`b14a728`](https://github.com/webmcp-agents/webmcp-agents/commit/b14a728a7cb9b9167dafdef105c80cc1ecef9306) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - The server handler says why a model call failed instead of "had a problem answering": out of credits, API key rejected, unknown model, rate limited or provider down (with the provider's own message in development), and logs one readable line.
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`ca29ebc`](https://github.com/webmcp-agents/webmcp-agents/commit/ca29ebccc3a29059582a0520f135addf0a9c6f35) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - The chat notices when the person changes pages themself between turns (a new path, query or hash): the next message reaches the model with a one-line note ("went from /shop to /product/… on their own"), so "add that item" means the page they are on, not the last turn's results. Turns where the page didn't move send exactly what they did before. The on-device agent ranks its tools by what the person wrote, never by that note.
+
+- [#5](https://github.com/webmcp-agents/webmcp-agents/pull/5) [`868c746`](https://github.com/webmcp-agents/webmcp-agents/commit/868c746dbc50cbefe6a19cc11cdcdf88b4a1ca9f) Thanks [@mustafaskyer](https://github.com/mustafaskyer)! - After a tool call, the session also waits while the page is `aria-busy` (a Suspense fallback, a skeleton) before its next request, and counts the quiet time from when the loading ends (capped at 1.5 s as before). A route that streams registers its component tools only once it has rendered: the agent could reach the next step without them (`add_to_cart` on a product page opened by `open_product`).
+- Updated dependencies [[`2c75ea5`](https://github.com/webmcp-agents/webmcp-agents/commit/2c75ea5f62e2a18e1e74f0dce7fb39a21786df82), [`7d491df`](https://github.com/webmcp-agents/webmcp-agents/commit/7d491df776898c48bf0a80203aa6ca99e539aa68)]:
+  - @webmcp-agents/core@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes

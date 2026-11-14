@@ -7,7 +7,7 @@
  * Browser only: `agent.invoke` loads this module with a dynamic `import()`, so the agent definition stays plain data
  * a server can import.
  */
-import { onAgentEvent } from "@webmcp-agents/core";
+import { onAgentEvent, UI_HOST_ATTR } from "@webmcp-agents/core";
 import { getDefaultAdapter } from "../adapter/cloud";
 import {
   DELEGATE_PREFIX,
@@ -58,27 +58,42 @@ export interface RunAgentResult extends WebAgentResult {
   code?: Extract<AgentStreamPart, { type: "error" }>["code"];
 }
 
+/** Busy regions that outlasted a whole wait: always busy, not loading a route (see `toolsSettled`). */
+const lingering = new WeakSet<Element>();
+
+/** The parts of the page that say they are still loading (`aria-busy`: a Suspense fallback, a skeleton), outside the library UIs. */
+function busyRegions(): Element[] {
+  return [...document.querySelectorAll('[aria-busy="true"]')].filter((el) => !lingering.has(el) && !el.closest(`[${UI_HOST_ATTR}]`));
+}
+
 /**
- * Resolve once the page's tools have stopped changing: no `toolchange` for
- * `quiet` ms (a route renders, its forms register), or after `max` ms.
+ * Resolve once the page's tools have stopped changing: no `toolchange` for `quiet` ms and nothing on the page
+ * `aria-busy` meanwhile, or after `max` ms. A route that streams (a Suspense boundary) can mount its components, and
+ * register their tools, well after the URL changed and the first tools moved: its loading state keeps the wait open,
+ * and the quiet time counts from when it ends, since the tools register right after. A region still busy when a wait
+ * gives up (a live feed, a spinner that never stops) is ignored from then on, or it would hold every step to `max`.
  */
 export function toolsSettled(quiet = 150, max = 1500): Promise<void> {
   const mc = typeof document === "undefined" ? undefined : document.modelContext;
   if (!mc) return Promise.resolve();
   return new Promise((resolve) => {
-    let timer = setTimeout(done, quiet);
-    const cap = setTimeout(done, max);
-    function onChange(): void {
-      clearTimeout(timer);
-      timer = setTimeout(done, quiet);
-    }
-    function done(): void {
-      clearTimeout(timer);
-      clearTimeout(cap);
-      mc!.removeEventListener("toolchange", onChange);
-      resolve();
-    }
+    const started = Date.now();
+    let last = started;
+    const onChange = (): void => {
+      last = Date.now();
+    };
+    const check = (): void => {
+      const now = Date.now();
+      const busy = busyRegions();
+      if (busy.length) last = now;
+      if (now - started >= max) for (const el of busy) lingering.add(el);
+      if (now - last >= quiet || now - started >= max) {
+        mc.removeEventListener("toolchange", onChange);
+        resolve();
+      } else setTimeout(check, 25);
+    };
     mc.addEventListener("toolchange", onChange);
+    setTimeout(check, 25);
   });
 }
 
@@ -94,6 +109,31 @@ export const answerText = (messages: readonly AgentMessage[]): string =>
     .filter((x) => x.trim())
     .join("\n\n")
     .trim();
+
+/**
+ * Where the page is, as `AgentMessage.page` holds it: path, query and hash (a search kept in the URL, a hash router),
+ * capped at 300 characters.
+ */
+export const pagePath = (): string | undefined =>
+  typeof location === "undefined" ? undefined : (location.pathname + location.search + location.hash).slice(0, 300);
+
+/**
+ * The history the model sees: a user message sent from another page than the one the previous turn left (where its
+ * run ended, or where an unanswered message was sent from: the person navigated themself between turns) starts with a one-line note saying so, or the model reads "that item" against
+ * what the last turn found. Only the sent copy changes; a conversation where nothing moved goes out as is, and the
+ * note stays on that message in later requests, so the prompt prefix (and its cache) is stable.
+ */
+export function withPageMoves(messages: AgentMessage[]): AgentMessage[] {
+  let moved = false;
+  const out = messages.map((m, i) => {
+    const before = messages[i - 1];
+    if (m.role !== "user" || !m.page || !before?.page || before.page === m.page) return m;
+    moved = true;
+    const note = `(Since your last reply the user went from the page ${JSON.stringify(before.page)} to ${JSON.stringify(m.page)} on their own. This message is about the page they are on now; earlier results may no longer apply.)`;
+    return { ...m, parts: [{ type: "text" as const, text: note }, ...m.parts] };
+  });
+  return moved ? out : messages;
+}
 
 type ToolPart = Extract<AgentPart, { type: "tool" }>;
 
@@ -256,7 +296,7 @@ export async function runAgent({
     let end: RunAgentResult["reason"] = "stop";
     let failure: Extract<AgentStreamPart, { type: "error" }> | undefined;
     try {
-      for await (const part of adapter.run(makeRequest(messages, agent))) {
+      for await (const part of adapter.run(makeRequest(withPageMoves(messages), agent))) {
         if (signal.aborted) return result("aborted");
         report(part);
         if (part.type === "finish") end = part.reason;

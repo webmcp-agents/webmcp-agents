@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Show users what a WebMCP agent is doing: ghost cursor, field replay, confirmation parking.",
   "license": "MIT",

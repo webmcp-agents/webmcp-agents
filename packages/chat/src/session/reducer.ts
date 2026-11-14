@@ -21,7 +21,10 @@ export interface SessionState {
 
 /** What can happen to a session. */
 export type SessionAction =
-  | { type: "send"; id: string; text: string }
+  /** `page`: the path the person sent it from (see `AgentMessage.page`). */
+  | { type: "send"; id: string; text: string; page?: string }
+  /** A run is over (answered, stopped or failed): the path the page is on now goes on its last message. */
+  | { type: "ended"; page?: string }
   /** `within`: the id of the `delegate_to_*` call whose sub-agent run this part belongs to (rendered nested). */
   | { type: "part"; part: AgentStreamPart; within?: string }
   /** A core agent event about a running tool, matched by tool name (calls run one at a time). */
@@ -182,14 +185,27 @@ function applyWithin(state: SessionState, within: string, part: AgentStreamPart)
   };
 }
 
+/** A message the person sent from `page` (see `AgentMessage.page`): what `send` adds, and what the session runs. */
+export const userMessage = (id: string, text: string, page?: string): AgentMessage => ({
+  id,
+  role: "user",
+  parts: [{ type: "text", text }],
+  ...(page && { page }),
+});
+
 /** The session state machine: stream parts, tool phases from the agent cursor, stop, retry, reset. */
 export function sessionReducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
     case "send":
       return {
         status: "streaming",
-        messages: [...state.messages, { id: action.id, role: "user", parts: [{ type: "text", text: action.text }] }],
+        messages: [...state.messages, userMessage(action.id, action.text, action.page)],
       };
+    case "ended": {
+      const last = state.messages.at(-1);
+      if (!action.page || last?.role !== "assistant" || last.page === action.page) return state;
+      return { ...state, messages: [...state.messages.slice(0, -1), { ...last, page: action.page }] };
+    }
     case "part":
       return action.within ? applyWithin(state, action.within, action.part) : applyPart(state, action.part);
     case "toolPhase": {

@@ -1,17 +1,26 @@
 :root {
-  /* the agent's colour: fill for the arrow and tag */
+  /* the agent's colour: fill for the arrow and tag. Everything below follows it, so one variable recolours the agent. */
   --agent: #111111;
   /* text on the tag */
   --agent-ink: #ffffff;
   /* outlines, rings and borders */
-  --agent-strong: #111111;
-  --agent-soft: rgba(17, 17, 17, 0.14);
+  --agent-strong: var(--agent);
+  --agent-soft: color-mix(in srgb, var(--agent-strong) 14%, transparent);
   /* waiting for the user: same ink, the breathing halo and ring carry the state */
-  --agent-wait: #111111;
-  --agent-wait-soft: rgba(17, 17, 17, 0.18);
+  --agent-wait: var(--agent);
+  --agent-wait-soft: color-mix(in srgb, var(--agent-wait) 18%, transparent);
+  /* a light line around the ring and the ripple, as around the arrow: keeps a dark agent visible on a dark page */
+  --agent-edge: rgb(255 255 255 / 0.6);
   --agent-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   /* base layer for the cursor and spotlight; devtools and chat render at calc(var(--agent-z) + 100) */
   --agent-z: 2147483000;
+}
+
+/* The layer's own boxes are sized by script: never by the page's box-sizing (or its absence). */
+.agent-ring,
+.agent-tag,
+.agent-ripple::after {
+  box-sizing: border-box;
 }
 
 /* ---------- ghost cursor ----------
@@ -103,6 +112,7 @@
   height: 36px;
   border-radius: 50%;
   border: 2px solid var(--agent-strong);
+  outline: 1px solid var(--agent-edge);
   background: var(--agent-soft);
   animation: agent-ripple 0.45s var(--agent-ease-out) forwards;
 }
@@ -162,13 +172,14 @@
   top: 0;
   left: 0;
   border: 2px solid var(--agent-strong);
+  outline: 1px solid var(--agent-edge);
   pointer-events: none;
   z-index: calc(var(--agent-z) - 1);
   opacity: 0;
   transition:
     opacity 0.2s var(--agent-ease-out),
     border-color 0.25s ease;
-  will-change: transform, width, height;
+  will-change: transform;
   --ring-soft: var(--agent-soft);
 }
 .agent-ring.is-visible {
@@ -210,7 +221,7 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 2147481000;
+  z-index: calc(var(--agent-z) - 2000);
   background: rgba(15, 23, 42, var(--agent-spot-dim, 0.08));
   -webkit-backdrop-filter: blur(var(--agent-spot-blur, 4px));
   backdrop-filter: blur(var(--agent-spot-blur, 4px));
@@ -237,7 +248,7 @@
 form[data-tool-form-active] {
   outline: 2px dashed var(--agent-strong);
   outline-offset: 6px;
-  background: rgba(17, 17, 17, 0.03);
+  background: color-mix(in srgb, var(--agent-strong) 3%, transparent);
 }
 
 form[toolname] {

@@ -18,8 +18,8 @@ export interface ToolLocator {
    */
   role?: string;
   /**
-   * The accessible name: `aria-labelledby`, `aria-label`, the control's `<label>`, its `placeholder`, then its text,
-   * `alt`, `title`. A string compares trimmed, with whitespace collapsed and case ignored; an exact match beats a
+   * The accessible name: `aria-labelledby`, `aria-label`, the control's `<label>`, its `placeholder`, then its text
+   * (an image inside by its `alt`; `aria-hidden` and `hidden` parts left out), `alt`, `title`. A string compares trimmed, with whitespace collapsed and case ignored; an exact match beats a
    * name that only starts with it. A RegExp is tested against the name as shown.
    */
   name?: string | RegExp;
@@ -64,6 +64,21 @@ const clean = (text: string | null | undefined): string => (text ?? "").replace(
 /** `clear_cart`, `lineId`, `first-name` read as words: "clear cart", "line Id", "first name". */
 export const words = (id: string): string => id.replace(/([a-z\d])([A-Z])/g, "$1 $2").replace(/[_.-]+/g, " ");
 
+const UNSAID = "[aria-hidden=true],[hidden]";
+
+/**
+ * The text a person reads in `el`: without its `aria-hidden` and `hidden` parts (an icon font's ligature, a
+ * collapsed hint), and with an image by its `alt`.
+ */
+const textOf = (el: Element): string =>
+  el.querySelector(`${UNSAID},[alt]`)
+    ? [...el.childNodes]
+        .map((n) =>
+          n instanceof Element ? (n.matches(UNSAID) ? "" : (n.getAttribute("alt") ?? textOf(n))) : n instanceof Text ? n.data : "",
+        )
+        .join("")
+    : (el.textContent ?? "");
+
 /** The name a screen reader would say for `el`, from the sources listed on `ToolLocator.name`. */
 function nameOf(el: Element): string {
   const attr = (name: string): string => clean(el.getAttribute(name));
@@ -78,7 +93,7 @@ function nameOf(el: Element): string {
     clean((el as HTMLInputElement).labels?.[0]?.textContent) ||
     attr("placeholder") ||
     // a select's text is its options, a textarea's its value
-    clean(el.matches("select,textarea") ? "" : el.textContent) ||
+    clean(el.matches("select,textarea") ? "" : textOf(el)) ||
     attr("alt") ||
     attr("title") ||
     (roleOf(el) === "button" ? attr("value") : "")
@@ -105,10 +120,16 @@ export function locateAll({ role, name, within }: ToolLocator, roles: RegExp = /
   const prefixed: Element[] = [];
   for (const el of root?.querySelectorAll(CANDIDATES) ?? []) {
     const own = roleOf(el);
-    if (!(role ? own === role : roles.test(own)) || !usable(el)) continue;
+    if (!(role ? own === role : roles.test(own))) continue;
     const has = want === undefined ? "" : nameOf(el);
-    if (want === undefined || (typeof want === "string" ? has.toLowerCase() === want : has.search(want) >= 0)) exact.push(el);
-    else if (want && typeof want === "string" && has.toLowerCase().startsWith(want)) prefixed.push(el);
+    const list =
+      want === undefined || (typeof want === "string" ? has.toLowerCase() === want : has.search(want) >= 0)
+        ? exact
+        : want && typeof want === "string" && has.toLowerCase().startsWith(want)
+          ? prefixed
+          : null;
+    // Last, and only for a control with the right name: it reads styles, the name does not.
+    if (list && usable(el)) list.push(el);
   }
   return exact[0] ? exact : prefixed;
 }
@@ -135,7 +156,7 @@ export function locateField(
   if (spec) return locateAll(typeof spec === "string" ? { name: spec } : spec, FIELDS)[0] ?? null;
   for (let scope = from?.parentElement; scope; scope = scope.parentElement) {
     const hit =
-      [...scope.querySelectorAll<HTMLInputElement>(`[name="${CSS.escape(param)}"]`)].find(
+      [...scope.querySelectorAll<HTMLInputElement>(`:is(input,select,textarea)[name="${CSS.escape(param)}"]`)].find(
         (f) => usable(f) && (f.type !== "radio" || f.value === String(value)),
       ) ??
       (title ? locateAll({ name: title, within: scope }, FIELDS)[0] : undefined) ??

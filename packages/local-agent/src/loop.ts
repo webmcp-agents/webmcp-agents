@@ -34,9 +34,11 @@ const REPEAT = "I stopped because I was going in circles. Tell me more about wha
 const MAX_STEPS = (n: number): string =>
   `I stopped after ${n} steps without finishing. Try a more specific request (a product name, a size), or the cloud assistant.`;
 
+/** What the person last wrote: the last text part of their last message (a note the session put before it, like a change of page, isn't a query). */
 const lastUserText = (messages: readonly AgentMessage[]): string => {
   const m = messages.findLast((x) => x.role === "user");
-  return m?.parts.map((p) => (p.type === "text" ? p.text : "")).join(" ") ?? "";
+  const part = m?.parts.findLast((p) => p.type === "text");
+  return part?.type === "text" ? part.text : "";
 };
 const newId = (): string => (typeof crypto?.randomUUID === "function" ? crypto.randomUUID() : `l-${Date.now()}-${Math.random()}`);
 

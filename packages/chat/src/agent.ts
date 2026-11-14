@@ -212,7 +212,7 @@ export function delegateTool(sub: WebAgent): ToolDescriptor {
 
 /** One line the model gets when it has sub-agents. */
 export const DELEGATION_NOTE =
-  "Tools named delegate_to_<agent> hand one self-contained task to a specialised agent that works this page itself and answers with what it did. Delegate the whole task at once, then relay its answer; don't redo its work.";
+  'Tools named delegate_to_<agent> hand one self-contained task to a specialised agent that works this page itself and answers with what it did. Delegate the whole task at once and don\'t redo its work. Its answer is already shown to the user in the chat, word for word: never repeat or summarise it. Add a sentence only when something is left for the user to do or decide; otherwise reply with a two-word acknowledgement, such as "All set."';
 
 /**
  * The tools an agent sees: the page's tools through its `tools` filter, plus one delegate tool per sub-agent. Delegate
