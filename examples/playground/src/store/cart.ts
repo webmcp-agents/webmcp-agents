@@ -111,3 +111,21 @@ export const cart = {
       : `Order ${order.id} placed for ${money(order.total)}.`;
   },
 };
+
+/** Serializable cart for chat restore checkpoints (`getSnapshot`). */
+export type CartCheckpoint = Pick<CartState, "items" | "promo" | "orders">;
+
+/** Capture the cart for a chat restore checkpoint. */
+export function exportSnapshot(): CartCheckpoint {
+  const { items, promo, orders } = state;
+  return { items, promo, orders };
+}
+
+/** Rehydrate the cart from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: CartCheckpoint): void {
+  commit({
+    items: Array.isArray(data.items) ? data.items : [],
+    promo: data.promo ?? null,
+    orders: Array.isArray(data.orders) ? data.orders : [],
+  });
+}

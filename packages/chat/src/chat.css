@@ -453,6 +453,17 @@ html[data-wa-chat-resizing] {
   gap: 8px;
 }
 .wa-chat__message[data-role="user"] {
+  align-items: stretch;
+}
+.wa-chat__message-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+.wa-chat__message[data-role="user"] .wa-chat__message-body {
   align-items: flex-end;
 }
 .wa-chat__bubble {
@@ -469,45 +480,73 @@ html[data-wa-chat-resizing] {
   background: var(--wa-chat-accent);
   color: var(--wa-chat-accent-ink);
 }
-.wa-chat__restore {
-  display: inline-flex;
-  align-items: center;
+/* Restore checkpoint under the user bubble: always readable at muted color. */
+.wa-chat__stage {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
   gap: 6px;
-  margin-top: -2px;
-  opacity: 0;
+  margin-top: 2px;
 }
-.wa-chat__message[data-role="user"]:hover .wa-chat__restore,
-.wa-chat__message[data-role="user"]:focus-within .wa-chat__restore,
-.wa-chat__message[data-confirming] .wa-chat__restore {
-  opacity: 1;
+.wa-chat__stage-confirm {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  max-width: 88%;
 }
-.wa-chat__restore-ask,
-.wa-chat__restore-confirm,
-.wa-chat__restore-cancel {
+.wa-chat__stage-prompt {
+  margin: 0;
+  color: var(--wa-chat-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: right;
+}
+.wa-chat__stage-actions {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 6px;
+}
+.wa-chat__stage-ask,
+.wa-chat__stage-go,
+.wa-chat__stage-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: var(--wa-chat-muted);
   font: inherit;
   font-size: 12px;
+  line-height: 1.4;
   cursor: pointer;
 }
-.wa-chat__restore-confirm {
+.wa-chat__stage-go {
   color: var(--wa-chat-danger);
 }
 @media (hover: hover) {
-  .wa-chat__restore-ask:hover,
-  .wa-chat__restore-cancel:hover {
+  .wa-chat__stage-ask:hover {
     background: var(--wa-chat-soft);
     color: var(--wa-chat-fg);
   }
-  .wa-chat__restore-confirm:hover {
+  .wa-chat__stage-go:hover {
     background: color-mix(in srgb, var(--wa-chat-danger) 12%, transparent);
   }
+  .wa-chat__stage-cancel:hover {
+    background: var(--wa-chat-soft);
+    color: var(--wa-chat-fg);
+  }
+}
+.wa-chat__restored {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--wa-chat-line);
+  border-radius: 8px;
+  background: var(--wa-chat-soft);
+  color: var(--wa-chat-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 .wa-chat__typing {
   display: flex;

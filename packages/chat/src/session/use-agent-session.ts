@@ -30,12 +30,20 @@ import {
   messageText,
   RestoreJournal,
   type RestoreResult,
+  reverseFills,
   reverseToolCalls,
 } from "./restore-journal";
+import {
+  clearAppSnapshots,
+  type ChatRestoreSnapshots,
+  loadAppSnapshots,
+  reapplyCheckpoint,
+  saveAppSnapshots,
+} from "./restore-snapshot";
 import { pagePath, runAgent, toolsSettled } from "./run-agent";
 
 /** Options for `useAgentSession`. */
-export interface UseAgentSessionOptions {
+export interface UseAgentSessionOptions extends ChatRestoreSnapshots {
   /** sessionStorage key for the conversation; `false` keeps it in memory only. Default "web-agents:chat". */
   storageKey?: string | false;
   /** The agent for this page (`defineWebAgent`): its tool subset, instructions and sub-agents. Default: every page tool, no instructions. */
@@ -58,7 +66,8 @@ export interface AgentSession {
   retry(): void;
   /**
    * Cursor-like restore: stop the run, reverse completed tools after this user message (fills + optional
-   * `revert`), drop that turn and everything after it, and return the dropped text for the composer.
+   * `revert`), reapply the turn's URL / optional app snapshot, drop that turn and everything after it, and
+   * return the dropped text for the composer.
    */
   restore(messageId: string): Promise<RestoreResult | undefined>;
   /** Start a new conversation. */
@@ -81,7 +90,7 @@ function load(key: string | false): SessionState {
 /** A conversation with `adapter` about this page (what <AgentChat> renders; use it to build your own chat UI). */
 export function useAgentSession(
   adapter: AgentAdapter,
-  { storageKey = "web-agents:chat", agent }: UseAgentSessionOptions = {},
+  { storageKey = "web-agents:chat", agent, getSnapshot, applySnapshot }: UseAgentSessionOptions = {},
 ): AgentSession {
   const [state, dispatch] = useReducer(sessionReducer, storageKey, load);
   const latest = useRef(state);
@@ -130,9 +139,16 @@ export function useAgentSession(
     [],
   );
 
-  // ---------- fill journal (chat restore) ----------
+  // ---------- fill journal + app snapshots (chat restore) ----------
   const journal = useRef(new RestoreJournal());
+  const apps = useRef(loadAppSnapshots(storageKey));
+  const snapshots = useRef({ getSnapshot, applySnapshot });
+  snapshots.current = { getSnapshot, applySnapshot };
   useEffect(() => bindRestoreJournal(journal.current), []);
+  // Re-hydrate if the storage key changes (rare); keep the same map otherwise.
+  useEffect(() => {
+    apps.current = loadAppSnapshots(storageKey);
+  }, [storageKey]);
 
   // ---------- runs ----------
   const controller = useRef<AbortController | null>(null);
@@ -181,10 +197,16 @@ export function useAgentSession(
       if (!trimmed || latest.current.status === "streaming") return;
       const id = newId("u");
       const page = pagePath();
+      try {
+        apps.current.set(id, snapshots.current.getSnapshot?.());
+        saveAppSnapshots(storageKey, apps.current);
+      } catch (err) {
+        console.error("[web-agents] getSnapshot threw", err);
+      }
       dispatch({ type: "send", id, text: trimmed, page });
       void run([...latest.current.messages, userMessage(id, trimmed, page)]);
     },
-    [run],
+    [run, storageKey],
   );
 
   // Retry continues the interrupted turn from its last finished tool call (see `resumable`): nothing is done twice.
@@ -213,20 +235,44 @@ export function useAgentSession(
       stop();
 
       const done = doneToolsAfter(messages, messageId);
-      const { reverted, skipped } = await reverseToolCalls(done, journal.current);
+      // Snapshot-first when the host provides applySnapshot: only rewind fills, then rehydrate
+      // url+app. Calling tool.revert as well fights SPA routers (history.back vs navigate).
+      const useCheckpoint = Boolean(snapshots.current.applySnapshot);
+      let reverted: string[] = [];
+      let skipped: string[] = [];
+      if (useCheckpoint) {
+        reverseFills(done, journal.current);
+        skipped = done.map((p) => p.name);
+      } else {
+        ({ reverted, skipped } = await reverseToolCalls(done, journal.current));
+      }
       journal.current.forget(allToolParts(messages.slice(idx)).map((p) => p.id));
 
+      let snapshotApplied = false;
+      try {
+        snapshotApplied = await reapplyCheckpoint(
+          { url: target.page, app: apps.current.get(messageId) },
+          snapshots.current.applySnapshot,
+        );
+      } catch (err) {
+        console.error("[web-agents] applySnapshot threw", err);
+      }
+      apps.current.forget(messages.slice(idx).map((m) => m.id));
+      saveAppSnapshots(storageKey, apps.current);
+
       dispatch({ type: "restore", beforeId: messageId });
-      return { restoredText: messageText(target), reverted, skipped };
+      return { restoredText: messageText(target), reverted, skipped, snapshotApplied };
     },
-    [stop],
+    [stop, storageKey],
   );
 
   const reset = useCallback(() => {
     stop();
     journal.current.clear();
+    apps.current.clear();
+    clearAppSnapshots(storageKey);
     dispatch({ type: "reset" });
-  }, [stop]);
+  }, [stop, storageKey]);
 
   return {
     messages: state.messages,

@@ -13,6 +13,7 @@ import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useId, 
 import { createPortal, flushSync } from "react-dom";
 import type { WebAgent } from "../agent";
 import { useAgentChat } from "../session/use-agent-chat";
+import type { ChatRestoreSnapshots } from "../session/restore-snapshot";
 import type { AgentAdapter } from "../types";
 import { AdapterSwitcher } from "./AdapterSwitcher";
 import { Composer } from "./Composer";
@@ -24,7 +25,7 @@ import { ModelPicker } from "./ModelPicker";
 import { Suggestions } from "./Suggestions";
 
 /** Props of `<AgentChat>`. */
-export interface AgentChatProps {
+export interface AgentChatProps extends ChatRestoreSnapshots {
   /** What runs the model. Default: one shared `createCloudAdapter()` (your `/api/chat`), when `adapters` is not given either. */
   adapter?: AgentAdapter;
   /** Several agents: the panel shows a switcher (cloud, in-browser…). The first is the default. */
@@ -118,9 +119,11 @@ export function AgentChat({
   suggestions,
   className,
   storageKey,
+  getSnapshot,
+  applySnapshot,
 }: AgentChatProps) {
   // one state source, shared with custom UIs: the adapter choice, the session, the adapter's status and models
-  const chat = useAgentChat({ adapter, adapters, agent, storageKey });
+  const chat = useAgentChat({ adapter, adapters, agent, storageKey, getSnapshot, applySnapshot });
   const { adapters: all, adapter: current, selectAdapter: choose, session } = chat;
 
   const host = useHost(className, position);
@@ -135,17 +138,52 @@ export function AgentChat({
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
+  const [restoredNote, setRestoredNote] = useState(false);
+  const restoredTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Opening puts the cursor in the composer.
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
 
+  useEffect(
+    () => () => {
+      if (restoredTimer.current) clearTimeout(restoredTimer.current);
+    },
+    [],
+  );
+
+  function clearRestoredNote() {
+    if (restoredTimer.current) clearTimeout(restoredTimer.current);
+    restoredTimer.current = null;
+    setRestoredNote(false);
+  }
+
+  function showRestoredNote() {
+    clearRestoredNote();
+    setRestoredNote(true);
+    restoredTimer.current = setTimeout(() => {
+      restoredTimer.current = null;
+      setRestoredNote(false);
+    }, 4000);
+  }
+
   async function restore(messageId: string) {
     const result = await session.restore(messageId);
     if (!result) return;
     setDraft(result.restoredText);
+    showRestoredNote();
     inputRef.current?.focus();
+  }
+
+  function send(text: string) {
+    clearRestoredNote();
+    session.send(text);
+  }
+
+  function reset() {
+    clearRestoredNote();
+    session.reset();
   }
 
   function close() {
@@ -236,7 +274,7 @@ export function AgentChat({
         <header className="wa-chat__header">
           <h2 id={titleId}>{title}</h2>
           {session.messages.length > 0 && (
-            <button type="button" className="wa-chat__icon" onClick={session.reset} aria-label="New chat" title="New chat">
+            <button type="button" className="wa-chat__icon" onClick={reset} aria-label="New chat" title="New chat">
               <ResetIcon />
             </button>
           )}
@@ -255,7 +293,7 @@ export function AgentChat({
               Ask me to do something on this page. You'll see each step happen, and anything that orders, books or deletes waits for your
               click.
             </p>
-            {chips.length > 0 && !unavailable && <Suggestions items={chips} onPick={session.send} />}
+            {chips.length > 0 && !unavailable && <Suggestions items={chips} onPick={send} />}
             {downloadCard}
           </div>
         ) : (
@@ -276,13 +314,19 @@ export function AgentChat({
           </div>
         )}
 
+        {restoredNote && (
+          <p className="wa-chat__restored" role="status">
+            Restored — edit and send again.
+          </p>
+        )}
+
         <Composer
           inputRef={inputRef}
           streaming={session.status === "streaming"}
           unavailable={unavailable}
           value={draft}
           onChange={setDraft}
-          onSend={session.send}
+          onSend={send}
           onStop={session.stop}
         />
       </div>

@@ -289,22 +289,77 @@ describe("<AgentChat>", () => {
     await again.unmount();
   });
 
-  it("Restore truncates the thread, refills the composer, and runs tool.revert newest-first", async () => {
+  it("Restore with applySnapshot rehydrates the checkpoint and skips tool.revert", async () => {
     const { defineWebTool, registerWebTool } = await import("@webmcp-agents/core");
     const order: string[] = [];
+    const applied: unknown[] = [];
     const id = uniqueName("bump");
-    const tool = defineWebTool({
-      id,
-      description: "Bumps a counter.",
-      execute: () => {
-        order.push("run");
-        return "ok";
-      },
-      revert: () => {
-        order.push("revert");
-      },
+    const unregister = registerWebTool(
+      defineWebTool({
+        id,
+        description: "Bumps a counter.",
+        execute: () => {
+          order.push("run");
+          return "ok";
+        },
+        revert: () => {
+          order.push("revert");
+        },
+      }),
+    );
+    const adapter = fakeAdapter(async function* (req) {
+      yield { type: "message-start", messageId: "a1" };
+      yield { type: "tool-call", messageId: "a1", id: "c1", name: id, input: {} };
+      const output = await req.callTool({ id: "c1", name: id, input: {} });
+      yield { type: "tool-result", id: "c1", output };
+      yield { type: "text-delta", messageId: "a1", delta: "Done." };
+      yield { type: "finish", reason: "stop" };
     });
-    const unregister = registerWebTool(tool);
+    const screen = await render(
+      <AgentChat
+        adapter={adapter}
+        defaultOpen
+        storageKey={false}
+        getSnapshot={() => ({ n: 1 })}
+        applySnapshot={(s) => {
+          applied.push(s.app);
+        }}
+      />,
+    );
+    await userEvent.type(q<HTMLTextAreaElement>("textarea")!, "bump it{Enter}");
+    await until(() => q('[data-role="assistant"] .wa-chat__bubble')?.textContent === "Done.", 5000, "reply");
+    expect(order).toEqual(["run"]);
+
+    await userEvent.click(q('[aria-label^="Restore to stage 1"]')!);
+    expect(q(".wa-chat__stage-prompt")?.textContent).toMatch(/Remove this turn/);
+    await userEvent.click(q('[aria-label="Confirm restore to stage 1"]')!);
+    await until(() => !q('[data-role="user"]'), 3000, "thread cleared");
+    // snapshot-first: revert is not called when applySnapshot is set
+    expect(order).toEqual(["run"]);
+    expect(applied).toEqual([{ n: 1 }]);
+    expect(q<HTMLTextAreaElement>("textarea")!.value).toBe("bump it");
+    expect(q(".wa-chat__restored")?.textContent).toMatch(/Restored/);
+    unregister();
+    await screen.unmount();
+  });
+
+  it("Restore without applySnapshot runs tool.revert newest-first", async () => {
+    const { defineWebTool, registerWebTool } = await import("@webmcp-agents/core");
+    const order: string[] = [];
+    const id = uniqueName("bump_revert");
+    const unregister = registerWebTool(
+      defineWebTool({
+        id,
+        description: "Bumps a counter.",
+        execute: () => {
+          order.push("run");
+          return "ok";
+        },
+        revert: () => {
+          order.push("revert");
+        },
+      }),
+    );
     const adapter = fakeAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: id, input: {} };
@@ -316,10 +371,8 @@ describe("<AgentChat>", () => {
     const screen = await render(<AgentChat adapter={adapter} defaultOpen storageKey={false} />);
     await userEvent.type(q<HTMLTextAreaElement>("textarea")!, "bump it{Enter}");
     await until(() => q('[data-role="assistant"] .wa-chat__bubble')?.textContent === "Done.", 5000, "reply");
-    expect(order).toEqual(["run"]);
-
-    await userEvent.click(q('[aria-label="Restore to before this message"]')!);
-    await userEvent.click(q('[aria-label="Confirm restore to before this message"]')!);
+    await userEvent.click(q('[aria-label^="Restore to stage 1"]')!);
+    await userEvent.click(q('[aria-label="Confirm restore to stage 1"]')!);
     await until(() => !q('[data-role="user"]'), 3000, "thread cleared");
     expect(order).toEqual(["run", "revert"]);
     expect(q<HTMLTextAreaElement>("textarea")!.value).toBe("bump it");
@@ -348,8 +401,8 @@ describe("<AgentChat>", () => {
     const screen = await render(<AgentChat adapter={adapter} defaultOpen storageKey={false} />);
     await userEvent.type(q<HTMLTextAreaElement>("textarea")!, "look{Enter}");
     await until(() => !!q(".wa-chat__tool") && q(".wa-chat__tool")!.dataset.status === "done", 5000, "tool done");
-    await userEvent.click(q('[aria-label="Restore to before this message"]')!);
-    await userEvent.click(q('[aria-label="Confirm restore to before this message"]')!);
+    await userEvent.click(q('[aria-label^="Restore to stage 1"]')!);
+    await userEvent.click(q('[aria-label="Confirm restore to stage 1"]')!);
     await until(() => !q('[data-role="user"]'), 3000, "thread cleared");
     expect(q<HTMLTextAreaElement>("textarea")!.value).toBe("look");
     unregister();

@@ -7,6 +7,7 @@ import { SiteNav } from "./components/site-nav";
 import { usePage } from "./hooks/use-page";
 import { Orders } from "./pages/orders";
 import { Shop } from "./pages/shop";
+import { exportSnapshot, importSnapshot, type CartCheckpoint } from "./store/cart";
 import { tools } from "./webmcp-agents/tools";
 
 // The provider installs the devtools panel in development. `?tanstack` shows them as a tab in TanStack Devtools
@@ -34,7 +35,14 @@ export default function App() {
         <CartPanel />
       </main>
 
-      <AgentChat adapters={ADAPTERS} position={import.meta.env.DEV ? "bottom-left" : "bottom-right"} />
+      <AgentChat
+        adapters={ADAPTERS}
+        position={import.meta.env.DEV ? "bottom-left" : "bottom-right"}
+        getSnapshot={exportSnapshot}
+        applySnapshot={({ app }) => {
+          if (app) importSnapshot(app as CartCheckpoint);
+        }}
+      />
       <Suspense>
         <Devtools />
       </Suspense>

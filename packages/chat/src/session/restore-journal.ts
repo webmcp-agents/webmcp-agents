@@ -30,6 +30,8 @@ export interface RestoreResult {
   reverted: string[];
   /** Done tool names with no `revert` (fills may still have been restored). */
   skipped: string[];
+  /** True when a page checkpoint ran (`applySnapshot` or default URL restore). */
+  snapshotApplied: boolean;
 }
 
 type ToolPart = Extract<AgentPart, { type: "tool" }>;
@@ -115,9 +117,20 @@ export function outputValue(output?: ToolOutput): unknown {
   }
 }
 
+/** Write prior field values back for completed calls (newest call / newest field first). */
+export function reverseFills(parts: readonly ToolPart[], journal: RestoreJournal): void {
+  for (const part of [...parts].reverse()) {
+    for (const f of [...journal.fillsFor(part.id)].reverse()) {
+      if (f.control.isConnected) writeControl(f.control, f.from);
+    }
+  }
+}
+
 /**
  * Reverse page side effects for completed calls newest-first: restore fills, then
  * each tool's optional `revert`. Mutates nothing about the message list.
+ * Prefer this only when no `applySnapshot` is available; otherwise restore fills and
+ * let the checkpoint rehydrate the page (avoids `history.back` fighting `navigate`).
  */
 export async function reverseToolCalls(
   parts: readonly ToolPart[],
@@ -127,7 +140,6 @@ export async function reverseToolCalls(
   const skipped: string[] = [];
   const newestFirst = [...parts].reverse();
   for (const part of newestFirst) {
-    // fills first (newest field last typed → restore reverse within the call)
     const fills = [...journal.fillsFor(part.id)].reverse();
     for (const f of fills) {
       if (f.control.isConnected) writeControl(f.control, f.from);

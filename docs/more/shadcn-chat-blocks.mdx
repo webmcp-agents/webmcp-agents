@@ -79,7 +79,7 @@ confirmations happen on the page. **Context** (tokens used) waits for usage data
 |---|---|
 | `messages` | The conversation as AI SDK UI messages: text, reasoning and `dynamic-tool` parts with AI SDK states. |
 | `status` | `"ready"`, `"submitted"`, `"streaming"` or `"error"`. |
-| `sendMessage`, `stop`, `regenerate`, `clear`, `restore` | Drive it. `regenerate` resumes an interrupted turn; `restore(messageId)` rewinds to before that user message (and returns the text for the composer). |
+| `sendMessage`, `stop`, `regenerate`, `clear`, `restore` | Drive it. `regenerate` resumes an interrupted turn; `restore(messageId)` rewinds to before that user message (**Restore** under the bubble; returns the text for the composer). |
 | `toolPhase(part)` | What `UIMessage` cannot say about a tool part: `{ phase, prompt?, agent? }`. |
 | `adapters`, `adapter`, `selectAdapter`, `adapterStatus`, `prepare` | The adapter switcher and the adapter's state; `prepare` starts an on-device model's download from the person's click. |
 | `models`, `selectModel`, `suggestions`, `tools` | The local models, the starter prompts, and the tools the model sees. |

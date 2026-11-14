@@ -48,7 +48,7 @@ export const DownIcon = () => (
     <path d="M12 5v14M6 13l6 6 6-6" />
   </Icon>
 );
-/** Rewind the conversation to before a user message (chat restore). */
+/** Rewind the conversation to before a user message. */
 export const RestoreIcon = () => (
   <Icon size={14}>
     <path d="M9 14 4 9l5-5" />

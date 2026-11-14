@@ -34,6 +34,8 @@ export type { AgentSession, UseAgentSessionOptions } from "./session/use-agent-s
 export { resumable, sessionReducer } from "./session/reducer";
 export type { SessionAction, SessionError, SessionState } from "./session/reducer";
 export type { RestoreResult } from "./session/restore-journal";
+export type { ChatRestoreSnapshot, ChatRestoreSnapshots } from "./session/restore-snapshot";
+export { snapshotsStorageKey } from "./session/restore-snapshot";
 export { CANCELLED, displayName, isCancelled } from "./shared";
 export { callModelContextTool, listToolDescriptors, NAVIGATED, TOOL_TIMEOUT_MS } from "./tools";
 export type { CallToolOptions } from "./tools";

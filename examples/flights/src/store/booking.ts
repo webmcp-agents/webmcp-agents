@@ -303,3 +303,24 @@ export function snapshot(): BookingApi {
   };
   return api;
 }
+
+/** Serializable booking/search state for chat restore checkpoints (`getSnapshot`). */
+export type BookingCheckpoint = State;
+
+/** Capture search + bookings for a chat restore checkpoint. */
+export function exportSnapshot(): BookingCheckpoint {
+  return { ...latest() };
+}
+
+/** Rehydrate from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: BookingCheckpoint): void {
+  commit({
+    query: data.query ?? null,
+    filters: data.filters ?? NO_FILTERS,
+    sort: data.sort ?? "price-asc",
+    selectedId: data.selectedId ?? null,
+    contact: data.contact ?? EMPTY_CONTACT,
+    travelers: Array.isArray(data.travelers) ? data.travelers : [],
+    bookings: Array.isArray(data.bookings) ? data.bookings : [],
+  });
+}

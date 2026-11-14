@@ -10,6 +10,9 @@ import { CartDrawer } from "./components/cart-drawer";
 import { Footer } from "./components/footer";
 import { Header } from "./components/header";
 import { useUi } from "./hooks/use-ui";
+import { navigate } from "./lib/navigate";
+import { exportSnapshot, importSnapshot, type CartCheckpoint } from "./store/cart";
+import { ui } from "./store/ui";
 import { shopper } from "./webmcp-agents/agents";
 import { tools } from "./webmcp-agents/tools";
 
@@ -47,7 +50,22 @@ export function Root() {
       <CartDrawer />
 
       {/* inside the provider: the assistant sees exactly the tools this page has on */}
-      <AgentChat adapters={ADAPTERS} agent={shopper} title="Assistant" position={import.meta.env.DEV ? "bottom-left" : "bottom-right"} />
+      <AgentChat
+        adapters={ADAPTERS}
+        agent={shopper}
+        title="Assistant"
+        position={import.meta.env.DEV ? "bottom-left" : "bottom-right"}
+        getSnapshot={() => ({ cart: exportSnapshot(), cartOpen: ui.cartOpen })}
+        applySnapshot={({ url, app }) => {
+          const snap = app as { cart?: CartCheckpoint; cartOpen?: boolean } | undefined;
+          if (snap?.cart) importSnapshot(snap.cart);
+          if (typeof snap?.cartOpen === "boolean") {
+            if (snap.cartOpen) ui.openCart();
+            else ui.closeCart();
+          }
+          if (url) navigate(url);
+        }}
+      />
       <ScrollRestoration />
     </WebAgentsProvider>
   );

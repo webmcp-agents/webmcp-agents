@@ -213,3 +213,21 @@ export function snapshot(): CartApi {
 const serverView = viewOf(EMPTY);
 /** For `useCart()` while hydrating: the empty cart the server rendered. */
 export const serverSnapshot = (): CartApi => serverView;
+
+/** Serializable cart for chat restore checkpoints (`getSnapshot`). */
+export type CartCheckpoint = State;
+
+/** Capture the cart for a chat restore checkpoint. */
+export function exportSnapshot(): CartCheckpoint {
+  const { lines, promo, orders } = current();
+  return { lines, promo, orders };
+}
+
+/** Rehydrate the cart from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: CartCheckpoint): void {
+  commit({
+    lines: Array.isArray(data.lines) ? data.lines : [],
+    promo: data.promo ?? null,
+    orders: Array.isArray(data.orders) ? data.orders : [],
+  });
+}
