@@ -32,4 +32,8 @@ export const goToPage = defineWebTool({
       return "Opened checkout. Next: checkout with the user's email, name, address and country (ask for what you don't have); apply_promo for a code.";
     return page === "home" ? "Opened the home page." : "Opened the cart.";
   },
+  revert: () => {
+    if (typeof history !== "undefined" && history.length > 1) history.back();
+    else navigate("/");
+  },
 });

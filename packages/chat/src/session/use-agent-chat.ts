@@ -14,6 +14,7 @@ import type { WebAgent } from "../agent";
 import { suggestionsFor } from "../components/Suggestions";
 import type { AdapterStatus, AgentAdapter, AgentMessage, AgentPart, ModelChoice, ToolDescriptor } from "../types";
 import type { SessionError } from "./reducer";
+import type { RestoreResult } from "./restore-journal";
 import { type AgentSession, useAgentSession } from "./use-agent-session";
 import type { UIMessage } from "ai";
 
@@ -53,6 +54,11 @@ export interface AgentChat {
   regenerate(): void;
   /** Start a new conversation. */
   clear(): void;
+  /**
+   * Restore to before the user message `messageId`: stop, reverse completed tools in the dropped
+   * span, truncate the thread, return the dropped text for the composer.
+   */
+  restore(messageId: string): Promise<RestoreResult | undefined>;
   /** The tools the model sees right now. */
   tools: ToolDescriptor[];
   /** Starter prompts, from the page's tools. */
@@ -150,6 +156,7 @@ export function useAgentChat({ adapter, adapters, agent, storageKey }: UseAgentC
     stop: session.stop,
     regenerate: session.retry,
     clear: session.reset,
+    restore: session.restore,
     tools: session.tools,
     suggestions,
     adapters: all,

@@ -98,11 +98,19 @@ export function AgentChat({
   const titleId = useId();
   const launcherRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [draft, setDraft] = useState("");
 
   // Opening puts the cursor in the composer.
   useEffect(() => {
     if (open) inputRef.current?.focus();
   }, [open]);
+
+  async function restore(messageId: string) {
+    const result = await session.restore(messageId);
+    if (!result) return;
+    setDraft(result.restoredText);
+    inputRef.current?.focus();
+  }
 
   function close() {
     // commit first: the launcher is hidden while the panel is open, and a hidden button can't take focus
@@ -216,7 +224,7 @@ export function AgentChat({
           </div>
         ) : (
           <>
-            <MessageList messages={session.messages} thinking={thinking} />
+            <MessageList messages={session.messages} thinking={thinking} onRestore={(id) => void restore(id)} />
             {downloadCard}
           </>
         )}
@@ -236,6 +244,8 @@ export function AgentChat({
           inputRef={inputRef}
           streaming={session.status === "streaming"}
           unavailable={unavailable}
+          value={draft}
+          onChange={setDraft}
           onSend={session.send}
           onStop={session.stop}
         />

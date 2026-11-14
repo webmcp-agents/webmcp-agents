@@ -72,6 +72,17 @@ export const cart = {
     });
     return `Added ${qty} × ${product.name} to the cart.`;
   },
+  /** Qty ≤ 0 removes the line. Used by chat restore after add_to_cart. */
+  setQty(sku: string, qty: number): string {
+    const item = state.items.find((i) => i.sku === sku);
+    if (!item) throw new Error(`"${sku}" isn't in the cart.`);
+    if (qty <= 0) {
+      commit({ items: state.items.filter((i) => i.sku !== sku) });
+      return `Removed ${item.name}.`;
+    }
+    commit({ items: state.items.map((i) => (i.sku === sku ? { ...i, qty } : i)) });
+    return `${item.name} quantity is now ${qty}.`;
+  },
   clear(): string {
     commit({ items: [] });
     return "Cart cleared.";

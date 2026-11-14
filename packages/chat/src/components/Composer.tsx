@@ -1,4 +1,4 @@
-import { type FormEvent, type KeyboardEvent, type RefObject, useId, useState } from "react";
+import { type FormEvent, type KeyboardEvent, type RefObject, useId } from "react";
 import { SendIcon, StopIcon } from "./icons";
 
 export interface ComposerProps {
@@ -6,19 +6,21 @@ export interface ComposerProps {
   streaming: boolean;
   /** Why the composer is disabled (the adapter isn't ready), or null. */
   unavailable: string | null;
+  /** Controlled draft (so restore can put the dropped user text back). */
+  value: string;
+  onChange(text: string): void;
   onSend(text: string): void;
   onStop(): void;
 }
 
-export function Composer({ inputRef, streaming, unavailable, onSend, onStop }: ComposerProps) {
-  const [text, setText] = useState("");
+export function Composer({ inputRef, streaming, unavailable, value, onChange, onSend, onStop }: ComposerProps) {
   const hintId = useId();
 
   function submit(e?: FormEvent) {
     e?.preventDefault();
-    if (streaming || unavailable || !text.trim()) return;
-    onSend(text);
-    setText("");
+    if (streaming || unavailable || !value.trim()) return;
+    onSend(value);
+    onChange("");
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -37,8 +39,8 @@ export function Composer({ inputRef, streaming, unavailable, onSend, onStop }: C
         <textarea
           ref={inputRef}
           rows={1}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Ask about this page"
           aria-label="Message the assistant"
@@ -50,7 +52,7 @@ export function Composer({ inputRef, streaming, unavailable, onSend, onStop }: C
             <StopIcon />
           </button>
         ) : (
-          <button type="submit" className="wa-chat__send" aria-label="Send" disabled={!!unavailable || !text.trim()}>
+          <button type="submit" className="wa-chat__send" aria-label="Send" disabled={!!unavailable || !value.trim()}>
             <SendIcon />
           </button>
         )}

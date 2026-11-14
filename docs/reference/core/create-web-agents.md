@@ -60,6 +60,17 @@ A `WebAgents` handle:
 | `registry` | `ToolRegistry` | The [registry](./create-tool-registry.md) behind it: enable a catalog tool by hand while a part of the page is on screen (`registry.enable([id])`). |
 | `visuals` | `Pick<AgentVisuals, "setSpotlight" \| "setYieldToUser">` | Change the cursor's spotlight and yielding at runtime. Before the cursor installs (the polyfill still loading) a change becomes its starting option; with `visuals: false` it does nothing. [`currentAgentVisuals()`](./current-agent-visuals.md) returns this object to UI that has no handle on it. |
 
+### `getRegisteredWebTool`
+
+`getRegisteredWebTool(id)` returns the live `WebTool` for an id on this page (registered, else a started catalog), or `undefined`. Chat restore uses it to call optional [`revert`](./define-web-tool.md). Empty on the server.
+
+```ts
+import { getRegisteredWebTool } from "@webmcp-agents/core";
+
+const tool = getRegisteredWebTool("add_to_cart");
+await tool?.revert?.(input, { signal, source: "chat", output });
+```
+
 ## Notes
 
 - **A tool is on when it is available and its `match` fits the path.** No `match` means every page. A tool that stops matching is released only after a call in flight is answered, so turning a tool off never cancels a call still answering ([Tool lifecycle](../../concepts/tool-lifecycle.mdx)).

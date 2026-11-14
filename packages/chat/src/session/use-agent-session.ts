@@ -15,7 +15,15 @@ import { newId } from "../shared";
 import { listToolDescriptors } from "../tools";
 import type { AdapterStatus, AgentAdapter, AgentMessage, ToolDescriptor } from "../types";
 import { useAdapterStatus } from "./use-adapter-status";
-import { initialSession, resumable, type SessionError, type SessionState, sessionReducer } from "./reducer";
+import { allToolParts, initialSession, resumable, type SessionError, type SessionState, sessionReducer } from "./reducer";
+import {
+  bindRestoreJournal,
+  doneToolsAfter,
+  messageText,
+  RestoreJournal,
+  type RestoreResult,
+  reverseToolCalls,
+} from "./restore-journal";
 import { runAgent } from "./run-agent";
 
 /** Options for `useAgentSession`. */
@@ -40,6 +48,11 @@ export interface AgentSession {
   stop(): void;
   /** Run the interrupted turn again from its last finished tool call (see `resumable`): nothing is done twice. */
   retry(): void;
+  /**
+   * Cursor-like restore: stop the run, reverse completed tools after this user message (fills + optional
+   * `revert`), drop that turn and everything after it, and return the dropped text for the composer.
+   */
+  restore(messageId: string): Promise<RestoreResult | undefined>;
   /** Start a new conversation. */
   reset(): void;
 }
@@ -109,6 +122,10 @@ export function useAgentSession(
     [],
   );
 
+  // ---------- fill journal (chat restore) ----------
+  const journal = useRef(new RestoreJournal());
+  useEffect(() => bindRestoreJournal(journal.current), []);
+
   // ---------- runs ----------
   const controller = useRef<AbortController | null>(null);
   useEffect(() => () => controller.current?.abort(), []);
@@ -127,7 +144,13 @@ export function useAgentSession(
           signal: ctrl.signal,
           listTools: refreshTools,
           onPart: (part, within) => {
-            if (controller.current === ctrl) dispatch({ type: "part", part, within });
+            if (controller.current !== ctrl) return;
+            if (part.type === "tool-call") journal.current.beginCall(part.id, part.name);
+            else if (part.type === "tool-result" || part.type === "tool-error") {
+              const name = allToolParts(latest.current.messages).find((p) => p.id === part.id)?.name;
+              if (name) journal.current.endCall(part.id, name);
+            }
+            dispatch({ type: "part", part, within });
           },
         });
       } finally {
@@ -163,8 +186,30 @@ export function useAgentSession(
     dispatch({ type: "stop" });
   }, []);
 
+  const restore = useCallback(
+    async (messageId: string): Promise<RestoreResult | undefined> => {
+      const { messages } = latest.current;
+      const target = messages.find((m) => m.id === messageId && m.role === "user");
+      if (!target) return undefined;
+      const idx = messages.indexOf(target);
+      // already the empty suffix (nothing at or after this checkpoint to drop)
+      if (idx === -1) return undefined;
+
+      stop();
+
+      const done = doneToolsAfter(messages, messageId);
+      const { reverted, skipped } = await reverseToolCalls(done, journal.current);
+      journal.current.forget(allToolParts(messages.slice(idx)).map((p) => p.id));
+
+      dispatch({ type: "restore", beforeId: messageId });
+      return { restoredText: messageText(target), reverted, skipped };
+    },
+    [stop],
+  );
+
   const reset = useCallback(() => {
     stop();
+    journal.current.clear();
     dispatch({ type: "reset" });
   }, [stop]);
 
@@ -178,6 +223,7 @@ export function useAgentSession(
     send,
     stop,
     retry,
+    restore,
     reset,
   };
 }

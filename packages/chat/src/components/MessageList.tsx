@@ -1,12 +1,19 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { AgentMessage } from "../types";
-import { DownIcon } from "./icons";
+import { DownIcon, RestoreIcon } from "./icons";
 import { Text } from "./Text";
 import { ToolCallCard } from "./ToolCallCard";
 
-function Message({ message }: { message: AgentMessage }) {
+function Message({
+  message,
+  onRestore,
+}: {
+  message: AgentMessage;
+  onRestore?: (messageId: string) => void;
+}) {
   const visible = message.parts.filter((p) => p.type !== "reasoning" && (p.type !== "text" || p.text.trim()));
   if (visible.length === 0) return null;
+  const user = message.role === "user";
   return (
     <div className="wa-chat__message" data-role={message.role}>
       {visible.map((part, i) =>
@@ -19,13 +26,33 @@ function Message({ message }: { message: AgentMessage }) {
           </div>
         ) : null,
       )}
+      {user && onRestore && (
+        <button
+          type="button"
+          className="wa-chat__restore"
+          aria-label="Restore to before this message"
+          title="Restore to before this message"
+          onClick={() => onRestore(message.id)}
+        >
+          <RestoreIcon />
+          Restore
+        </button>
+      )}
     </div>
   );
 }
 
 const NEAR_BOTTOM = 48;
 
-export function MessageList({ messages, thinking }: { messages: AgentMessage[]; thinking: boolean }) {
+export function MessageList({
+  messages,
+  thinking,
+  onRestore,
+}: {
+  messages: AgentMessage[];
+  thinking: boolean;
+  onRestore?: (messageId: string) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
   const [behind, setBehind] = useState(false);
@@ -58,7 +85,7 @@ export function MessageList({ messages, thinking }: { messages: AgentMessage[]; 
         }}
       >
         {messages.map((m) => (
-          <Message key={m.id} message={m} />
+          <Message key={m.id} message={m} onRestore={onRestore} />
         ))}
         {thinking && (
           <div className="wa-chat__typing" role="status">

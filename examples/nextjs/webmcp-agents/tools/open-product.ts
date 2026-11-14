@@ -33,4 +33,8 @@ export const openProduct = defineWebTool({
     navigate(`/product/${product.slug}`);
     return `Opened ${describeProduct(product)} Next (for you, the assistant): call add_to_cart, now on this page.`;
   },
+  revert: () => {
+    if (typeof history !== "undefined" && history.length > 1) history.back();
+    else navigate("/");
+  },
 });

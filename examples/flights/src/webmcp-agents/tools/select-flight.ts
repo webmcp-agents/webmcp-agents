@@ -7,7 +7,7 @@ import { defineWebTool } from "@webmcp-agents/core";
 import { z } from "zod";
 import { airline, describeFlight, fareFor, money } from "../../data/flights";
 import { navigate } from "../../lib/navigate";
-import { RESULTS_PATTERN } from "../../lib/search-params";
+import { RESULTS_PATTERN, toResultsPath } from "../../lib/search-params";
 import { booking } from "../../store/booking";
 
 // An agent calls this.
@@ -29,5 +29,11 @@ export const selectFlight = defineWebTool({
     const { query } = booking.view();
     const fare = query ? ` Total ${money(fareFor(query, flight).total)} incl. taxes.` : "";
     return `Selected ${describeFlight(flight)}.${fare} Next: fill_traveler_details, then book_flight.`;
+  },
+  // chat restore: back to the results list for the same search
+  revert: () => {
+    const { query } = booking.view();
+    booking.clearSelection();
+    navigate(query ? toResultsPath(query) : "/");
   },
 });

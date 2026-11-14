@@ -8,7 +8,7 @@
  * The code is yours: restyle or rearrange it like any shadcn component.
  */
 import { type AgentChatState, createCloudAdapter, type UseAgentChatOptions, useAgentChat } from "@webmcp-agents/chat";
-import { MessageSquareIcon, PlusIcon, SendIcon, SquareIcon, XIcon } from "lucide-react";
+import { MessageSquareIcon, PlusIcon, SendIcon, SquareIcon, Undo2Icon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
 import { Streamdown } from "streamdown";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -195,9 +195,26 @@ export function AgentChatBlock({
                   <Message align={m.role === "user" ? "end" : "start"}>
                     <MessageContent>
                       {m.role === "user" ? (
-                        <Bubble align="end">
-                          <BubbleContent>{m.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}</BubbleContent>
-                        </Bubble>
+                        <div className="group flex flex-col items-end gap-1">
+                          <Bubble align="end">
+                            <BubbleContent>{m.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}</BubbleContent>
+                          </Bubble>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 gap-1 px-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                            aria-label="Restore to before this message"
+                            onClick={() => {
+                              void chat.restore(m.id).then((result) => {
+                                if (result) setText(result.restoredText);
+                              });
+                            }}
+                          >
+                            <Undo2Icon className="size-3.5" />
+                            Restore
+                          </Button>
+                        </div>
                       ) : (
                         <Parts message={m} chat={chat} />
                       )}

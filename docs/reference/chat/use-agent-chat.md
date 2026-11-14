@@ -49,6 +49,7 @@ An `AgentChatState`:
 | `stop()` | `() => void` | Stop the run; open tool calls become `cancelled`. |
 | `regenerate()` | `() => void` | Resume the interrupted turn from its last finished tool call, so nothing is done twice. |
 | `clear()` | `() => void` | Stop and start a new conversation. |
+| `restore(messageId)` | `(messageId: string) => Promise<RestoreResult \| undefined>` | Same as [`session.restore`](./use-agent-session.md#restore): rewind to before that user message and return the dropped text for the composer. |
 | `tools` | `ToolDescriptor[]` | What the model sees right now: the page's tools through the agent's filter, plus its delegate tools. |
 | `suggestions` | `string[]` | Starter prompts derived from the page's tools. |
 | `adapters` | `readonly AgentAdapter[]` | The adapters on offer. |

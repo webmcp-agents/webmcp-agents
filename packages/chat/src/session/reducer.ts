@@ -29,6 +29,8 @@ export type SessionAction =
   | { type: "stop" }
   /** Run again from the interrupted turn's last finished tool call (see `resumable`); what came after it goes. */
   | { type: "retry" }
+  /** Drop the user message `beforeId` and everything after it (chat restore). */
+  | { type: "restore"; beforeId: string }
   | { type: "reset" };
 
 /** An empty conversation. */
@@ -209,6 +211,11 @@ export function sessionReducer(state: SessionState, action: SessionAction): Sess
     case "retry":
       if (!state.messages.some((m) => m.role === "user")) return state;
       return { status: "streaming", messages: resumable(state.messages) };
+    case "restore": {
+      const idx = state.messages.findIndex((m) => m.id === action.beforeId && m.role === "user");
+      if (idx === -1) return state;
+      return { messages: state.messages.slice(0, idx), status: "idle", error: undefined };
+    }
     case "reset":
       return initialSession;
   }

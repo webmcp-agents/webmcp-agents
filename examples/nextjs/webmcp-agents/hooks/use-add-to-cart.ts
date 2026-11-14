@@ -9,7 +9,7 @@ import { errorText } from "@webmcp-agents/core";
 import { useWebTool, WebToolError } from "@webmcp-agents/react";
 import { type UseFormReturn, useForm } from "react-hook-form";
 import { z } from "zod";
-import { cart, MAX_QTY } from "@/lib/cart-store";
+import { cart, MAX_QTY, snapshot } from "@/lib/cart-store";
 import type { Product } from "@/lib/catalog";
 
 const schema = z.object({
@@ -59,6 +59,14 @@ export function useAddToCart(product: Product): AddToCart {
     // the Size select is a custom widget: put the agent's pick in the form
     fill: (values) => form.reset(values),
     execute: add,
+    // chat restore: undo the quantity that was just added
+    revert: ({ quantity, variant }) => {
+      const option = variant ?? null;
+      const line = snapshot().lines.find((l) => l.slug === product.slug && l.variant === option);
+      if (!line) return;
+      const next = line.qty - quantity;
+      cart.setQty(product.slug, option, next <= 0 ? 0 : next);
+    },
   });
 
   return {

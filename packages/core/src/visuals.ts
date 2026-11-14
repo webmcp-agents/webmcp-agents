@@ -694,9 +694,10 @@ function start({
         // A custom widget (a role, no native control) is shown, never written: the tool's `fill` sets it.
         if (isControl(field)) {
           step.done = true;
-          if (sync) await typeInto(field, to, step.from, !!steps);
+          const from = step.from ?? fieldValue(field);
+          if (sync) await typeInto(field, to, from, !!steps);
           agentCursor.flash();
-          report({ type: "fill", tool: toolName, field: name, value: to });
+          report({ type: "fill", tool: toolName, field: name, value: to, from, control: field });
         }
         await wait(isControl(field) ? 60 : 300);
       }

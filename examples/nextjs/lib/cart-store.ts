@@ -82,6 +82,8 @@ export function describeLines(lines: readonly CartLine[], promo: string | null):
 export interface CartActions {
   add(slug: string, qty: number, variant?: string | null): string;
   remove(slug: string): string;
+  /** Qty 0 removes the line. Used by chat restore after add_to_cart. */
+  setQty(slug: string, variant: string | null | undefined, qty: number): string;
   applyPromo(code: string): string;
   placeOrder(contact: Contact): Order;
   describe(): string;
@@ -151,6 +153,19 @@ export const cart: CartActions = {
     const next = lines.filter((l) => l.slug !== slug);
     commit({ ...current(), lines: next });
     return `Removed ${slug}. ${describeLines(next, promo)}`;
+  },
+  setQty(slug, variant, qty) {
+    const { lines, promo } = current();
+    const line = lines.find((l) => l.slug === slug && (variant == null || l.variant === variant));
+    if (!line) throw new Error(`"${slug}" isn't in the cart.`);
+    if (qty <= 0) {
+      const next = lines.filter((l) => l !== line);
+      commit({ ...current(), lines: next });
+      return `Removed ${lineLabel(line)}. ${describeLines(next, promo)}`;
+    }
+    const next = lines.map((l) => (l === line ? { ...l, qty } : l));
+    commit({ ...current(), lines: next });
+    return `${lineLabel(line)} quantity is now ${qty}. ${describeLines(next, promo)}`;
   },
   applyPromo(code) {
     const trimmed = code.trim().toUpperCase();

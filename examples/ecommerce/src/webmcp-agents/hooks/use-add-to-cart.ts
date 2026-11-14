@@ -20,8 +20,8 @@ import { type BaseSyntheticEvent, useEffect, useState } from "react";
 import { type UseFormReturn, useForm } from "react-hook-form";
 import { z } from "zod";
 import type { Product } from "../../data/catalog";
-import { cart } from "../../store/cart";
-import { MAX_QTY } from "../../store/cart-rules";
+import { cart, cartSnapshot } from "../../store/cart";
+import { MAX_QTY, resolveVariant } from "../../store/cart-rules";
 import { ui } from "../../store/ui";
 
 /** How long an agent's add waits for the person to pick the missing option. */
@@ -134,6 +134,20 @@ export function useAddToCart(product: Product): AddToCart {
     description: `Add ${product.name} to the cart. Only on this product's page (open_product first).${axis ? ` Needs a ${axis.name.toLowerCase()} (${axis.options.join(", ")}): ask the user if they didn't say one.` : ""} The cart opens after. Next: keep shopping, or go_to_page checkout.`,
     inputSchema: schema,
     execute: (input) => add(input),
+    // chat restore: undo the quantity that was just added
+    revert: ({ qty, variant }) => {
+      let option: string | null;
+      try {
+        option = resolveVariant(product, variant);
+      } catch {
+        return;
+      }
+      const line = cartSnapshot().lines.find((l) => l.slug === product.slug && l.variant === option);
+      if (!line) return;
+      const next = line.qty - qty;
+      if (next <= 0) cart.remove(product.slug, option);
+      else cart.setQty(product.slug, option, next);
+    },
   });
 
   return {

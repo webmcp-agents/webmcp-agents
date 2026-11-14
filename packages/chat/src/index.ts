@@ -33,6 +33,7 @@ export { useAgentSession } from "./session/use-agent-session";
 export type { AgentSession, UseAgentSessionOptions } from "./session/use-agent-session";
 export { resumable, sessionReducer } from "./session/reducer";
 export type { SessionAction, SessionError, SessionState } from "./session/reducer";
+export type { RestoreResult } from "./session/restore-journal";
 export { CANCELLED, displayName, isCancelled } from "./shared";
 export { callModelContextTool, listToolDescriptors, NAVIGATED, TOOL_TIMEOUT_MS } from "./tools";
 export type { CallToolOptions } from "./tools";

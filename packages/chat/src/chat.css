@@ -451,6 +451,31 @@ html[data-wa-chat-resizing] {
   background: var(--wa-chat-accent);
   color: var(--wa-chat-accent-ink);
 }
+.wa-chat__restore {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: -2px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wa-chat-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+}
+.wa-chat__message[data-role="user"]:hover .wa-chat__restore,
+.wa-chat__message[data-role="user"]:focus-within .wa-chat__restore {
+  opacity: 1;
+}
+@media (hover: hover) {
+  .wa-chat__restore:hover {
+    background: var(--wa-chat-soft);
+    color: var(--wa-chat-fg);
+  }
+}
 .wa-chat__typing {
   display: flex;
   gap: 4px;

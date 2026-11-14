@@ -43,6 +43,12 @@ export function useAddToCart(product: Product): {
     description: `Add ${product.name} to the cart, with a quantity. Use when the user asks for this product. Next: place_order (apply_promo first for a code).`,
     inputSchema: schema,
     execute: add,
+    // chat restore: undo the quantity that was just added
+    revert: ({ qty }) => {
+      const item = cart.state.items.find((i) => i.sku === product.sku);
+      if (!item) return;
+      cart.setQty(product.sku, item.qty - qty);
+    },
   });
 
   return { form, submit: form.handleSubmit(add) };

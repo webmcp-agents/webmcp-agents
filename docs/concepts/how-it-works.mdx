@@ -28,6 +28,11 @@ control when the name is not enough ([How the cursor finds the control](/build/d
 That keeps tools plain and testable, lets you add or remove the cursor without touching them, and means tools from other
 libraries (anything that calls `registerTool`) animate too, when a control on the page is named like them.
 
+Chat **Restore** (rewind the conversation to before a user message) is separate from typing: the chat truncates the
+thread, puts prior field values back from an in-memory journal, and calls an optional tool `revert` for cart, navigation
+and other side effects. A tool that only types needs no `revert`; one that mutates the page should define it
+([`defineWebTool`](/reference/core/define-web-tool), [`session.restore`](/reference/chat/use-agent-session#restore)).
+
 The one thing the cursor reads from a tool is a small description of the call, which `defineWebTool` keeps beside the
 tool: which control it acts on, and which field each parameter is typed into. Core builds it from the tool's `title`,
 `target`, `fields` and input schema before anything moves, so a bad input answers at once and never moves the cursor.

@@ -55,4 +55,8 @@ export const openProduct = defineWebTool({
       : "";
     return `Opened ${describeProduct(product)} ${next}${alsoMatched}`;
   },
+  revert: () => {
+    if (typeof history !== "undefined" && history.length > 1) history.back();
+    else navigate("/");
+  },
 });
