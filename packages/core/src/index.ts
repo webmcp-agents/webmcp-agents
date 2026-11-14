@@ -36,7 +36,7 @@ export type {
 } from "./web-tool";
 export { locate } from "./locate";
 export type { FieldTarget, ToolLocator } from "./locate";
-export { createWebAgents, currentAgentVisuals, inspectTools, watchPathname } from "./web-agents";
+export { createWebAgents, currentAgentVisuals, getRegisteredWebTool, inspectTools, watchPathname } from "./web-agents";
 export { loadWebMCPPolyfill, whenModelContext } from "./model-context";
 export type { PolyfillOption } from "./model-context";
 export type { AvailableTools, ToolInspection, WebAgents, WebAgentsOptions, WebToolCatalog } from "./web-agents";
@@ -60,6 +60,8 @@ export {
 export type { ToolErrorCode } from "./result";
 export { executeTool, normalizeToolResult } from "./execute";
 export type { ExecuteToolOptions } from "./execute";
+export { writeControl } from "./write";
+export type { FieldControl, FieldValue } from "./write";
 
 // The WebMCP types are global (see ./webmcp). These named aliases let other packages import
 // them explicitly, which also pulls the global declarations into their emitted .d.ts.

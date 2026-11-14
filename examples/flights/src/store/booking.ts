@@ -89,6 +89,12 @@ export interface BookingApi {
   /** Throws when nothing is selected or details are missing. */
   confirm(): Booking;
   getBooking(ref: string): Booking | undefined;
+  /** Clear the current search (chat restore after search_flights). */
+  clearSearch(): void;
+  /** Clear the selected flight (chat restore after select_flight). */
+  clearSelection(): void;
+  /** Drop a confirmed booking by ref (chat restore after book_flight). */
+  removeBooking(ref: string): void;
 }
 
 const SESSION_KEY = "skyline:search";
@@ -153,7 +159,18 @@ function missingOf(s: State): string[] {
 /** The store's actions: the same functions on every render. */
 type Actions = Pick<
   BookingApi,
-  "setQuery" | "setFilters" | "setSort" | "select" | "saveDetails" | "missingDetails" | "view" | "confirm" | "getBooking"
+  | "setQuery"
+  | "setFilters"
+  | "setSort"
+  | "select"
+  | "saveDetails"
+  | "missingDetails"
+  | "view"
+  | "confirm"
+  | "getBooking"
+  | "clearSearch"
+  | "clearSelection"
+  | "removeBooking"
 >;
 
 let state: State | undefined;
@@ -242,6 +259,23 @@ export const booking: Actions = {
     return confirmed;
   },
   getBooking: (ref) => latest().bookings.find((b) => b.ref === ref.trim().toUpperCase()),
+  clearSearch() {
+    commit({
+      query: null,
+      filters: NO_FILTERS,
+      sort: "price-asc",
+      selectedId: null,
+      travelers: [],
+      contact: EMPTY_CONTACT,
+    });
+  },
+  clearSelection() {
+    commit({ selectedId: null, travelers: [], contact: EMPTY_CONTACT });
+  },
+  removeBooking(ref) {
+    const wanted = ref.trim().toUpperCase();
+    commit({ bookings: latest().bookings.filter((b) => b.ref !== wanted) });
+  },
 };
 
 /** Calls `listener` after every change; returns the unsubscribe. For `useBooking`. */
@@ -268,4 +302,25 @@ export function snapshot(): BookingApi {
     bookings: s.bookings,
   };
   return api;
+}
+
+/** Serializable booking/search state for chat restore checkpoints (`getSnapshot`). */
+export type BookingCheckpoint = State;
+
+/** Capture search + bookings for a chat restore checkpoint. */
+export function exportSnapshot(): BookingCheckpoint {
+  return { ...latest() };
+}
+
+/** Rehydrate from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: BookingCheckpoint): void {
+  commit({
+    query: data.query ?? null,
+    filters: data.filters ?? NO_FILTERS,
+    sort: data.sort ?? "price-asc",
+    selectedId: data.selectedId ?? null,
+    contact: data.contact ?? EMPTY_CONTACT,
+    travelers: Array.isArray(data.travelers) ? data.travelers : [],
+    bookings: Array.isArray(data.bookings) ? data.bookings : [],
+  });
 }

@@ -28,4 +28,8 @@ export const browseCategory = defineWebTool({
     const items = listByCategory(category).map(productLine);
     return `Opened ${getCategory(category)?.name}:\n${items.join("\n")}${TO_BUY}`;
   },
+  revert: () => {
+    if (typeof history !== "undefined" && history.length > 1) history.back();
+    else navigate("/");
+  },
 });

@@ -141,6 +141,12 @@ export interface WebToolConfig<I = unknown, O = unknown> {
   match?: string | readonly string[] | RegExp;
   /** Do the work. Throw for bad input or failures: the agent gets the message as an error result. */
   execute(input: I, ctx: WebToolContext): O | Promise<O>;
+  /**
+   * Undo this call's page side effects (cart, navigation, booking). Client-only: never sent to the model.
+   * Chat restore calls it newest-first when the person rewinds past this tool call. Field fills are restored
+   * automatically; implement this for everything else. Omit on read-only tools.
+   */
+  revert?(input: I, ctx: WebToolContext & { output?: O }): void | Promise<void>;
 }
 
 /** What a `target` can be once it is known: a locator, a CSS selector, or the element itself. */

@@ -150,4 +150,18 @@ describe("sessionReducer", () => {
       expect(sessionReducer(delegate, { type: "part", part: { type: "message-start", messageId: "x" }, within: "nope" })).toBe(delegate);
     });
   });
+
+  it("restore drops the user message and everything after it", () => {
+    let s = play([
+      { type: "message-start", messageId: "a1" },
+      { type: "text-delta", messageId: "a1", delta: "Done." },
+      { type: "finish", reason: "stop" },
+    ]);
+    s = sessionReducer(s, { type: "send", id: "u2", text: "again" });
+    s = sessionReducer(s, { type: "part", part: { type: "message-start", messageId: "a2" } });
+    const restored = sessionReducer(s, { type: "restore", beforeId: "u2" });
+    expect(restored.status).toBe("idle");
+    expect(restored.messages.map((m) => m.id)).toEqual(["u1", "a1"]);
+    expect(sessionReducer(s, { type: "restore", beforeId: "missing" })).toBe(s);
+  });
 });

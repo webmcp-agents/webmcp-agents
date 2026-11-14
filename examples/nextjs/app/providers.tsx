@@ -12,6 +12,8 @@ import { shopper } from "@/webmcp-agents/agents";
 import { Header } from "@/components/header";
 import { AgentChatBlock } from "@/components/web-agents/agent-chat";
 import { useRouterNavigate } from "@/hooks/use-router-navigate";
+import { exportSnapshot, importSnapshot, type CartCheckpoint } from "@/lib/cart-store";
+import { navigate } from "@/lib/navigate";
 import { tools } from "@/webmcp-agents/tools";
 
 // With a Turnstile site key (public), a chat session starts only after an invisible Turnstile check; the route checks
@@ -37,6 +39,11 @@ export function Providers({ children }: { children: ReactNode }) {
         adapters={ADAPTERS}
         agent={shopper}
         position={process.env.NODE_ENV === "production" ? "bottom-right" : "bottom-left"}
+        getSnapshot={exportSnapshot}
+        applySnapshot={({ url, app }) => {
+          if (app) importSnapshot(app as CartCheckpoint);
+          if (url) navigate(url);
+        }}
       />
     </WebAgentsProvider>
   );

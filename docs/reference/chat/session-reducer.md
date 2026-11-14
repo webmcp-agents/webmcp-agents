@@ -43,6 +43,7 @@ A `SessionError` is `{ message: string; code?: "chat_disabled" | "rate_limited" 
 | `{ type: "toolPhase", name, state, prompt? }` | A core agent event about a running tool: sets the newest open call of that tool name to `state` (`"running"` or `"awaiting-confirmation"`) and `prompt`. Calls run one at a time, so the name is enough. Reaches nested calls too. |
 | `{ type: "stop" }` | `status` becomes `idle`; every `running` or `awaiting-confirmation` call, nested ones included, becomes `cancelled`. |
 | `{ type: "retry" }` | No-op without a user message. Otherwise `status` becomes `streaming` and the messages become `resumable(messages)`. |
+| `{ type: "restore", beforeId }` | No-op when `beforeId` is not a user message. Otherwise keeps messages before that id, sets `status` to `idle`, and clears `error`. Page rewind (fills / `revert`) is done by [`useAgentSession.restore`](./use-agent-session.md#restore) before this action. |
 | `{ type: "reset" }` | Back to the empty session. |
 
 ### Stream parts

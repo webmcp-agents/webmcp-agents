@@ -31,6 +31,8 @@ A one-field chat: it sends the message, lists the replies' text, and offers Try 
 | `adapter` | `AgentAdapter` | required | The agent that runs the model loop (the first argument). Create it once, at module scope. |
 | `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation, so it survives route changes and reloads. `false` keeps it in memory only. |
 | `agent` | `WebAgent` | not set | The page's agent ([`defineWebAgent`](./define-web-agent.md)). `tools` is filtered through it (plus one `delegate_to_<id>` tool per sub-agent), the request carries it, and a `delegate_to_*` call runs the sub-agent's own loop on the same adapter, nested under the call (`AgentPart.agent`). Without it the model sees every page tool and no instructions. |
+| `getSnapshot` | `() => unknown` | — | Optional JSON-serializable app state captured when the person sends a message. Persisted next to the conversation (`<storageKey>:snapshots`). The URL is stored on the message as `page`. |
+| `applySnapshot` | `(snapshot: { url?: string; app?: unknown }) => void \| Promise<void>` | default URL via `history.pushState` + `popstate` | Reapply that checkpoint after fills/`revert` (last word for URL + app). Pass the app's `navigate` for SPA routes. |
 
 ## Returns
 
@@ -47,6 +49,7 @@ An `AgentSession`:
 | `send(text)` | `(text: string) => void` | Trim `text` and start a run. Ignored when empty or while streaming. |
 | `stop()` | `() => void` | Abort the run; open tool calls become `cancelled`. |
 | `retry()` | `() => void` | Resume the interrupted turn from its last finished tool call. Ignored while streaming or with no user message. |
+| `restore(messageId)` | `(messageId: string) => Promise<RestoreResult \| undefined>` | Cursor-like rewind to before that **user** message: stop the run, reverse completed tools in the dropped span (field fills, then each tool's optional [`revert`](../core/define-web-tool.md)), reapply that turn's URL / optional app snapshot, drop that turn and everything after it. Returns `{ restoredText, reverted, skipped, snapshotApplied }` for the composer and tests, or `undefined` when the id is missing. See [Restore](#restore). |
 | `reset()` | `() => void` | Stop and start a new conversation. |
 
 ### What a run does
@@ -56,10 +59,23 @@ An `AgentSession`:
 3. After each tool call, waits for the tools to settle again (150 ms quiet, at most 1.5 s) and refreshes them, since the call may have navigated or opened a form.
 4. Feeds every stream part to [`sessionReducer`](./session-reducer.md). Core `park` and `start` agent events mark the open call of that tool as `awaiting-confirmation` or `running`.
 
+### Restore
+
+`restore(userMessageId)` is conversation rewind, not a single-field undo toast. The built-in chat exposes it as a **Restore** control under each user message that already has a reply (or a later turn).
+
+1. Stops any in-flight run.
+2. Collects completed (`done`) tool parts from that user message onward (nested `delegate_to_*` runs included), newest first.
+3. Writes prior field values back when the in-memory fill journal still has them (skipped after a reload).
+4. **With `applySnapshot`:** rehydrates `{ url: message.page, app }` only (no tool `revert` — those fight SPA `navigate`). **Without it:** calls each tool's optional `revert` ([`getRegisteredWebTool`](../core/create-web-agents.md)), then a best-effort URL restore via `history.pushState` + `popstate`.
+5. Truncates messages to everything **before** that user message and returns the dropped text so the UI can put it in the composer.
+
+App payloads survive reload via `<storageKey>:snapshots`. Tools without `revert` are listed in `skipped` when reverting; the chat still truncates. Wire `getSnapshot` / `applySnapshot` in apps that own cart or route state.
+
 ## Notes
 
 - **Retry resumes.** It sends [`resumable(messages)`](./session-reducer.md#resumable): the conversation through the last tool call that finished, so nothing is done twice (no second add to cart). With nothing finished, the turn starts over from the user's message.
-- Only the last 60 messages are stored. Loading from storage marks any call that was running as `cancelled`.
+- **Restore rewinds.** It drops a user turn and reverses page side effects best-effort; Retry continues an interrupted turn forward.
+- Only the last 60 messages are stored. Loading from storage marks any call that was running as `cancelled`. Fill reverse needs the live journal, so it is skipped after a reload; `revert` still runs when the tool is on the page.
 - A new `send` or `retry` aborts a previous run; parts from a superseded run are dropped.
 - An adapter that throws becomes an `error` part with the thrown message.
 - Unmounting aborts the run.

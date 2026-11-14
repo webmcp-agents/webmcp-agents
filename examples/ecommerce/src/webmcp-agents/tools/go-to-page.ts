@@ -40,4 +40,9 @@ export const goToPage = defineWebTool({
       return "Opened checkout. Next: checkout with the user's email and address (ask for what you don't have); apply_promo for a code.";
     return `Opened all products (${searchProducts("").length}).${TO_BUY}`;
   },
+  // chat restore: leave the page the tool opened
+  revert: () => {
+    if (typeof history !== "undefined" && history.length > 1) history.back();
+    else navigate("/");
+  },
 });

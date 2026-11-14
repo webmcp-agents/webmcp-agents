@@ -35,6 +35,8 @@ The `agent-chat` block of the `@webmcp-agents` registry is a complete chat built
 | `adapters` | `readonly AgentAdapter[]` | not set | Several adapters (cloud, on-device…) for a switcher. The first is the default; the person's choice is remembered in localStorage (`web-agents:chat:adapter`) while that adapter is still offered. |
 | `agent` | `WebAgent` | not set | The page's agent ([`defineWebAgent`](./define-web-agent.md)): its instructions, the tools it may use and its sub-agents. Without it the model sees every page tool and no instructions. |
 | `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation, so it survives route changes and reloads. `false` keeps it in memory only. |
+| `getSnapshot` | `() => unknown` | — | Optional JSON-serializable app state captured per user turn (passed through; persisted with the session). |
+| `applySnapshot` | `(snapshot: { url?: string; app?: unknown }) => void \| Promise<void>` | default URL restore | Reapply a stage checkpoint after `revert` (SPA apps should `navigate(url)` and rehydrate `app`). |
 
 ## Returns
 
@@ -49,6 +51,7 @@ An `AgentChatState`:
 | `stop()` | `() => void` | Stop the run; open tool calls become `cancelled`. |
 | `regenerate()` | `() => void` | Resume the interrupted turn from its last finished tool call, so nothing is done twice. |
 | `clear()` | `() => void` | Stop and start a new conversation. |
+| `restore(messageId)` | `(messageId: string) => Promise<RestoreResult \| undefined>` | Same as [`session.restore`](./use-agent-session.md#restore): rewind to before that user message (fills, `revert`, URL/app snapshot) and return the dropped text for the composer. |
 | `tools` | `ToolDescriptor[]` | What the model sees right now: the page's tools through the agent's filter, plus its delegate tools. |
 | `suggestions` | `string[]` | Starter prompts derived from the page's tools. |
 | `adapters` | `readonly AgentAdapter[]` | The adapters on offer. |

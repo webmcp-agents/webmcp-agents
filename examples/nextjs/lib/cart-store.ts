@@ -82,6 +82,8 @@ export function describeLines(lines: readonly CartLine[], promo: string | null):
 export interface CartActions {
   add(slug: string, qty: number, variant?: string | null): string;
   remove(slug: string): string;
+  /** Qty 0 removes the line. Used by chat restore after add_to_cart. */
+  setQty(slug: string, variant: string | null | undefined, qty: number): string;
   applyPromo(code: string): string;
   placeOrder(contact: Contact): Order;
   describe(): string;
@@ -152,6 +154,19 @@ export const cart: CartActions = {
     commit({ ...current(), lines: next });
     return `Removed ${slug}. ${describeLines(next, promo)}`;
   },
+  setQty(slug, variant, qty) {
+    const { lines, promo } = current();
+    const line = lines.find((l) => l.slug === slug && (variant == null || l.variant === variant));
+    if (!line) throw new Error(`"${slug}" isn't in the cart.`);
+    if (qty <= 0) {
+      const next = lines.filter((l) => l !== line);
+      commit({ ...current(), lines: next });
+      return `Removed ${lineLabel(line)}. ${describeLines(next, promo)}`;
+    }
+    const next = lines.map((l) => (l === line ? { ...l, qty } : l));
+    commit({ ...current(), lines: next });
+    return `${lineLabel(line)} quantity is now ${qty}. ${describeLines(next, promo)}`;
+  },
   applyPromo(code) {
     const trimmed = code.trim().toUpperCase();
     if (trimmed !== PROMO_CODE) throw new Error(`"${code}" isn't a valid promo code.`);
@@ -198,3 +213,21 @@ export function snapshot(): CartApi {
 const serverView = viewOf(EMPTY);
 /** For `useCart()` while hydrating: the empty cart the server rendered. */
 export const serverSnapshot = (): CartApi => serverView;
+
+/** Serializable cart for chat restore checkpoints (`getSnapshot`). */
+export type CartCheckpoint = State;
+
+/** Capture the cart for a chat restore checkpoint. */
+export function exportSnapshot(): CartCheckpoint {
+  const { lines, promo, orders } = current();
+  return { lines, promo, orders };
+}
+
+/** Rehydrate the cart from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: CartCheckpoint): void {
+  commit({
+    lines: Array.isArray(data.lines) ? data.lines : [],
+    promo: data.promo ?? null,
+    orders: Array.isArray(data.orders) ? data.orders : [],
+  });
+}

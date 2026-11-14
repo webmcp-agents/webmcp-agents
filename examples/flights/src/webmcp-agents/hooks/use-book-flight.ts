@@ -73,6 +73,13 @@ export function useBookFlight({ total, travelers, onBooked }: UseBookFlightOptio
     // the ticked box in the form's state too, before the person confirms
     fill: (values) => form.reset(values),
     execute: book,
+    // chat restore: drop the booking that was just created
+    revert: (_input, { output }) => {
+      const text = typeof output === "string" ? output : "";
+      const ref = text.match(/\b(SK-[A-Z0-9]+)\b/)?.[1];
+      if (ref) booking.removeBooking(ref);
+      if (typeof location !== "undefined" && location.pathname.startsWith("/bookings/")) navigate("/");
+    },
   });
 
   return {

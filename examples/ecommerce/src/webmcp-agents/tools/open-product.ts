@@ -11,6 +11,13 @@ import { navigate } from "../../lib/navigate.ts";
 /** Where to go from a list of products: add_to_cart only exists on a product's page. */
 export const TO_BUY = "\nNext (for you, the assistant): call open_product with a slug, then add_to_cart.";
 
+/** Product slug from `/product/<slug>` when the agent omits args (common after restore). */
+function pathProductSlug(): string | undefined {
+  if (typeof location === "undefined") return undefined;
+  const match = location.pathname.match(/^\/product\/([^/]+)\/?$/);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+}
+
 export const openProduct = defineWebTool({
   id: "open_product",
   title: "Open a product page",
@@ -24,21 +31,30 @@ export const openProduct = defineWebTool({
 
   // the product's card, when the page lists it ("Ocean Tee $48.00" starts with its name); elsewhere it runs unseen
   target: ({ slug }) => {
-    const name = slug && findProduct(slug)?.name;
+    const wanted = slug?.trim() || pathProductSlug();
+    const name = wanted && findProduct(wanted)?.name;
     return name ? { role: "link", name } : undefined;
   },
 
   execute: ({ slug, query }) => {
     // An exact slug, else the best search match: agents guess slugs ("tee" for "ocean-tee"), and a near miss that
-    // opens the right page beats an error a small model won't recover from.
-    const words = query ?? slug?.replace(/-/g, " ");
-    if (!slug && !words) throw new WebToolError("invalid_input", "Pass a slug or a query.");
+    // opens the right page beats an error a small model won't recover from. Empty calls (after restore, or a thin
+    // model) while already on a product page use that path's slug.
+    const wanted = slug?.trim() || pathProductSlug();
+    const search = query?.trim() || undefined;
+    if (!wanted && !search) {
+      throw new WebToolError(
+        "invalid_input",
+        "Pass a slug (e.g. ocean-tee) or a query (e.g. linen shirt). Call search_products first if you do not have one.",
+      );
+    }
 
-    let product: Product | undefined = slug ? findProduct(slug) : undefined;
+    let product: Product | undefined = wanted ? findProduct(wanted) : undefined;
     let others: Product[] = [];
     if (!product) {
-      [product, ...others] = searchProducts(words!);
-      if (!product) throw new WebToolError("invalid_input", `No product matches "${words}". Try search_products with other words.`);
+      const q = search ?? wanted!.replace(/-/g, " ");
+      [product, ...others] = searchProducts(q);
+      if (!product) throw new WebToolError("invalid_input", `No product matches "${q}". Try search_products with other words.`);
     }
 
     navigate(`/product/${product.slug}`);
@@ -48,11 +64,15 @@ export const openProduct = defineWebTool({
         ? "It's sold out: it can't be added to the cart."
         : "Next (for you, the assistant): call add_to_cart, now on this page.";
     const alsoMatched = others.length
-      ? ` Best match for "${words}"; also matched: ${others
+      ? ` Best match for "${search ?? wanted}"; also matched: ${others
           .slice(0, 4)
           .map((p) => p.slug)
           .join(", ")}.`
       : "";
     return `Opened ${describeProduct(product)} ${next}${alsoMatched}`;
+  },
+  revert: () => {
+    if (typeof history !== "undefined" && history.length > 1) history.back();
+    else navigate("/");
   },
 });

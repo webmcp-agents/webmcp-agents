@@ -48,3 +48,10 @@ export const DownIcon = () => (
     <path d="M12 5v14M6 13l6 6 6-6" />
   </Icon>
 );
+/** Rewind the conversation to before a user message. */
+export const RestoreIcon = () => (
+  <Icon size={14}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10a5 5 0 0 1 0 10h-1" />
+  </Icon>
+);
