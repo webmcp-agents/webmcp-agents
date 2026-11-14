@@ -454,8 +454,21 @@ html[data-wa-chat-resizing] {
 .wa-chat__restore {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-top: -2px;
+  opacity: 0;
+}
+.wa-chat__message[data-role="user"]:hover .wa-chat__restore,
+.wa-chat__message[data-role="user"]:focus-within .wa-chat__restore,
+.wa-chat__message[data-confirming] .wa-chat__restore {
+  opacity: 1;
+}
+.wa-chat__restore-ask,
+.wa-chat__restore-confirm,
+.wa-chat__restore-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px 6px;
   border: 0;
   border-radius: 6px;
@@ -464,16 +477,18 @@ html[data-wa-chat-resizing] {
   font: inherit;
   font-size: 12px;
   cursor: pointer;
-  opacity: 0;
 }
-.wa-chat__message[data-role="user"]:hover .wa-chat__restore,
-.wa-chat__message[data-role="user"]:focus-within .wa-chat__restore {
-  opacity: 1;
+.wa-chat__restore-confirm {
+  color: var(--wa-chat-danger);
 }
 @media (hover: hover) {
-  .wa-chat__restore:hover {
+  .wa-chat__restore-ask:hover,
+  .wa-chat__restore-cancel:hover {
     background: var(--wa-chat-soft);
     color: var(--wa-chat-fg);
+  }
+  .wa-chat__restore-confirm:hover {
+    background: color-mix(in srgb, var(--wa-chat-danger) 12%, transparent);
   }
 }
 .wa-chat__typing {

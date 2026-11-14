@@ -100,9 +100,10 @@ Dark mode follows `prefers-color-scheme` (unless an ancestor or the host has `da
   size, Cancel, and a button to switch to another adapter.
 - "Try again" after a failed run resumes the turn (see [`resumable`](./session-reducer.md#resumable)). It is hidden for
   `chat_disabled`.
-- Each user message offers **Restore** (hover or focus): it calls [`session.restore`](./use-agent-session.md#restore),
-  truncates the thread to before that message, reverses completed tools best-effort, and puts the dropped text back in
-  the composer. Works while a run is streaming (it stops first).
+- Each user message offers **Restore** (hover or focus): the first click asks for confirmation; **Confirm restore**
+  then calls [`session.restore`](./use-agent-session.md#restore), truncates the thread to before that message, reverses
+  completed tools best-effort, and puts the dropped text back in the composer. Works while a run is streaming (it stops
+  first).
 - Escape closes the panel and returns focus to the launcher.
 
 ## See also

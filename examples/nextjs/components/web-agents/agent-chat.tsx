@@ -119,6 +119,8 @@ export function AgentChatBlock({
   const chat = useAgentChat({ adapter, adapters: adapters ?? (adapter ? undefined : DEFAULT_ADAPTERS), agent, storageKey });
   const [open, setOpen] = useState(defaultOpen);
   const [text, setText] = useState("");
+  /** User message id waiting for a second click before `restore` runs. */
+  const [restoreId, setRestoreId] = useState<string | null>(null);
   const inputId = useId();
   const busy = chat.status === "submitted" || chat.status === "streaming";
   const unavailable =
@@ -199,21 +201,51 @@ export function AgentChatBlock({
                           <Bubble align="end">
                             <BubbleContent>{m.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}</BubbleContent>
                           </Bubble>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 gap-1 px-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-                            aria-label="Restore to before this message"
-                            onClick={() => {
-                              void chat.restore(m.id).then((result) => {
-                                if (result) setText(result.restoredText);
-                              });
-                            }}
+                          <div
+                            className={`flex items-center gap-1 ${restoreId === m.id ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"}`}
                           >
-                            <Undo2Icon className="size-3.5" />
-                            Restore
-                          </Button>
+                            {restoreId === m.id ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1 px-2 text-xs text-destructive"
+                                  aria-label="Confirm restore to before this message"
+                                  onClick={() => {
+                                    setRestoreId(null);
+                                    void chat.restore(m.id).then((result) => {
+                                      if (result) setText(result.restoredText);
+                                    });
+                                  }}
+                                >
+                                  Confirm restore
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-muted-foreground"
+                                  aria-label="Cancel restore"
+                                  onClick={() => setRestoreId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                                aria-label="Restore to before this message"
+                                onClick={() => setRestoreId(m.id)}
+                              >
+                                <Undo2Icon className="size-3.5" />
+                                Restore
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <Parts message={m} chat={chat} />

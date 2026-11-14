@@ -11,11 +11,12 @@ function Message({
   message: AgentMessage;
   onRestore?: (messageId: string) => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const visible = message.parts.filter((p) => p.type !== "reasoning" && (p.type !== "text" || p.text.trim()));
   if (visible.length === 0) return null;
   const user = message.role === "user";
   return (
-    <div className="wa-chat__message" data-role={message.role}>
+    <div className="wa-chat__message" data-role={message.role} data-confirming={confirming || undefined}>
       {visible.map((part, i) =>
         part.type === "tool" ? (
           <ToolCallCard key={part.id} part={part} />
@@ -27,16 +28,37 @@ function Message({
         ) : null,
       )}
       {user && onRestore && (
-        <button
-          type="button"
-          className="wa-chat__restore"
-          aria-label="Restore to before this message"
-          title="Restore to before this message"
-          onClick={() => onRestore(message.id)}
-        >
-          <RestoreIcon />
-          Restore
-        </button>
+        <div className="wa-chat__restore">
+          {confirming ? (
+            <>
+              <button
+                type="button"
+                className="wa-chat__restore-confirm"
+                aria-label="Confirm restore to before this message"
+                onClick={() => {
+                  setConfirming(false);
+                  onRestore(message.id);
+                }}
+              >
+                Confirm restore
+              </button>
+              <button type="button" className="wa-chat__restore-cancel" aria-label="Cancel restore" onClick={() => setConfirming(false)}>
+                Cancel
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="wa-chat__restore-ask"
+              aria-label="Restore to before this message"
+              title="Restore to before this message"
+              onClick={() => setConfirming(true)}
+            >
+              <RestoreIcon />
+              Restore
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

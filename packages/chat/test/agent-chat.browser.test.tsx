@@ -250,6 +250,7 @@ describe("<AgentChat>", () => {
     expect(order).toEqual(["run"]);
 
     await userEvent.click(q('[aria-label="Restore to before this message"]')!);
+    await userEvent.click(q('[aria-label="Confirm restore to before this message"]')!);
     await until(() => !q('[data-role="user"]'), 3000, "thread cleared");
     expect(order).toEqual(["run", "revert"]);
     expect(q<HTMLTextAreaElement>("textarea")!.value).toBe("bump it");
@@ -279,6 +280,7 @@ describe("<AgentChat>", () => {
     await userEvent.type(q<HTMLTextAreaElement>("textarea")!, "look{Enter}");
     await until(() => !!q(".wa-chat__tool") && q(".wa-chat__tool")!.dataset.status === "done", 5000, "tool done");
     await userEvent.click(q('[aria-label="Restore to before this message"]')!);
+    await userEvent.click(q('[aria-label="Confirm restore to before this message"]')!);
     await until(() => !q('[data-role="user"]'), 3000, "thread cleared");
     expect(q<HTMLTextAreaElement>("textarea")!.value).toBe("look");
     unregister();
