@@ -4,12 +4,12 @@ description: "The chat session as a pure state machine: the messages, whether a 
 
 # `sessionReducer`
 
-The chat session as a pure state machine: the messages, whether a run is streaming, and the last error. Use it when you manage a conversation yourself or test one in Node; [`useAgentSession`](./use-agent-session.md) feeds it adapter stream parts and core agent events. `resumable` decides what Retry sends.
+The chat session as a pure state machine: the messages, whether a run is streaming, and the last error. Use it when you manage a conversation yourself or test one in Node; [`useAgentSession`](./use-agent-session.md) feeds it adapter stream parts and core agent events. `resumable` decides what Retry sends; `canRestoreTo` decides where a restore may go.
 
 ## Import
 
 ```ts
-import { resumable, sessionReducer } from "@webmcp-agents/chat";
+import { canRestoreTo, resumable, sessionReducer } from "@webmcp-agents/chat";
 import type {
   SessionAction,
   SessionError,
@@ -41,8 +41,10 @@ A `SessionError` is `{ message: string; code?: "chat_disabled" | "rate_limited" 
 | `{ type: "send", id, text }` | Appends a user message with one text part; `status` becomes `streaming`; clears `error`. |
 | `{ type: "part", part, within? }` | Applies one [`AgentStreamPart`](./adapter-types.md#agentstreampart) (below). With `within`, the part belongs to a sub-agent's run behind the `delegate_to_*` call with that id: it is applied to that call's nested messages (`AgentPart.agent.messages`) by the same state machine. A nested `finish` or `error` ends only the nested run; the parent stays streaming. |
 | `{ type: "toolPhase", name, state, prompt? }` | A core agent event about a running tool: sets the newest open call of that tool name to `state` (`"running"` or `"awaiting-confirmation"`) and `prompt`. Calls run one at a time, so the name is enough. Reaches nested calls too. |
+| `{ type: "committed", id }` | Marks the `done` call `id` (nested ones too) `committed`: its tool is confirm-gated or `destructive`, so no restore may go to before it (`canRestoreTo`). [`useAgentSession`](./use-agent-session.md) sends it after such a call's result. No-op for a call that is not `done`. |
 | `{ type: "stop" }` | `status` becomes `idle`; every `running` or `awaiting-confirmation` call, nested ones included, becomes `cancelled`. |
 | `{ type: "retry" }` | No-op without a user message. Otherwise `status` becomes `streaming` and the messages become `resumable(messages)`. |
+| `{ type: "restore", beforeId }` | No-op when `beforeId` is not a user message. Otherwise keeps messages before that id, sets `status` to `idle`, and clears `error`. It does not check `canRestoreTo`: [`useAgentSession.restore`](./use-agent-session.md#restore) does, then sends this action and rewinds the page (fills / `revert` / snapshot). |
 | `{ type: "reset" }` | Back to the empty session. |
 
 ### Stream parts
@@ -66,6 +68,13 @@ A `SessionError` is `{ message: string; code?: "chat_disabled" | "rate_limited" 
 ### `resumable`
 
 `resumable(messages: AgentMessage[]): AgentMessage[]` returns a new array: what Retry sends. It is the conversation through the last tool call that finished (`done` or `error`) after the last user message. What came after it goes: unfinished calls (dropped, not reported to the model as "Cancelled by the user") and a reply cut short. With no finished call, it returns the messages through the last user message, so the turn starts over. Without any user message it returns `messages` unchanged.
+
+### `canRestoreTo`
+
+`canRestoreTo(messages: readonly AgentMessage[], messageId: string): boolean` is whether the chat can restore to before
+the user message `messageId`: something comes after it, and no `committed` call (a confirmed order or booking) comes
+at or after it. Once the person confirmed something irreversible, no turn before it can be rewound. The chat's restore
+control and `session.restore` both ask it; `useAgentChat` exposes it as `canRestore(messageId)`.
 
 ## Notes
 

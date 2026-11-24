@@ -186,7 +186,7 @@ describe("installAgentVisuals", () => {
     sampling = false;
     expect(resultText(result)).toContain("ok");
     expect((form.elements.namedItem("returnDate") as HTMLInputElement).value).toBe("2026-12-01");
-    expect(rec.events).toContainEqual({ type: "fill", tool: name, field: "returnDate", value: "2026-12-01" });
+    expect(rec.events).toContainEqual(expect.objectContaining({ type: "fill", tool: name, field: "returnDate", value: "2026-12-01" }));
     expect(corner).toEqual([]);
   });
 

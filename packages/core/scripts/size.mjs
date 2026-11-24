@@ -46,10 +46,14 @@ const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
  * 10.4 KB and 18.3 KB. Presses that overlap each landing on their frame, and an async target remembered per call
  * (never opened outside a call's start, a rejection counting as none) add about 0.1 KB (10.41 KB and 18.39 KB):
  * budgets 10.45 KB and 18.4 KB.
+ *
+ * Chat restore (2026-11-21): a `fill` event's `from` / `control` (the value a field held, kept out for a password),
+ * and `getRegisteredWebTool` and `writeControl` for @webmcp-agents/chat add about 80 B to the whole package
+ * (18.48 KB); the visuals stay within 10.45 KB. Whole-package budget raised to 18.5 KB.
  */
 const CHECKS = [
   { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.45 * KB },
-  { name: "whole package", exports: "*", budget: 18.4 * KB },
+  { name: "whole package", exports: "*", budget: 18.5 * KB },
 ];
 
 async function size(exports) {

@@ -45,6 +45,8 @@ const adapters = [
 | `suggestions` | `string[] \| false` | derived from the page's tools | Starter prompts for an empty conversation. `false` hides them. |
 | `className` | `string` | — | Extra class on the host element, for theming with the `--wa-chat-*` properties. |
 | `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation. Whether the panel is open is kept next to it (`<key>:open`), so after a page load (a navigation made without the app's router, a reload) the chat comes back as it was. `false` keeps both in memory only. |
+| `getSnapshot` | `() => unknown` | — | Optional JSON-serializable app state (cart, selection, …) captured per user turn and persisted with the chat. The URL is stored on the message automatically. |
+| `applySnapshot` | `(snapshot: { url?: string; app?: unknown }) => void \| Promise<void>` | default `history.replaceState` + `popstate` for `url` | Reapply a stage's checkpoint once the fills are rewound; with it, no tool `revert` runs. SPA apps should call their router (`navigate(url)`) and rehydrate store state from `app` (leave orders and bookings out: a restore never goes past a confirmed one). |
 
 ## Returns
 
@@ -106,6 +108,14 @@ A worked example, with the cursor: [Style the cursor and the chat](/build/style-
   size, Cancel, and a button to switch to another adapter.
 - "Try again" after a failed run resumes the turn (see [`resumable`](./session-reducer.md#resumable)). It is hidden for
   `chat_disabled`.
+- User messages that already have a reply (or a later turn) show a restore icon under the bubble, unless a confirmed
+  action (a finished `requireConfirmation` or `destructive` call: an order placed, a flight booked) comes at or after
+  them. The icon asks to confirm with a check and a cross (their tooltips and accessible names carry the words: “Remove
+  this turn and everything after”, “Cancel”); confirming calls [`session.restore`](./use-agent-session.md#restore),
+  truncates the thread, rewinds the page best-effort, reapplies that turn's URL / app snapshot, puts the dropped text in
+  the composer (before anything already typed there), and shows a short “Restored — edit and send again.” status.
+  Works while a run is streaming (it stops first); a message sent while the page is being restored stays in the
+  composer.
 - Escape closes the panel and returns focus to the launcher.
 
 ## See also

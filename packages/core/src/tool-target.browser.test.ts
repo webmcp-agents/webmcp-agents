@@ -291,8 +291,8 @@ describe("a tool's control and fields", () => {
     expect(resultText(res)).toBe('Added 12 with "Enjoy"');
     expect(order).toEqual(["execute 12 Enjoy at t-form-add"]); // both on screen, then the press
     expect(rec.events.filter((e) => e.type === "fill")).toEqual([
-      { type: "fill", tool: id, field: "giftNote", value: "Enjoy" },
-      { type: "fill", tool: id, field: "quantity", value: "12" },
+      expect.objectContaining({ type: "fill", tool: id, field: "giftNote", value: "Enjoy" }),
+      expect.objectContaining({ type: "fill", tool: id, field: "quantity", value: "12" }),
     ]);
     expect(rec.types()).toEqual(["start", "fill", "fill", "result"]);
     expect(inputs.note).toBe(5); // a text field is typed a character at a time
@@ -366,7 +366,9 @@ describe("a tool's control and fields", () => {
     expect(visited).toBe(true);
     expect(order).toEqual(["fill after 1 typed", "execute with L"]);
     // only what was written is reported as filled
-    expect(off.events.filter((e) => e.type === "fill")).toEqual([{ type: "fill", tool: id, field: "quantity", value: "3" }]);
+    expect(off.events.filter((e) => e.type === "fill")).toEqual([
+      expect.objectContaining({ type: "fill", tool: id, field: "quantity", value: "3" }),
+    ]);
   });
 
   it("skips a parameter with `fields: false` and one with no field, and follows an explicit field", async () => {
@@ -391,7 +393,9 @@ describe("a tool's control and fields", () => {
     expect(byId<HTMLInputElement>("t-fields-code").value).toBe(""); // never typed
     expect(byId<HTMLInputElement>("t-fields-search").value).toBe("tee"); // outside the form: only because it was named
     expect(got).toEqual({ code: "SAVE10", q: "tee", page: 2, tags: ["new"] }); // execute still gets everything
-    expect(rec.events.filter((e) => e.type === "fill")).toEqual([{ type: "fill", tool: id, field: "q", value: "tee" }]);
+    expect(rec.events.filter((e) => e.type === "fill")).toEqual([
+      expect.objectContaining({ type: "fill", tool: id, field: "q", value: "tee" }),
+    ]);
   });
 
   it("never types input the schema rejects: the agent gets the messages, the page is untouched", async () => {

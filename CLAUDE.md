@@ -33,7 +33,7 @@ pnpm install
 pnpm dev                                   # every app with HMR into package source: playground :5173, ecommerce :5174, flights :5175,
                                            # nextjs :5176, the website (landing + docs) :4321
 pnpm check                                 # biome ci + typecheck + test + build + size (what CI runs)
-pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.45 KB, whole package ≤ 18.4 KB
+pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.45 KB, whole package ≤ 18.5 KB
                                            # (the polyfill chunk, loaded on demand, is reported, not counted)
 pnpm typecheck | pnpm test | pnpm build    # via turbo
 pnpm lint / pnpm format                    # biome

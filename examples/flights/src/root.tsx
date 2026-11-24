@@ -8,6 +8,8 @@ import { WebAgentsProvider } from "@webmcp-agents/react";
 import { Outlet, ScrollRestoration } from "react-router";
 import { Footer } from "./components/footer";
 import { Header } from "./components/header";
+import { navigate } from "./lib/navigate";
+import { exportSnapshot, importSnapshot, type BookingCheckpoint } from "./store/booking";
 import { concierge } from "./webmcp-agents/agents";
 import { tools } from "./webmcp-agents/tools";
 
@@ -37,7 +39,17 @@ export function Root() {
         <Footer />
       </div>
       {/* inside the provider: the assistant sees exactly the tools this page has on */}
-      <AgentChat adapters={ADAPTERS} agent={concierge} title="Assistant" position={import.meta.env.DEV ? "bottom-left" : "bottom-right"} />
+      <AgentChat
+        adapters={ADAPTERS}
+        agent={concierge}
+        title="Assistant"
+        position={import.meta.env.DEV ? "bottom-left" : "bottom-right"}
+        getSnapshot={exportSnapshot}
+        applySnapshot={({ url, app }) => {
+          if (app) importSnapshot(app as BookingCheckpoint);
+          if (url) navigate(url);
+        }}
+      />
       <ScrollRestoration />
     </WebAgentsProvider>
   );

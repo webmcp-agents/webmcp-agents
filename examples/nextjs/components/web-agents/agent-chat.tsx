@@ -8,8 +8,8 @@
  * The code is yours: restyle or rearrange it like any shadcn component.
  */
 import { type AgentChatState, createCloudAdapter, type UseAgentChatOptions, useAgentChat } from "@webmcp-agents/chat";
-import { MessageSquareIcon, PlusIcon, SendIcon, SquareIcon, XIcon } from "lucide-react";
-import { type FormEvent, type KeyboardEvent, useId, useState } from "react";
+import { CheckIcon, MessageSquareIcon, PlusIcon, SendIcon, SquareIcon, Undo2Icon, XIcon } from "lucide-react";
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import { AgentSubagent } from "@/components/web-agents/agent-subagent";
 import { AgentTool } from "@/components/web-agents/agent-tool";
 
 const DEFAULT_ADAPTERS = [createCloudAdapter()];
+/** The restore confirm button's name and tooltip. */
+const CONFIRM_RESTORE = "Remove this turn and everything after";
 
 export interface AgentChatBlockProps extends Partial<UseAgentChatOptions> {
   title?: string;
@@ -111,14 +113,28 @@ export function AgentChatBlock({
   adapters,
   agent,
   storageKey,
+  getSnapshot,
+  applySnapshot,
   title = "Assistant",
   defaultOpen = false,
   position = "bottom-right",
 }: AgentChatBlockProps) {
   const corner = position === "bottom-left" ? "left-4 bottom-4" : "right-4 bottom-4";
-  const chat = useAgentChat({ adapter, adapters: adapters ?? (adapter ? undefined : DEFAULT_ADAPTERS), agent, storageKey });
+  const chat = useAgentChat({
+    adapter,
+    adapters: adapters ?? (adapter ? undefined : DEFAULT_ADAPTERS),
+    agent,
+    storageKey,
+    getSnapshot,
+    applySnapshot,
+  });
   const [open, setOpen] = useState(defaultOpen);
   const [text, setText] = useState("");
+  /** User message id waiting for a second click before `restore` runs. */
+  const [restoreId, setRestoreId] = useState<string | null>(null);
+  const [restoredNote, setRestoredNote] = useState(false);
+  const restoredTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoring = useRef(false);
   const inputId = useId();
   const busy = chat.status === "submitted" || chat.status === "streaming";
   const unavailable =
@@ -130,14 +146,44 @@ export function AgentChatBlock({
           ? "The model isn't ready yet."
           : null;
 
+  useEffect(
+    () => () => {
+      if (restoredTimer.current) clearTimeout(restoredTimer.current);
+    },
+    [],
+  );
+
+  function clearRestoredNote() {
+    if (restoredTimer.current) clearTimeout(restoredTimer.current);
+    restoredTimer.current = null;
+    setRestoredNote(false);
+  }
+  function showRestoredNote() {
+    clearRestoredNote();
+    setRestoredNote(true);
+    restoredTimer.current = setTimeout(() => {
+      restoredTimer.current = null;
+      setRestoredNote(false);
+    }, 4000);
+  }
   function submit(e?: FormEvent) {
     e?.preventDefault();
-    if (busy || unavailable || !text.trim()) return;
+    // while a restore is under way nothing is sent: keep the text (the restored message is put before it)
+    if (busy || unavailable || restoring.current || !text.trim()) return;
+    clearRestoredNote();
     chat.sendMessage({ text });
     setText("");
   }
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) submit(e);
+  }
+  function stageLabel(m: (typeof chat.messages)[number]): string {
+    const text = m.parts
+      .map((p) => (p.type === "text" ? p.text : ""))
+      .join("")
+      .trim();
+    if (!text) return "Message";
+    return text.length > 42 ? `${text.slice(0, 41)}…` : text;
   }
 
   if (!open) {
@@ -158,7 +204,15 @@ export function AgentChatBlock({
         <h2 className="text-sm font-medium">{title}</h2>
         <div className="ml-auto flex items-center gap-1">
           {chat.messages.length > 0 && (
-            <Button variant="ghost" size="icon-sm" onClick={chat.clear} aria-label="New chat">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => {
+                clearRestoredNote();
+                chat.clear();
+              }}
+              aria-label="New chat"
+            >
               <PlusIcon />
             </Button>
           )}
@@ -169,7 +223,7 @@ export function AgentChatBlock({
       </header>
 
       <MessageScrollerProvider autoScroll>
-        <MessageScroller className="flex-1">
+        <MessageScroller className="min-h-0 flex-1">
           <MessageScrollerViewport className="px-3 py-3">
             <MessageScrollerContent>
               {chat.messages.length === 0 && (
@@ -190,21 +244,92 @@ export function AgentChatBlock({
                   <AdapterCard chat={chat} />
                 </div>
               )}
-              {chat.messages.map((m) => (
-                <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === "user"}>
-                  <Message align={m.role === "user" ? "end" : "start"}>
-                    <MessageContent>
-                      {m.role === "user" ? (
-                        <Bubble align="end">
-                          <BubbleContent>{m.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}</BubbleContent>
-                        </Bubble>
-                      ) : (
-                        <Parts message={m} chat={chat} />
-                      )}
-                    </MessageContent>
-                  </Message>
-                </MessageScrollerItem>
-              ))}
+              {chat.messages.map((m) => {
+                // never before a confirmed action (an order placed, a flight booked), nor while a run is under way
+                const restorable = !busy && chat.canRestore(m.id);
+                return (
+                  <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === "user"}>
+                    <Message align={m.role === "user" ? "end" : "start"}>
+                      <MessageContent>
+                        {m.role === "user" ? (
+                          <div className="group/turn flex flex-col items-end gap-1">
+                            <Bubble align="end">
+                              {/* room for the restore chip's top half, so it only covers padding, never text */}
+                              <BubbleContent className={restorable ? "pb-3.5" : undefined}>
+                                {m.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}
+                              </BubbleContent>
+                            </Bubble>
+                            {/* icon-only: the tooltips (`title`) and accessible names carry the words. -mt-4 = the 4px gap +
+                                half the 24px chip, so it sits half over the bubble's bottom edge. */}
+                            {restorable &&
+                              (restoreId === m.id ? (
+                                <fieldset
+                                  className="relative -mt-4 me-2.5 flex min-w-0 items-center gap-0.5 rounded-full border-0 bg-background px-0.5 shadow-xs ring-1 ring-border"
+                                  aria-label={`${CONFIRM_RESTORE}?`}
+                                >
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="rounded-full text-destructive"
+                                    aria-label={CONFIRM_RESTORE}
+                                    title={CONFIRM_RESTORE}
+                                    onClick={() => {
+                                      setRestoreId(null);
+                                      restoring.current = true;
+                                      void chat
+                                        .restore(m.id)
+                                        .finally(() => {
+                                          restoring.current = false;
+                                        })
+                                        .then((result) => {
+                                          if (!result) return;
+                                          // keep a half-written message: the restored text goes first, the draft after it
+                                          setText((current) =>
+                                            current.trim() ? `${result.restoredText}\n\n${current}` : result.restoredText,
+                                          );
+                                          showRestoredNote();
+                                        });
+                                    }}
+                                  >
+                                    <CheckIcon />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className="rounded-full text-muted-foreground"
+                                    aria-label="Cancel"
+                                    title="Cancel"
+                                    onClick={() => setRestoreId(null)}
+                                  >
+                                    <XIcon />
+                                  </Button>
+                                </fieldset>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  // a chip half over the bubble's bottom edge; with a mouse, only while the message is hovered or the button has
+                                  // focus (always on touch)
+                                  className="relative -mt-4 me-2.5 rounded-full bg-background text-muted-foreground shadow-xs ring-1 ring-border transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/turn:opacity-100 focus-visible:opacity-100"
+                                  aria-label={`Restore to before: ${stageLabel(m)}`}
+                                  title="Restore to before this message"
+                                  onClick={() => setRestoreId(m.id)}
+                                >
+                                  <Undo2Icon />
+                                </Button>
+                              ))}
+                          </div>
+                        ) : (
+                          <Parts message={m} chat={chat} />
+                        )}
+                      </MessageContent>
+                    </Message>
+                  </MessageScrollerItem>
+                );
+              })}
               {chat.messages.length > 0 && <AdapterCard chat={chat} />}
               {chat.status === "error" && chat.error && (
                 <Item variant="outline" size="sm" role="alert">
@@ -225,6 +350,12 @@ export function AgentChatBlock({
           <MessageScrollerButton className="absolute right-3 bottom-3" />
         </MessageScroller>
       </MessageScrollerProvider>
+
+      {restoredNote && (
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground" role="status">
+          Restored — edit and send again.
+        </p>
+      )}
 
       <form onSubmit={submit} className="border-t p-2">
         <InputGroup>

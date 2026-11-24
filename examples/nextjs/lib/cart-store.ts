@@ -198,3 +198,17 @@ export function snapshot(): CartApi {
 const serverView = viewOf(EMPTY);
 /** For `useCart()` while hydrating: the empty cart the server rendered. */
 export const serverSnapshot = (): CartApi => serverView;
+
+/** Serializable cart for chat restore checkpoints (`getSnapshot`). Orders are left out: a placed order is a confirmed action, and the chat never restores past one. */
+export type CartCheckpoint = Pick<State, "lines" | "promo">;
+
+/** Capture the cart for a chat restore checkpoint. */
+export function exportSnapshot(): CartCheckpoint {
+  const { lines, promo } = current();
+  return { lines, promo };
+}
+
+/** Rehydrate the cart from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: CartCheckpoint): void {
+  commit({ ...current(), lines: Array.isArray(data.lines) ? data.lines : [], promo: data.promo ?? null });
+}

@@ -269,3 +269,27 @@ export function snapshot(): BookingApi {
   };
   return api;
 }
+
+/**
+ * Serializable search state for chat restore checkpoints (`getSnapshot`). Bookings are left out: a booking is a
+ * confirmed action, and the chat never restores past one.
+ */
+export type BookingCheckpoint = Omit<State, "bookings">;
+
+/** Capture the search, selection and traveler details for a chat restore checkpoint. */
+export function exportSnapshot(): BookingCheckpoint {
+  const { bookings: _, ...search } = latest();
+  return search;
+}
+
+/** Rehydrate from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: BookingCheckpoint): void {
+  commit({
+    query: data.query ?? null,
+    filters: data.filters ?? NO_FILTERS,
+    sort: data.sort ?? "price-asc",
+    selectedId: data.selectedId ?? null,
+    contact: data.contact ?? EMPTY_CONTACT,
+    travelers: Array.isArray(data.travelers) ? data.travelers : [],
+  });
+}

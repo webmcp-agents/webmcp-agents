@@ -453,6 +453,17 @@ html[data-wa-chat-resizing] {
   gap: 8px;
 }
 .wa-chat__message[data-role="user"] {
+  align-items: stretch;
+}
+.wa-chat__message-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+.wa-chat__message[data-role="user"] .wa-chat__message-body {
   align-items: flex-end;
 }
 .wa-chat__bubble {
@@ -468,6 +479,99 @@ html[data-wa-chat-resizing] {
 .wa-chat__message[data-role="user"] .wa-chat__bubble {
   background: var(--wa-chat-accent);
   color: var(--wa-chat-accent-ink);
+}
+/* room for the restore chip's top half (12px), so it only ever covers padding, never the last line of text */
+.wa-chat__message[data-role="user"] .wa-chat__bubble:has(+ .wa-chat__stage) {
+  padding-bottom: 14px;
+}
+/*
+ * Restore checkpoint: a chip pinned to the user bubble's bottom edge, half over it and half below, inset from the
+ * rounded corner, so it reads as part of that message rather than a row of its own. Icon-only buttons (their tooltips
+ * carry the words). Sits in the bubble's column: the body's 8px gap plus half the 24px chip pulls it up by 20px.
+ */
+.wa-chat__stage {
+  position: relative; /* paints over the bubble */
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -20px;
+  margin-inline-end: 10px;
+}
+/* the chip: the ask button alone, or the confirm pair as one pill */
+.wa-chat__stage-ask,
+.wa-chat__stage-actions {
+  border-radius: 999px;
+  background: var(--wa-chat-bg);
+  box-shadow:
+    0 0 0 1px var(--wa-chat-line),
+    0 1px 2px rgba(15, 23, 42, 0.08);
+}
+.wa-chat__stage-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+  padding: 0 2px;
+  border: 0;
+}
+/* at least 24px square, so they're easy to hit (WCAG 2.5.8) */
+.wa-chat__stage-ask,
+.wa-chat__stage-go,
+.wa-chat__stage-cancel {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  color: var(--wa-chat-muted);
+  cursor: pointer;
+}
+.wa-chat__stage-go,
+.wa-chat__stage-cancel {
+  border-radius: 999px;
+  background: transparent;
+}
+.wa-chat__stage-go {
+  color: var(--wa-chat-danger);
+}
+@media (hover: hover) {
+  .wa-chat__stage-ask:hover {
+    background: color-mix(in srgb, var(--wa-chat-fg) 6%, var(--wa-chat-bg));
+    color: var(--wa-chat-fg);
+  }
+  .wa-chat__stage-go:hover {
+    background: color-mix(in srgb, var(--wa-chat-danger) 12%, transparent);
+  }
+  .wa-chat__stage-cancel:hover {
+    background: var(--wa-chat-soft);
+    color: var(--wa-chat-fg);
+  }
+}
+/*
+ * With a mouse, the restore control shows only while its message is hovered (or the control has keyboard focus), so a
+ * long thread isn't lined with icons. Opacity, not display: it keeps its room, so nothing shifts when it appears. Touch
+ * screens have no hover, so there it stays visible.
+ */
+@media (hover: hover) {
+  .wa-chat__stage-ask {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+  .wa-chat__message:hover .wa-chat__stage-ask,
+  .wa-chat__stage-ask:focus-visible {
+    opacity: 1;
+  }
+}
+.wa-chat__restored {
+  margin: 0 16px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--wa-chat-line);
+  border-radius: 8px;
+  background: var(--wa-chat-soft);
+  color: var(--wa-chat-muted);
+  font-size: 12px;
+  line-height: 1.4;
 }
 .wa-chat__typing {
   display: flex;

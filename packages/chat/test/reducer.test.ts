@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { initialSession, type SessionState, sessionReducer } from "../src/session/reducer";
+import { canRestoreTo, initialSession, type SessionState, sessionReducer } from "../src/session/reducer";
 import type { AgentStreamPart } from "../src/types";
 
 const play = (parts: AgentStreamPart[], from: SessionState = initialSession): SessionState =>
@@ -149,5 +149,47 @@ describe("sessionReducer", () => {
     it("a part for an unknown delegate id changes nothing", () => {
       expect(sessionReducer(delegate, { type: "part", part: { type: "message-start", messageId: "x" }, within: "nope" })).toBe(delegate);
     });
+  });
+
+  it("restore drops the user message and everything after it", () => {
+    let s = play([
+      { type: "message-start", messageId: "a1" },
+      { type: "text-delta", messageId: "a1", delta: "Done." },
+      { type: "finish", reason: "stop" },
+    ]);
+    s = sessionReducer(s, { type: "send", id: "u2", text: "again" });
+    s = sessionReducer(s, { type: "part", part: { type: "message-start", messageId: "a2" } });
+    const restored = sessionReducer(s, { type: "restore", beforeId: "u2" });
+    expect(restored.status).toBe("idle");
+    expect(restored.messages.map((m) => m.id)).toEqual(["u1", "a1"]);
+    expect(sessionReducer(s, { type: "restore", beforeId: "missing" })).toBe(s);
+  });
+
+  it("canRestoreTo: never the last message, never before a committed (confirmed) call", () => {
+    let s = play([
+      { type: "message-start", messageId: "a1" },
+      { type: "tool-call", messageId: "a1", id: "c1", name: "add_to_cart", input: {} },
+      { type: "tool-result", id: "c1", output: { content: [] } },
+      { type: "finish", reason: "stop" },
+    ]);
+    expect(canRestoreTo(s.messages, "u1")).toBe(true);
+    expect(canRestoreTo(s.messages, "a1")).toBe(false); // not a user message
+    s = sessionReducer(s, { type: "send", id: "u2", text: "place the order" });
+    expect(canRestoreTo(s.messages, "u2")).toBe(false); // nothing after it yet
+
+    s = sessionReducer(s, { type: "part", part: { type: "message-start", messageId: "a2" } });
+    s = sessionReducer(s, { type: "part", part: { type: "tool-call", messageId: "a2", id: "c2", name: "place_order", input: {} } });
+    // only a done call commits
+    expect(sessionReducer(s, { type: "committed", id: "c2" })).toBe(s);
+    s = sessionReducer(s, { type: "part", part: { type: "tool-result", id: "c2", output: { content: [] } } });
+    s = sessionReducer(s, { type: "committed", id: "c2" });
+    expect(tools(s)[1]).toMatchObject({ state: "done", committed: true });
+    s = sessionReducer(s, { type: "part", part: { type: "finish", reason: "stop" } });
+    s = sessionReducer(s, { type: "send", id: "u3", text: "thanks" });
+    s = sessionReducer(s, { type: "part", part: { type: "message-start", messageId: "a3" } });
+
+    expect(canRestoreTo(s.messages, "u1")).toBe(false); // the order is after it
+    expect(canRestoreTo(s.messages, "u2")).toBe(false); // the order is in it
+    expect(canRestoreTo(s.messages, "u3")).toBe(true); // after the order
   });
 });

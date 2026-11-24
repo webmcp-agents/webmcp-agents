@@ -162,17 +162,30 @@ export interface ToolInspection extends ToolControls {
   fits: boolean;
 }
 
+/** Catalog + registered WebTools on this page (registered wins). Empty on the server. */
+function pageWebTools(): Map<string, WebTool> {
+  const all = new Map<string, WebTool>();
+  for (const catalog of started.keys()) for (const tool of catalog()) all.set(tool.id, tool);
+  for (const [id, stage] of stages) all.set(id, stage.tool); // what is registered wins: it is what an agent calls
+  return all;
+}
+
+/**
+ * The live `WebTool` for `id` on this page (registered, else a started catalog), or `undefined`. Used by chat
+ * restore to call optional `revert`. Empty on the server.
+ */
+export function getRegisteredWebTool(id: string): WebTool | undefined {
+  return pageWebTools().get(id);
+}
+
 /**
  * Every WebTool on this page: the registered ones and the catalog tools of each started `createWebAgents` (on or
  * off here), with the control each would act on and the field each parameter would be typed into, found the way the
  * cursor finds them. For devtools; elements are live, so read it when you show it. Empty on the server.
  */
 export function inspectTools(): ToolInspection[] {
-  const all = new Map<string, WebTool>();
-  for (const catalog of started.keys()) for (const tool of catalog()) all.set(tool.id, tool);
-  for (const [id, stage] of stages) all.set(id, stage.tool); // what is registered wins: it is what an agent calls
   // nothing is registered or started on the server, so the browser globals below are read only in a browser
-  return [...all.values()].map((tool) => ({
+  return [...pageWebTools().values()].map((tool) => ({
     tool,
     fits: fits(tool.match, currentPath()),
     ...(stages.get(tool.id) ?? (toModelContextTool(tool) as unknown as { [STAGE]: Stage })[STAGE]).inspect(),

@@ -32,7 +32,7 @@ The APIs a reader meets first: define a tool, put the catalog on the page, find 
 | API | Description |
 |---|---|
 | [`defineWebTool`](./define-web-tool.md) | Define a tool once for WebMCP, devtools and server agents; `tool.invoke` calls it like an agent. Includes `WebTool`, `WebToolConfig`, `WebToolContext`, `Register`, `RegisteredContext`, `TargetFn`, `ToolTarget`, `WebToolAnnotations`, `WebToolInputError`. |
-| [`createWebAgents`](./create-web-agents.md) | Put an app's tools on the page without a framework: installs the cursor, registers tools by availability and `match`, follows the URL. Includes `WebAgentsOptions`, `WebAgents`, `WebToolCatalog`, `AvailableTools`. |
+| [`createWebAgents`](./create-web-agents.md) | Put an app's tools on the page without a framework: installs the cursor, registers tools by availability and `match`, follows the URL. Includes `WebAgentsOptions`, `WebAgents`, `WebToolCatalog`, `AvailableTools`, and `getRegisteredWebTool`. |
 | [`locate`](./locate.md) | Find a control by role and accessible name. Includes `ToolLocator`, `FieldTarget`. |
 | [`matchPath`](./match-path.md) | Match a pathname against a route pattern, as a tool's `match` does. |
 | [`watchPathname`](./watch-pathname.md) | Call a listener whenever the URL changes without a page load. |

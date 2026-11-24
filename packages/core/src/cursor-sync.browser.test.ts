@@ -147,7 +147,7 @@ describe("the cursor in step", () => {
   it("never reads a password out or reports it", async () => {
     install();
     const id = uniqueName("t_secret");
-    fixture('<form><input id="sync-pass" name="password" type="password"><button type="button">Sign in</button></form>');
+    fixture('<form><input id="sync-pass" name="password" type="password" value="old-secret"><button type="button">Sign in</button></form>');
     let said = "";
     const watch = setInterval(() => (said += document.querySelector(".agent-sr-only")?.textContent ?? ""), 5);
     tool({
@@ -160,6 +160,11 @@ describe("the cursor in step", () => {
     clearInterval(watch);
     expect(said).toContain("Sign in: password");
     expect(said).not.toContain("hunter2");
-    expect(rec.events.filter((e) => e.type === "fill")).toEqual([{ type: "fill", tool: id, field: "password", value: "••••" }]);
+    expect(rec.events.filter((e) => e.type === "fill")).toEqual([
+      expect.objectContaining({ type: "fill", tool: id, field: "password", value: "••••" }),
+    ]);
+    // nor the one it replaced: no `from` for a password (chat restore leaves it as it is)
+    const fill = rec.events.find((e) => e.type === "fill");
+    expect(fill && "from" in fill ? fill.from : undefined).toBeUndefined();
   });
 });

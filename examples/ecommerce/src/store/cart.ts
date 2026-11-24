@@ -174,3 +174,17 @@ export function cartSnapshot(): CartApi {
   view = { ...cart, lines, promo, orders, totals: totalsFor(lines, promo), count: lines.reduce((n, l) => n + l.qty, 0) };
   return view;
 }
+
+/** Serializable cart for chat restore checkpoints (`getSnapshot`). Orders are left out: a placed order is a confirmed action, and the chat never restores past one. */
+export type CartCheckpoint = Pick<CartState, "lines" | "promo">;
+
+/** Capture the cart for a chat restore checkpoint. */
+export function exportSnapshot(): CartCheckpoint {
+  const { lines, promo } = current();
+  return { lines, promo };
+}
+
+/** Rehydrate the cart from a chat restore checkpoint (`applySnapshot`). */
+export function importSnapshot(data: CartCheckpoint): void {
+  commit({ lines: Array.isArray(data.lines) ? data.lines : [], promo: data.promo ?? null });
+}

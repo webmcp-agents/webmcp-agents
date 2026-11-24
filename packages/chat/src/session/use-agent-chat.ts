@@ -13,14 +13,16 @@ import { toUIMessages } from "../adapter/wire";
 import type { WebAgent } from "../agent";
 import { suggestionsFor } from "../components/Suggestions";
 import type { AdapterStatus, AgentAdapter, AgentMessage, AgentPart, ModelChoice, ToolDescriptor } from "../types";
-import type { SessionError } from "./reducer";
+import { canRestoreTo, type SessionError } from "./reducer";
+import type { RestoreResult } from "./restore-journal";
+import type { ChatRestoreSnapshots } from "./restore-snapshot";
 import { type AgentSession, useAgentSession } from "./use-agent-session";
 import type { UIMessage } from "ai";
 
 const ADAPTER_KEY = "web-agents:chat:adapter";
 
 /** Options for `useAgentChat`. */
-export interface UseAgentChatOptions {
+export interface UseAgentChatOptions extends ChatRestoreSnapshots {
   /** One agent adapter. Default: one shared `createCloudAdapter()` (your `/api/chat`), when `adapters` is not given either. */
   adapter?: AgentAdapter;
   /** Several adapters (cloud, on-device…); the person's choice is remembered in localStorage. The first is the default. */
@@ -53,6 +55,17 @@ export interface AgentChat {
   regenerate(): void;
   /** Start a new conversation. */
   clear(): void;
+  /**
+   * Restore to before the user message `messageId`: stop, truncate the thread, rewind the dropped span's fills (and
+   * tool `revert`s without `applySnapshot`), reapply that turn's URL / optional app snapshot, return the dropped
+   * text for the composer. `undefined` when `canRestore(messageId)` is false.
+   */
+  restore(messageId: string): Promise<RestoreResult | undefined>;
+  /**
+   * Whether `restore(messageId)` would do anything: a user message with something after it and no confirmed action
+   * (an order placed, a flight booked) from it on. Show a restore control only where this is true.
+   */
+  canRestore(messageId: string): boolean;
   /** The tools the model sees right now. */
   tools: ToolDescriptor[];
   /** Starter prompts, from the page's tools. */
@@ -96,7 +109,7 @@ function indexToolParts(messages: readonly AgentMessage[], into = new Map<string
 }
 
 /** A conversation with one of `adapters` about this page, as AI SDK UI messages (what `<AgentChat>` renders; use it for your own UI). */
-export function useAgentChat({ adapter, adapters, agent, storageKey }: UseAgentChatOptions = {}): AgentChat {
+export function useAgentChat({ adapter, adapters, agent, storageKey, getSnapshot, applySnapshot }: UseAgentChatOptions = {}): AgentChat {
   const all = useMemo(() => (adapters?.length ? adapters : [adapter ?? getDefaultAdapter()]), [adapter, adapters]);
   // the person's last choice, when that adapter is still offered
   const [adapterId, setAdapterId] = useState(() => {
@@ -113,7 +126,7 @@ export function useAgentChat({ adapter, adapters, agent, storageKey }: UseAgentC
     }
   }, []);
 
-  const session = useAgentSession(current, { storageKey, agent });
+  const session = useAgentSession(current, { storageKey, agent, getSnapshot, applySnapshot });
   const streaming = session.status === "streaming";
   const last = session.messages.at(-1);
   // "submitted" until the first part of the reply arrives (the user message is the last one)
@@ -139,6 +152,7 @@ export function useAgentChat({ adapter, adapters, agent, storageKey }: UseAgentC
   );
 
   const sendMessage = useCallback((input: { text: string }) => session.send(input.text), [session.send]);
+  const canRestore = useCallback((messageId: string) => canRestoreTo(session.messages, messageId), [session.messages]);
   const suggestions = useMemo(() => suggestionsFor(session.tools), [session.tools]);
   const models = current.models?.() ?? [];
 
@@ -150,6 +164,8 @@ export function useAgentChat({ adapter, adapters, agent, storageKey }: UseAgentC
     stop: session.stop,
     regenerate: session.retry,
     clear: session.reset,
+    restore: session.restore,
+    canRestore,
     tools: session.tools,
     suggestions,
     adapters: all,

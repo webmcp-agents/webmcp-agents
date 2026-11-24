@@ -66,6 +66,11 @@ export type AgentPart =
       error?: string;
       /** While awaiting confirmation: what the person should click. */
       prompt?: string;
+      /**
+       * Done, and the tool is confirm-gated or destructive (an order placed, a flight booked): the person committed to
+       * it, so the chat never restores to before it (`canRestoreTo`).
+       */
+      committed?: boolean;
       /** A sub-agent's run behind a `delegate_to_<id>` call: the agent's id and its own messages, rendered nested. */
       agent?: { id: string; messages: AgentMessage[] };
       /** Provider data that must travel with the call (Gemini thought signatures, OpenAI item ids), like reasoning's. */
