@@ -20,3 +20,8 @@ examples/nextjs/.next/
 examples/nextjs/next-env.d.ts
 apps/docs/public/r/
 capture/out/
+
+# Personal Claude Code + Serena setup
+CLAUDE.local.md
+.serena/
+.claude/launch.json
