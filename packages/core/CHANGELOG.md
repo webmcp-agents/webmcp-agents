@@ -1,5 +1,11 @@
 # @webmcp-agents/core
 
+## 0.4.0
+
+### Minor Changes
+
+- [#7](https://github.com/webmcp-agents/webmcp-agents/pull/7) [`98fb1ba`](https://github.com/webmcp-agents/webmcp-agents/commit/98fb1bae060a8330149ab9836bf1f09d2e70b6b5) Thanks [@MhamedEl-shahawy](https://github.com/MhamedEl-shahawy)! - Add Cursor-like chat restore: optional `defineWebTool({ revert })`, persisted URL/app snapshots (`getSnapshot` / `applySnapshot`), and `session.restore` with a clear Restore confirm UI that truncates the thread and reverses fills plus tool side effects.
+
 ## 0.3.0
 
 ### Minor Changes

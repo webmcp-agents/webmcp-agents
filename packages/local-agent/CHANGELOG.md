@@ -1,5 +1,12 @@
 # @webmcp-agents/local-agent
 
+## 0.4.0
+
+### Patch Changes
+
+- Updated dependencies [[`98fb1ba`](https://github.com/webmcp-agents/webmcp-agents/commit/98fb1bae060a8330149ab9836bf1f09d2e70b6b5)]:
+  - @webmcp-agents/chat@0.4.0
+
 ## 0.3.0
 
 ### Patch Changes
