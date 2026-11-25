@@ -427,8 +427,8 @@ mid-run (the cursor must vanish and the tool still complete).
   `test: { server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } } }` (telemetry and vercel-api have it). A browser
   test that stubs `fetch` must pass every non-relay URL through to the real one. Never give `observeAgents` an exporter whose
   `flush()` calls back into the observer (infinite recursion; the testing kit's fixture wraps its exporter for that reason).
-  AI SDK per-call `experimental_telemetry` integrations replace the registered ones, so the handler merges `observability`'s in
-  (`telemetry: false` passes none). Sentry's OpenTelemetry setup needs `enableOpenTelemetrySetup: true` (default only in some SDKs).
+  AI SDK per-call telemetry integrations replace the ones registered with `registerTelemetry`, so a layer passed as
+  `observability` is the only one that sees the chat's steps (`telemetry: false` passes no setting at all). Sentry's OpenTelemetry setup needs `enableOpenTelemetrySetup: true` (default only in some SDKs).
   The layer's export timeout is 30 s (the OpenTelemetry default is 10 s); the docs say so.
 - Redaction and the chat CSS: `core/redact` is its own entry and the main entry may import only `isSensitiveControl` from it (size
   budgets). After changing `chat.css`, run `node apps/docs/scripts/generate-partials.mjs`: `pnpm check` fails on a stale token table.

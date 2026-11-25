@@ -389,6 +389,9 @@ importers:
       '@webmcp-agents/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@webmcp-agents/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
       '@webmcp-agents/vercel-api':
         specifier: workspace:*
         version: link:../../packages/vercel-api
