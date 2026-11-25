@@ -9,6 +9,8 @@
  * model's signed reasoning stays valid and the prompt cache keeps hitting.
  */
 import { getRedactor } from "@webmcp-agents/core/redact";
+import { en } from "../customize/en";
+import type { ChatErrorCode } from "../customize/types";
 import { displayName, LIMITS, newId } from "../shared";
 import type { AdapterStatus, AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart } from "../types";
 import { outputText, readParts, toolOutputForModel } from "./wire";
@@ -41,7 +43,10 @@ export interface CloudAdapterOptions {
   label?: string;
 }
 
-const ERROR_CODES: Record<number, Extract<AgentStreamPart, { type: "error" }>["code"]> = {
+type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
+
+/** The status codes the endpoint answers with, and the catalog code each one is. */
+const ERROR_CODES: Record<number, ChatErrorCode> = {
   400: "bad_request",
   413: "bad_request",
   415: "bad_request",
@@ -49,12 +54,8 @@ const ERROR_CODES: Record<number, Extract<AgentStreamPart, { type: "error" }>["c
   503: "chat_disabled",
 };
 
-const MESSAGES: Record<string, string> = {
-  chat_disabled: "Chat isn't configured on this site.",
-  rate_limited: "You're sending messages too fast. Try again in a minute.",
-  bad_request: "The assistant couldn't read this conversation. Start a new chat.",
-  network: "Couldn't reach the assistant. Check your connection and try again.",
-};
+/** A failure part: the catalog code (the chat words it) and the English text for callers that are not the UI. */
+const fail = (code: ChatErrorCode): ErrorPart => ({ type: "error", error: en.errors[code], code });
 
 /** A 401 that means "no chat session" (`createChatHandler({ session })`), the one refusal worth a retry. */
 async function sessionMissing(res: Response): Promise<boolean> {
@@ -65,26 +66,17 @@ async function sessionMissing(res: Response): Promise<boolean> {
   return body?.error === "session_required";
 }
 
-/** What a refused or failed request means to the person: only "not configured" disables the chat. */
-async function failure(res: Response): Promise<Extract<AgentStreamPart, { type: "error" }>> {
+/**
+ * What a refused or failed request means to the person, as a code: only "not configured" disables the chat. Derived
+ * from the status and the body, so a 0.4.0 server (which sends fewer codes) gets the same codes.
+ */
+async function failure(res: Response): Promise<ErrorPart> {
   const body = (await res.json().catch(() => null)) as { error?: string; reason?: string } | null;
-  if (res.status === 401 && body?.error === "session_required") {
-    return { type: "error", error: "Couldn't start a chat session. Reload the page and try again." };
-  }
-  if (res.status === 503 && body?.reason === "daily_budget") {
-    return {
-      type: "error",
-      error: "This demo has reached its daily limit. Try again tomorrow, or try the on-device assistant.",
-      code: "rate_limited",
-    };
-  }
-  if (res.status === 503 && body?.error !== "chat_disabled")
-    return { type: "error", error: "The assistant is busy. Try again in a moment." };
-  if (res.status === 429 && Number(res.headers.get("retry-after")) > 3600) {
-    return { type: "error", error: "You've reached today's limit for this demo. Try again tomorrow.", code: "rate_limited" };
-  }
-  const code = ERROR_CODES[res.status];
-  return { type: "error", error: (code && MESSAGES[code]) || "Something went wrong. Try again.", ...(code && { code }) };
+  if (res.status === 401 && body?.error === "session_required") return fail("session");
+  if (res.status === 503 && body?.reason === "daily_budget") return fail("daily_limit");
+  if (res.status === 503 && body?.error !== "chat_disabled") return fail("busy");
+  if (res.status === 429 && Number(res.headers.get("retry-after")) > 3600) return fail("daily_limit");
+  return fail(ERROR_CODES[res.status] ?? "unknown");
 }
 
 /** After a failed availability check, try again on the next status() call this many ms later. */
@@ -119,6 +111,7 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
   });
 
   // ---------- status: a GET, re-tried after a failure ----------
+  const unavailable = (code: ChatErrorCode): AdapterStatus => ({ state: "unavailable", reason: en.errors[code], code });
   let status: AdapterStatus = { state: "loading" };
   /** The endpoint's model and provider, from GET: the default label is built from them. */
   let served: { model?: string; provider?: string } = {};
@@ -137,9 +130,9 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
       .then(async (res) => {
         const body = (await res.json().catch(() => null)) as { enabled?: boolean; model?: string; provider?: string } | null;
         if (body) served = { model: body.model, provider: body.provider };
-        setStatus(res.ok && body?.enabled ? { state: "ready" } : { state: "unavailable", reason: MESSAGES.chat_disabled! });
+        setStatus(res.ok && body?.enabled ? { state: "ready" } : unavailable("chat_disabled"));
       })
-      .catch(() => setStatus({ state: "unavailable", reason: MESSAGES.network! }))
+      .catch(() => setStatus(unavailable("network")))
       .finally(() => {
         checking = false;
         checkedAt = Date.now();
@@ -157,6 +150,13 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
         ? "Claude (cloud)"
         : `${displayName(served.model)} (cloud)`;
     },
+    // the chat words the name from these (`adapter.cloud`, `adapter.cloudNamed`); an explicit label wins
+    get labelParts() {
+      if (opts.label) return undefined;
+      if (!served.model) return { kind: "cloud" as const };
+      const model = served.provider === "anthropic" && served.model.startsWith("anthropic/claude") ? "Claude" : displayName(served.model);
+      return { kind: "cloud" as const, model };
+    },
     status() {
       if (typeof window !== "undefined") check();
       return status;
@@ -170,7 +170,7 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
 
     async *run(req: AgentRunRequest): AsyncGenerator<AgentStreamPart> {
       const disable = (part: AgentStreamPart): AgentStreamPart => {
-        if (part.type === "error" && part.code === "chat_disabled") setStatus({ state: "unavailable", reason: MESSAGES.chat_disabled! });
+        if (part.type === "error" && part.code === "chat_disabled") setStatus(unavailable("chat_disabled"));
         return part;
       };
       const { signal } = req;
@@ -209,7 +209,7 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
           }
         } catch {
           if (signal.aborted) return yield aborted;
-          return yield { type: "error", error: MESSAGES.network!, code: "network" };
+          return yield fail("network");
         }
         if (!res.ok || !res.body) return yield disable(await failure(res));
         setStatus({ state: "ready" });
@@ -250,7 +250,7 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
           }
         } catch {
           if (signal.aborted) return yield aborted;
-          return yield { type: "error", error: MESSAGES.network!, code: "network" };
+          return yield fail("network");
         }
         if (calls.length === 0) return yield { type: "finish", reason: "stop" };
         if (step > steps) break; // the summary request still called tools: stop here

@@ -136,17 +136,18 @@ describe("createCloudAdapter", () => {
     const budget = respond(503, { error: "unavailable", reason: "daily_budget" });
     expect((await collect(budget)).parts[0]).toMatchObject({
       type: "error",
-      code: "rate_limited",
+      code: "daily_limit",
       error: expect.stringMatching(/daily limit/),
     });
     expect(budget.status!()).toEqual({ state: "loading" });
     const busy = respond(503, { error: "unavailable", reason: "busy" });
-    expect((await collect(busy)).parts[0]).toMatchObject({ error: expect.stringMatching(/busy/) });
+    expect((await collect(busy)).parts[0]).toMatchObject({ code: "busy", error: expect.stringMatching(/busy/) });
     const off = respond(503, { error: "chat_disabled" });
     expect((await collect(off)).parts[0]).toMatchObject({ code: "chat_disabled" });
     expect(off.status!()).toMatchObject({ state: "unavailable" });
     const daily = respond(429, { error: "rate_limited" }, { "retry-after": "40000" });
-    expect((await collect(daily)).parts[0]).toMatchObject({ error: expect.stringMatching(/today's limit/) });
+    // 0.4.0 said "You've reached today's limit…" here: now one code, `daily_limit`, and its one text
+    expect((await collect(daily)).parts[0]).toMatchObject({ code: "daily_limit", error: expect.stringMatching(/daily limit/) });
   });
 
   it("status comes from one GET", async () => {

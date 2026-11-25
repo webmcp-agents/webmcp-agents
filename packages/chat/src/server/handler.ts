@@ -9,10 +9,10 @@
  * request from the registered WebAgent (instructions, tool subset, sub-agents,
  * model), or from the plain assistant prompt when the page set no agent.
  */
+import { type ChatServerMessages, serverMessages } from "./messages";
 import { createAgentUIStreamResponse, InvalidToolInputError, type LanguageModel, NoSuchToolError, ToolLoopAgent, type ToolSet } from "ai";
 import { toUIMessages } from "../adapter/wire";
 import { flattenWebAgents, type WebAgent } from "../agent";
-import { notOnPage } from "../shared";
 import type { AgentMessage } from "../types";
 import { createRedactor, getRedactor, type RedactOptions, type Redactor } from "@webmcp-agents/core/redact";
 import { describeModelError } from "./model-error";
@@ -97,6 +97,15 @@ export interface ChatHandlerOptions {
    * createChatHandler({ agents, redact: { keys: (d) => [...d, "tenantSecret"] } });
    */
   redact?: RedactOptions | Redactor;
+  /**
+   * The text this handler writes for the model and for clients that are not the chat UI: the tool-budget note, the
+   * result of a call to a tool that is not on the page, and a 500's message. Default: English. The chat UI words its
+   * own errors from its catalog (`<AgentChat messages>`), by code.
+   *
+   * @example
+   * createChatHandler({ messages: { serverError: "El asistente tuvo un problema. Inténtalo de nuevo." } });
+   */
+  messages?: ChatServerMessages;
 }
 
 /** What `beforeModel` gets besides the request. */
@@ -143,8 +152,6 @@ async function readBody(req: Request): Promise<{ ok: true; value: unknown } | { 
   }
 }
 
-const TOOL_BUDGET_NOTE = "Tool budget for this request reached: summarize what was done and what is left, without calling tools.";
-
 /** Create the `/api/chat` handler. GET reports whether chat is configured; POST runs one model step. */
 export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request) => Promise<Response> {
   const env = opts.env ?? (typeof process === "undefined" ? {} : process.env);
@@ -157,6 +164,7 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
       : opts.effort
     : (opts.reasoning ?? "low");
   let warnedUnavailable = false;
+  const text = serverMessages(opts.messages);
   // its own rules when given; otherwise the process's, read at each line so a later configureRedaction applies
   const own = opts.redact === undefined || typeof opts.redact === "function" ? opts.redact : createRedactor(opts.redact);
   const redactor = (): Redactor => own ?? getRedactor();
@@ -240,7 +248,7 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
         tools: pageTools,
         path: samePagePath(page?.url, req.headers.get("origin")),
         base: opts.system ?? DEFAULT_SYSTEM_PROMPT,
-        extraInstructions: budgetSpent ? TOOL_BUDGET_NOTE : undefined,
+        extraInstructions: budgetSpent ? text.toolBudget : undefined,
         toolSet: budgetSpent ? {} : undefined,
         maxOutputTokens: opts.maxOutputTokens ?? 8192,
         providerOptions: provider === "custom" ? undefined : providerOptionsFor(provider, level, parseModelId(id).id),
@@ -256,7 +264,7 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
         sendReasoning: true,
         onError: (err) => {
           // A bad tool call goes back to the model as that call's error: say exactly what was wrong.
-          if (NoSuchToolError.isInstance(err)) return notOnPage(err.toolName);
+          if (NoSuchToolError.isInstance(err)) return text.notOnPage(err.toolName);
           if (InvalidToolInputError.isInstance(err)) return `Error [invalid_input]: Invalid input for "${err.toolName}": ${err.message}`;
           const { message, log } = describeModelError(err, undefined, redactor());
           console.error(`[web-agents/chat] model error: ${log}`);
@@ -271,7 +279,7 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
       }
       // the message only, redacted: never the request (its body holds the conversation) nor a provider's echo of a key
       console.error(`[web-agents/chat] request failed: ${redactor().error(err)}`);
-      return json({ error: "server_error", message: "The assistant had a problem answering. Try again." }, 500);
+      return json({ error: "server_error", message: text.serverError }, 500);
     }
   };
 }

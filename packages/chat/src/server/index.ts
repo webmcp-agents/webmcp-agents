@@ -5,6 +5,8 @@
  */
 export { createChatHandler, DEFAULT_MODEL } from "./handler";
 export type { BeforeModelContext, ChatHandlerOptions, Effort } from "./handler";
+export { SERVER_MESSAGES } from "./messages";
+export type { ChatServerMessages } from "./messages";
 export { applyAllowlist, buildAllowlist } from "./allowlist";
 export type { Allowlist, AllowedTool } from "./allowlist";
 export { createSessionKeeper, readCookie } from "./session";

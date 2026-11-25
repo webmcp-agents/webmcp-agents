@@ -32,6 +32,16 @@
       "types": "./dist/vite.d.ts",
       "import": "./dist/vite.js"
     },
+    "./locales/ar": {
+      "@webmcp-agents/source": "./src/locales/ar.ts",
+      "types": "./dist/locales/ar.d.ts",
+      "import": "./dist/locales/ar.js"
+    },
+    "./locales/es": {
+      "@webmcp-agents/source": "./src/locales/es.ts",
+      "types": "./dist/locales/es.d.ts",
+      "import": "./dist/locales/es.js"
+    },
     "./chat.css": {
       "@webmcp-agents/source": "./src/chat.css",
       "default": "./dist/chat.css"

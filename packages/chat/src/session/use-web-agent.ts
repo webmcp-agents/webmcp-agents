@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDefaultAdapter } from "../adapter/cloud";
 import type { WebAgent, WebAgentResult, WebAgentStep } from "../agent";
+import { en } from "../customize/en";
 import { newId } from "../shared";
 import type { AgentAdapter } from "../types";
 import type { SessionError } from "./reducer";
@@ -80,7 +81,12 @@ export function useWebAgent(agent: WebAgent, { adapter }: UseWebAgentOptions = {
       if (!mine() || run.reason === "aborted") return undefined;
       const { text: answer, steps, messages } = run;
       if (run.reason === "error") {
-        setState({ status: "error", steps, text: answer, error: { message: run.error ?? "The agent run failed.", code: run.code } });
+        setState({
+          status: "error",
+          steps,
+          text: answer,
+          error: { message: run.error ?? en.errors.run_failed, code: run.code ?? "run_failed" },
+        });
         return undefined;
       }
       setState({ status: "idle", steps, text: answer, error: undefined });

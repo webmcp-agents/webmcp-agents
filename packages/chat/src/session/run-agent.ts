@@ -20,6 +20,9 @@ import {
   type WebAgentResult,
   type WebAgentStep,
 } from "../agent";
+import { en } from "../customize/en";
+import { chatErrorCode } from "../customize/errors";
+import type { ChatErrorCode } from "../customize/types";
 import { CANCELLED, newId } from "../shared";
 import { callModelContextTool, listToolDescriptors } from "../tools";
 import type { AgentAdapter, AgentMessage, AgentPart, AgentRunRequest, AgentStreamPart, ToolDescriptor, ToolOutput } from "../types";
@@ -56,8 +59,8 @@ export interface RunAgentResult extends WebAgentResult {
   reason: "stop" | "max-steps" | "aborted" | "error";
   /** The error's text, when `reason` is "error". */
   error?: string;
-  /** The error's code, when the adapter gave one (offline, rate limited…). */
-  code?: Extract<AgentStreamPart, { type: "error" }>["code"];
+  /** The error's code (offline, rate limited…; `run_failed` when the adapter threw, `unknown` when it gave none). */
+  code?: ChatErrorCode;
 }
 
 /** Busy regions that outlasted a whole wait: always busy, not loading a route (see `toolsSettled`). */
@@ -224,8 +227,8 @@ export async function runAgent({
       steps: stepsOf(own),
       messages: state.messages,
       reason,
-      ...(error && { error: error.error }),
-      ...(error?.code && { code: error.code }),
+      ...(error && { error: error.error, code: chatErrorCode(error.code) }),
+      ...(reason === "aborted" && { code: "aborted" as const }),
     };
   };
 
@@ -312,7 +315,7 @@ export async function runAgent({
       }
     } catch (err) {
       if (signal.aborted) return result("aborted");
-      failure = { type: "error", error: err instanceof Error ? err.message : String(err) };
+      failure = { type: "error", error: err instanceof Error ? err.message : String(err), code: "run_failed" };
       end = "error";
       report(failure);
     }
@@ -332,7 +335,8 @@ export async function invokeAgent(agent: WebAgent, text: string, options: WebAge
   const prompt = typeof text === "string" ? text.trim() : "";
   if (!prompt) throw new TypeError(`${agent.id}.invoke() needs a message, e.g. ${agent.id}.invoke("Reorder my last purchase.").`);
   const { signal = new AbortController().signal, onStep } = options;
-  const aborted = (): unknown => signal.reason ?? new DOMException("The agent run was aborted.", "AbortError");
+  // a standard AbortError (`name`), as in 0.4.0: DOMException's own numeric `code` is not ours to replace
+  const aborted = (): unknown => signal.reason ?? new DOMException(en.errors.aborted, "AbortError");
   if (signal.aborted) throw aborted();
   const run = await runAgent({
     adapter: options.adapter ?? getDefaultAdapter(),
@@ -342,6 +346,6 @@ export async function invokeAgent(agent: WebAgent, text: string, options: WebAge
     onStep: onStep && ((step) => onStep(step)),
   });
   if (run.reason === "aborted" || signal.aborted) throw aborted();
-  if (run.reason === "error") throw Object.assign(new Error(run.error ?? "The agent run failed."), run.code ? { code: run.code } : {});
+  if (run.reason === "error") throw Object.assign(new Error(run.error ?? en.errors.run_failed), { code: run.code ?? "run_failed" });
   return { text: run.text, steps: run.steps, messages: run.messages };
 }

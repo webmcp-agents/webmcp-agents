@@ -210,7 +210,11 @@ describe("createCloudAdapter with sessions", () => {
   it("no session to be had (verify refused): a readable error, no loop", async () => {
     const { fetch } = browser(createChatHandler({ model: mockModel([{ text: "x" }]), session: { secret: SECRET, verify: () => false } }));
     const parts = await run(createCloudAdapter({ fetch }));
-    expect(parts.at(-1)).toEqual({ type: "error", error: "Couldn't start a chat session. Reload the page and try again." });
+    expect(parts.at(-1)).toEqual({
+      type: "error",
+      error: "Couldn't start a chat session. Reload the page and try again.",
+      code: "session",
+    });
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 });
@@ -319,7 +323,11 @@ describe("Turnstile", () => {
     const parts: AgentStreamPart[] = [];
     for await (const p of adapter.run({ messages: [user], tools: [], signal: new AbortController().signal, callTool: vi.fn() }))
       parts.push(p);
-    expect(parts.at(-1)).toEqual({ type: "error", error: "Couldn't start a chat session. Reload the page and try again." });
+    expect(parts.at(-1)).toEqual({
+      type: "error",
+      error: "Couldn't start a chat session. Reload the page and try again.",
+      code: "session",
+    });
     warn.mockRestore();
   });
 });

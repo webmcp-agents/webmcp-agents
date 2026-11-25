@@ -6,6 +6,7 @@
  */
 import type { JSONSchema, ModelContextToolResult } from "@webmcp-agents/core";
 import type { WebAgent } from "./agent";
+import type { ChatErrorCode } from "./customize/types";
 
 /** A page tool as the model sees it. */
 export interface ToolDescriptor {
@@ -20,7 +21,8 @@ export type ToolOutput = ModelContextToolResult;
 /** Whether an adapter can run right now (the composer explains anything but `ready`). */
 export type AdapterStatus =
   | { state: "ready" }
-  | { state: "unavailable"; reason: string }
+  /** `code`: why, as a catalog code, so the chat words it in the page's language (`reason` stays for other callers). */
+  | { state: "unavailable"; reason: string; code?: ChatErrorCode }
   /** `note`: a caveat for the download card, e.g. "No WebGPU here: a smaller, slower model runs on the CPU." */
   | { state: "needs-download"; bytes?: number; note?: string }
   | { state: "downloading"; progress: number }
@@ -107,7 +109,11 @@ export type AgentStreamPart =
   | { type: "tool-error"; id: string; error: string }
   | { type: "step-finish"; step: number }
   | { type: "finish"; reason: "stop" | "max-steps" | "aborted" }
-  | { type: "error"; error: string; code?: "chat_disabled" | "rate_limited" | "bad_request" | "network" };
+  /**
+   * A failure. `code` says which (the chat shows the catalog's text for it, `errors[code]`); `error` is the English
+   * text for callers that are not the UI (`agent.invoke`, logs). No code reads as `unknown`.
+   */
+  | { type: "error"; error: string; code?: ChatErrorCode };
 
 /** What an adapter gets for one run (one user message, possibly many model steps). */
 export interface AgentRunRequest {
@@ -134,6 +140,12 @@ export interface AgentAdapter {
   readonly id: string;
   /** Shown in the adapter switcher, e.g. "Claude (cloud)". */
   readonly label: string;
+  /**
+   * What a built-in adapter is, so the chat can word its name in the page's language (`adapter.cloud`,
+   * `adapter.cloudNamed`, `adapter.onDevice`) instead of showing `label`. Absent: the chat shows `label` as is (an
+   * adapter's explicit label always wins, so adapters given one leave this out).
+   */
+  readonly labelParts?: { kind: "cloud" | "on-device"; model?: string };
   /** Current availability. Absent means always ready. */
   status?(): AdapterStatus;
   /** Status changes (a download progressing, the cloud check finishing). */

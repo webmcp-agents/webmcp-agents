@@ -1,7 +1,6 @@
 import { useId } from "react";
+import { slotProps, useChatContext, usePart } from "../customize/context";
 import type { ModelChoice } from "../types";
-
-const size = (bytes: number): string => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`);
 
 /** Props of the model picker. */
 export interface ModelPickerProps {
@@ -13,37 +12,56 @@ export interface ModelPickerProps {
 
 /**
  * Which model an adapter runs (shown when it offers more than one): a native select, with the chosen model's brief,
- * size and whether it is already on this device underneath.
+ * size and whether it is already on this device underneath. `components.ModelPicker` replaces it.
  */
 export function ModelPicker({ models, disabled, onSelect }: ModelPickerProps) {
+  const ctx = useChatContext();
+  const part = usePart();
+  const { t } = ctx;
   const id = useId();
+  const Custom = ctx.components.ModelPicker;
+  if (Custom) return <Custom {...slotProps(ctx, "modelPicker", "wa-chat__model")} models={models} select={onSelect} disabled={disabled} />;
   const current = models.find((m) => m.selected) ?? models[0];
   if (!current) return null;
+  const size = (bytes: number): string => t("model.size", { bytes, formatted: t.format.bytes(bytes) });
   const meta = [
     current.brief,
     current.bytes
       ? current.cached
-        ? `${size(current.bytes)}, on this device`
-        : `${size(current.bytes)} download`
+        ? t("model.sizeCached", { size: size(current.bytes) })
+        : t("model.sizeDownload", { size: size(current.bytes) })
       : current.cached
-        ? "On this device"
+        ? t("model.onDevice")
         : "",
   ]
     .filter(Boolean)
     .join(" · ");
+  const option = (m: ModelChoice): string => {
+    let label = m.label;
+    if (m.recommended) label = t("model.recommended", { model: label });
+    if (m.cached) label = t("model.cached", { model: label });
+    return label;
+  };
   return (
-    <div className="wa-chat__model">
-      <label htmlFor={id}>Model</label>
-      <select id={id} value={current.id} disabled={disabled} aria-describedby={`${id}-meta`} onChange={(e) => onSelect(e.target.value)}>
+    <div {...part("modelPicker", "wa-chat__model")}>
+      <label {...part("modelLabel")} htmlFor={id}>
+        {t("model.label")}
+      </label>
+      <select
+        {...part("modelSelect")}
+        id={id}
+        value={current.id}
+        disabled={disabled}
+        aria-describedby={`${id}-meta`}
+        onChange={(e) => onSelect(e.target.value)}
+      >
         {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label}
-            {m.recommended ? " (recommended)" : ""}
-            {m.cached ? " · on this device" : ""}
+          <option key={m.id} {...part("modelOption")} value={m.id}>
+            {option(m)}
           </option>
         ))}
       </select>
-      <p id={`${id}-meta`} className="wa-chat__model-meta">
+      <p id={`${id}-meta`} {...part("modelMeta", "wa-chat__model-meta")}>
         {meta}
       </p>
     </div>

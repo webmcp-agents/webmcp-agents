@@ -3,13 +3,17 @@
  * the last error. Pure, so it's tested in Node; the hook feeds it adapter
  * stream parts and core agent events.
  */
+import { en } from "../customize/en";
+import type { ChatErrorCode } from "../customize/types";
 import { isCancelled } from "../shared";
 import type { AgentMessage, AgentPart, AgentStreamPart, ToolCallState } from "../types";
 
 /** The last run's failure, with a code the widget can explain (offline, rate limited…). */
 export interface SessionError {
+  /** What the adapter said, in English (or the adapter's own words): for logs and callers that are not the UI. */
   message: string;
-  code?: Extract<AgentStreamPart, { type: "error" }>["code"];
+  /** Which failure, as a catalog code: the chat shows `errors[code]` (none reads as `unknown`). */
+  code?: ChatErrorCode;
 }
 
 /** A conversation: its messages, whether a run is streaming, and the last error. */
@@ -173,6 +177,8 @@ function applyPart(state: SessionState, part: AgentStreamPart): SessionState {
     case "step-finish":
       return state;
     case "finish":
+      // the step limit cut the turn short: said, with Retry to let it go on (0.4.0 stopped without a word)
+      if (part.reason === "max-steps") return { ...state, status: "error", error: { message: en.errors.max_steps, code: "max_steps" } };
       return { ...state, status: "idle", messages: part.reason === "aborted" ? cancelOpen(messages) : messages };
     case "error":
       return { ...state, status: "error", error: { message: part.error, code: part.code }, messages: cancelOpen(messages) };
