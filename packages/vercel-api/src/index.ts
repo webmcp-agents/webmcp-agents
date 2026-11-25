@@ -11,6 +11,7 @@ import { type AllowedTool, type ChatSessionOptions, createChatHandler, type WebA
 import type { LanguageModel } from "ai";
 import { budgetGuard, composeGuards, originGuard, rateLimitGuard, secretMissingGuard, sessionGuard } from "./guards";
 import { createLimiter, type Env } from "./limiter";
+import type { Observability } from "@webmcp-agents/telemetry/server";
 import { observabilityFor } from "./telemetry";
 
 export type { Guard } from "./guards";
@@ -45,6 +46,11 @@ export interface VercelChatRouteOptions {
    * required on Vercel deployments (preview and production). `false` turns sessions off.
    */
   session?: false | ChatSessionOptions;
+  /**
+   * The layer that exports the chat's spans (`defineObservability()`), when the app owns it (to share it with its own
+   * `/api/telemetry` route). Default: the instance's shared layer (`observabilityFor(env)`), off without `OTEL_*`.
+   */
+  observability?: Observability;
 }
 
 const num = (value: string | undefined, fallback: number): number => {
@@ -57,7 +63,7 @@ const num = (value: string | undefined, fallback: number): number => {
  * Claude Sonnet 5.5 (cheaper, faster), 4096 output tokens (thinking counts against them) and 6 steps; every limit is
  * an env var (see docs/more/deploy.md).
  */
-export function createVercelChatRoute({ app, env = process.env, model, agents, tools, session = {} }: VercelChatRouteOptions) {
+export function createVercelChatRoute({ app, env = process.env, model, agents, tools, session = {}, observability }: VercelChatRouteOptions) {
   // each tool step is one request: a 6-step turn is 7, so a burst limit must fit a few turns
   const perMinute = num(env.RATE_LIMIT_PER_MINUTE, 30);
   const perDay = num(env.RATE_LIMIT_PER_DAY, 300);
@@ -90,7 +96,7 @@ export function createVercelChatRoute({ app, env = process.env, model, agents, t
       ),
     ),
     // off unless OTEL_* is set; the handler hands its flush to Vercel's waitUntil once the stream ends
-    observability: observabilityFor(env),
+    observability: observability ?? observabilityFor(env),
     // after validation: malformed requests never use up a session's requests or the shared budget
     beforeModel: async (req, { session: id }) => (id ? await sessionGuard(sessionLimiter, id) : undefined) ?? (await budget(req)),
   });

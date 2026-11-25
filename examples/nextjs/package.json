@@ -17,6 +17,7 @@
     "@webmcp-agents/core": "workspace:*",
     "@webmcp-agents/examples-ui": "workspace:*",
     "@webmcp-agents/react": "workspace:*",
+    "@webmcp-agents/telemetry": "workspace:*",
     "@webmcp-agents/vercel-api": "workspace:*",
     "ai": "^7.0.163",
     "lucide-react": "^1.70.0",
