@@ -1,5 +1,5 @@
 {
-  "now": "Phase 4 running: run telemetry in chat (ids on the wire, onAgentRun, handler options)",
+  "now": "Phase 5 running: @webmcp-agents/telemetry (server, browser, relay)",
   "waiting": "",
   "phases": {
     "0": {
@@ -31,13 +31,16 @@
       "commit": "a2cca10..574a92f"
     },
     "4": {
-      "state": "running",
+      "state": "done",
       "model": "Opus 5.5 / medium",
-      "session": "phase-4-run-telemetry"
+      "session": "phase-4-run-telemetry",
+      "gate": "pass (lead)",
+      "commit": "2484bfb..ccdd23d"
     },
     "5": {
-      "state": "queued",
-      "model": "Opus 5.5 / medium"
+      "state": "running",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-5-telemetry"
     },
     "6": {
       "state": "queued",
