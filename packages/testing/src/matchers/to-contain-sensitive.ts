@@ -1,0 +1,140 @@
+import type { AgentEvent } from "@webmcp-agents/core";
+import type { MatcherResult, MatcherState } from "vitest";
+import { describeEvent, hint, MatcherInputError, show } from "../format";
+import { isEventLog } from "../helpers/events";
+import { RUN_RECORD } from "../run-record";
+
+/** A place a value was found: the sink, where in it, and (for an event) which event. */
+interface Hit {
+  needle: string | RegExp;
+  path: string;
+  event?: string;
+}
+
+const MAX_DEPTH = 24;
+
+/** Walk `value`, calling `onString` for every string (and number) with its path. Cycles and DOM nodes are skipped. */
+function walk(value: unknown, path: string, onString: (text: string, path: string) => void, seen = new WeakSet<object>(), depth = 0): void {
+  if (typeof value === "string") {
+    onString(value, path);
+    return;
+  }
+  if (typeof value === "number" || typeof value === "bigint") {
+    onString(String(value), path);
+    return;
+  }
+  if (typeof value !== "object" || value === null || depth > MAX_DEPTH) return;
+  if (seen.has(value)) return;
+  seen.add(value);
+  if (typeof Node !== "undefined" && value instanceof Node) return; // a control: its value is not data the sink kept
+  if (value instanceof Error) {
+    walk(value.message, `${path}.message`, onString, seen, depth + 1);
+    return;
+  }
+  if (value instanceof Map) {
+    for (const [k, v] of value) walk(v, `${path}.get(${show(k, 30)})`, onString, seen, depth + 1);
+    return;
+  }
+  if (Array.isArray(value) || value instanceof Set) {
+    for (const [i, v] of [...value].entries()) walk(v, `${path}[${i}]`, onString, seen, depth + 1);
+    return;
+  }
+  for (const [k, v] of Object.entries(value))
+    walk(v, /^[A-Za-z_$][\w$]*$/.test(k) ? `${path}.${k}` : `${path}[${JSON.stringify(k)}]`, onString, seen, depth + 1);
+}
+
+const found = (text: string, needle: string | RegExp): boolean => (typeof needle === "string" ? text.includes(needle) : needle.test(text));
+
+interface Spy {
+  mock: { calls: unknown[][] };
+  getMockName?: () => string;
+}
+const isSpy = (value: unknown): value is Spy =>
+  (typeof value === "function" || typeof value === "object") && value !== null && Array.isArray((value as Spy).mock?.calls);
+
+type Scan = { sink: string; hits: Hit[] };
+
+/** Scan a sink that is already in memory (everything but a `Response`). */
+function scan(received: unknown, needles: (string | RegExp)[]): Scan {
+  const hits: Hit[] = [];
+  const check = (event?: string) => (text: string, path: string) => {
+    for (const needle of needles) if (found(text, needle)) hits.push({ needle, path, ...(event ? { event } : {}) });
+  };
+  const events = isEventLog(received) ? received.events : isEventArray(received) ? received : undefined;
+  if (events) {
+    // the event is named by its type and tool only: a fill's value is what is being looked for
+    for (const [i, e] of events.entries()) walk(e, `events[${i}]`, check(describeEvent(e.type === "fill" ? { ...e, value: "…" } : e)));
+    return { sink: "the event log", hits };
+  }
+  if (isSpy(received)) {
+    for (const [i, args] of received.mock.calls.entries()) walk(args, `calls[${i}]`, check());
+    return { sink: `the spy "${received.getMockName?.() || "spy"}"`, hits };
+  }
+  const record = (received as Record<symbol, unknown> | null)?.[RUN_RECORD];
+  if (record) {
+    walk((received as { requests?: unknown }).requests, "requests", check());
+    walk(record, "record", check());
+    return { sink: "the mock adapter", hits };
+  }
+  walk(received, "value", check());
+  return { sink: "the value", hits };
+}
+
+/** Scan a `Response`'s body: as JSON when it parses, else as text. */
+async function scanResponse(res: Response, needles: (string | RegExp)[]): Promise<Scan> {
+  const text = await res.clone().text();
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = undefined;
+  }
+  const scanned = json === undefined ? scan(text, needles) : scan(json, needles);
+  return {
+    sink: `the Response body (status ${res.status})`,
+    hits: scanned.hits.map((h) => ({ ...h, path: json === undefined ? "body (text)" : h.path.replace(/^value/, "body") })),
+  };
+}
+
+const isEventArray = (value: unknown): value is AgentEvent[] =>
+  Array.isArray(value) && value.length > 0 && value.every((e) => typeof (e as AgentEvent | null)?.type === "string");
+
+/**
+ * One of `values` (strings found inside any text, or RegExps) is somewhere in this sink: an event log, a console spy
+ * (`vi.spyOn(console, "error")`), a `Response` (its body), a mock adapter (what it was sent), a run, or any value.
+ * Use it negated: `expect(sink).not.toContainSensitive(["A1234567"])`. The failure names the sink and the path where
+ * the value was found, and prints nothing else of the sink's content. On a `Response` it is async: `await` it.
+ *
+ * @example
+ * for (const sink of [events, logs, adapter]) expect(sink).not.toContainSensitive(["A1234567"]);
+ * await expect(response).not.toContainSensitive(["sk-test-key"]);
+ */
+export function toContainSensitive(this: MatcherState, received: unknown, values: (string | RegExp)[]): MatcherResult {
+  if (
+    !Array.isArray(values) ||
+    values.length === 0 ||
+    !values.every((v) => (typeof v === "string" && v.length > 0) || v instanceof RegExp)
+  ) {
+    throw new MatcherInputError(
+      `toContainSensitive takes a non-empty list of the values to look for (strings or RegExps), got ${show(values)}.`,
+    );
+  }
+  if (received === undefined) {
+    throw new MatcherInputError(
+      "toContainSensitive needs a sink to look in (an event log, a spy, a Response, a mock adapter or a value), got undefined.",
+    );
+  }
+  const head = hint(this, "toContainSensitive", [values]);
+  const verdict = ({ sink, hits }: Scan) => ({
+    pass: hits.length > 0,
+    message: () =>
+      this.isNot
+        ? `${head}\n\n  Found in ${sink}:\n${hits
+            .slice(0, 10)
+            .map((h) => `  - ${show(h.needle)} at ${h.path}${h.event ? ` (event: ${h.event})` : ""}`)
+            .join("\n")}${hits.length > 10 ? `\n  … and ${hits.length - 10} more` : ""}`
+        : `${head}\n\n  Expected ${sink} to contain one of ${values.map((v) => show(v)).join(", ")}, but none is in it.`,
+  });
+  if (typeof Response !== "undefined" && received instanceof Response) return scanResponse(received, values).then(verdict);
+  return verdict(scan(received, values));
+}

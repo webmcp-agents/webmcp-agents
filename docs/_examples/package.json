@@ -3,25 +3,30 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "The code the docs show (docs/_examples/**), type-checked against the packages. Not an app: nothing here runs.",
+  "description": "The code the docs show (docs/_examples/**), type-checked against the packages; the testing examples (testing/) also run.",
   "scripts": {
-    "typecheck": "tsc -p vite && tsc -p nextjs && tsc -p tanstack-start && tsc -p astro && tsc -p no-framework"
+    "typecheck": "tsc -p vite && tsc -p nextjs && tsc -p tanstack-start && tsc -p astro && tsc -p no-framework && tsc -p testing",
+    "test": "vitest run --config testing/vitest.config.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^7.0.3",
+    "@playwright/test": "^1.65.0",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-router": "^1.170.0",
     "@tanstack/react-start": "^1.169.5",
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vitest/browser-playwright": "^5.1.0",
     "@webmcp-agents/chat": "workspace:*",
     "@webmcp-agents/core": "workspace:*",
     "@webmcp-agents/devtools": "workspace:*",
     "@webmcp-agents/local-agent": "workspace:*",
     "@webmcp-agents/react": "workspace:*",
+    "@webmcp-agents/testing": "workspace:*",
     "@webmcp-agents/tools": "workspace:*",
     "@webmcp-agents/vercel-api": "workspace:*",
+    "ai": "^7.0.163",
     "astro": "^7.4.7",
     "lucide-react": "^1.70.0",
     "react": "^19.3.1",
@@ -29,6 +34,7 @@
     "react-hook-form": "^7.91.0",
     "typescript": "~6.0.3",
     "vite": "^8.3.6",
+    "vitest": "^5.1.0",
     "zod": "^4.6.7"
   }
 }

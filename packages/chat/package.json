@@ -94,7 +94,6 @@
     "@ai-sdk/google": "^4.0.113",
     "@ai-sdk/mistral": "^4.0.80",
     "@ai-sdk/openai": "^4.0.110",
-    "@ai-sdk/provider": "^4.0.36",
     "@ai-sdk/xai": "^5.0.39",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "@types/node": "^24.19.2",

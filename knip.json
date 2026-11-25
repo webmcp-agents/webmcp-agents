@@ -27,7 +27,8 @@
       "paths": {
         "@/components/ui/*": ["../../examples/ui/src/components/*"],
         "@/*": ["shared/*"]
-      }
+      },
+      "vitest": false
     },
     "apps/docs": {
       "entry": ["blume.config.ts", "components.ts", "pages/**/*.astro", "scripts/*.mjs", "theme.css"],

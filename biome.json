@@ -61,11 +61,37 @@
   "overrides": [
     {
       "includes": ["examples/*/src/styles/app.css"],
-      "css": { "parser": { "tailwindDirectives": true } }
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      }
     },
     {
       "includes": ["docs/_examples/**"],
-      "formatter": { "lineWidth": 72 }
+      "formatter": {
+        "lineWidth": 72
+      }
+    },
+    {
+      "includes": ["packages/*/src/**", "!packages/testing/**", "!**/*.test.ts", "!**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@webmcp-agents/testing", "@webmcp-agents/testing/*"],
+                    "message": "The testing kit is for tests only: runtime code never imports @webmcp-agents/testing (R-TEST-7)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     },
     {
       "includes": [
@@ -92,6 +118,10 @@
                   {
                     "group": ["node:*"],
                     "message": "Client code runs in the browser: no Node built-ins."
+                  },
+                  {
+                    "group": ["@webmcp-agents/testing", "@webmcp-agents/testing/*"],
+                    "message": "The testing kit is for tests only: runtime code never imports @webmcp-agents/testing (R-TEST-7)."
                   }
                 ]
               }
