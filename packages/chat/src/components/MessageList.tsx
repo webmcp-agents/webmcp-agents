@@ -272,7 +272,9 @@ export function MessageList({
             setPinned(true);
           }}
         >
-          <Icon name="down" /> {t("conversation.jumpToLatest")}
+          <Icon name="down" />
+          {/* one text node with its leading space, as in 0.4.0 */}
+          {` ${t("conversation.jumpToLatest")}`}
         </button>
       )}
     </div>

@@ -1,5 +1,25 @@
+import type { ReactNode } from "react";
 import { slotProps, useChatContext, usePart } from "../customize/context";
+import type { MessageKey, Translate } from "../customize/types";
 import type { AdapterStatus } from "../types";
+
+/**
+ * `key` filled with `value` for `name`, as text nodes split where the value goes ("Use ", "Claude (cloud)", " instead"),
+ * the nodes 0.4.0 rendered: a node boundary changes how a line is shaped, so the default chat stays pixel-identical. A
+ * message that does not place the value once (a function, a translation without it) is one node.
+ */
+function around(t: Translate, key: MessageKey, name: string, value: string): ReactNode {
+  const mark = "\u0000";
+  const parts = t(key, { [name]: mark }).split(mark);
+  if (parts.length !== 2) return t(key, { [name]: value });
+  return (
+    <>
+      {parts[0]}
+      {value}
+      {parts[1]}
+    </>
+  );
+}
 
 /** Props of the download card. */
 export interface DownloadCardProps {
@@ -93,7 +113,9 @@ export function DownloadCard({ status, bytes, onDownload, onCancel, onUseOther, 
     <div {...part("downloadCard", "wa-chat__download")} data-state="needs-download">
       <p {...part("downloadTitle", "wa-chat__download-title")}>{t("download.offer")}</p>
       <p {...part("downloadText")}>
-        {status.bytes ? t("download.size", { size: t.format.bytes(status.bytes) }) : t("download.sizeUnknown")} {t("download.privacy")}
+        {/* the same text nodes as 0.4.0 (a node boundary changes how the line is shaped) */}
+        {status.bytes ? t("download.size", { size: t.format.bytes(status.bytes) }) : t("download.sizeUnknown")}
+        {` ${t("download.privacy")}`}
         {status.note ? ` ${status.note}` : ""}
       </p>
       <div {...part("downloadActions", "wa-chat__download-actions")}>
@@ -102,7 +124,7 @@ export function DownloadCard({ status, bytes, onDownload, onCancel, onUseOther, 
         </button>
         {onUseOther && (
           <button type="button" {...part("downloadButton", "wa-chat__button")} data-action="use-other" onClick={onUseOther}>
-            {t("download.useOther", { adapter: otherLabel ?? t("download.otherFallback") })}
+            {around(t, "download.useOther", "adapter", otherLabel ?? t("download.otherFallback"))}
           </button>
         )}
       </div>
