@@ -17,7 +17,9 @@ export default defineConfig({
         include: ["test/**/*.test.ts"],
         // @ai-sdk/otel brings @opentelemetry/api 1.9.1, whose "module" build has extension-less imports: Vite's SSR
         // loader picks it (Node itself uses its CJS "main"), so let Vite transform it
-        test: { server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } } },
+        // The first test in a file that builds the layer pays for loading (and transforming) the OpenTelemetry packages:
+        // seconds on a cold cache with every other package's tests running beside it, so the default 5 s is too tight.
+        test: { testTimeout: 20_000, server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } } },
       }),
       // Pre-bundle what the browser tests load mid-run (a dependency found later reloads Vite: two Reacts)
       webAgentsProject("browser", {
