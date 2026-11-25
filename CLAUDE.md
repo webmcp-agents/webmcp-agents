@@ -422,6 +422,8 @@ mid-run (the cursor must vanish and the tool still complete).
   (`knip.json` lists each workspace's entries): delete the dead code or dependency, or add a real entry (a file the tool cannot
   see being loaded); never add an ignore for a finding. Deprecated alias exports kept for compatibility are the one `ignoreIssues`
   (`duplicates`) exception. Registry blocks' dependencies live in `registry/registry.json`, so `knip.json` ignores them.
+  Knip's Vite plugin is off for `examples/*` (`vite.config.ts` is a plain entry instead): the plugin executes the config, which
+  imports `@webmcp-agents/chat/vite` from `dist`, and CI runs Knip before any build.
 - Telemetry (`packages/telemetry`, `packages/vercel-api`): Vite's SSR picks `@opentelemetry/api` 1.9.1's ESM build, whose imports
   have no extension, so a Node test project that loads `@ai-sdk/otel` needs
   `test: { server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } } }` (telemetry and vercel-api have it). A browser

@@ -18,8 +18,9 @@
       "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
     },
     "examples/*": {
-      "entry": ["src/main.tsx", "api/*.ts", "e2e/*.ts", "app/**/{page,layout,route}.{ts,tsx}"],
-      "project": ["**/*.{ts,tsx,css}"]
+      "entry": ["src/main.tsx", "api/*.ts", "e2e/*.ts", "app/**/{page,layout,route}.{ts,tsx}", "vite.config.ts"],
+      "project": ["**/*.{ts,tsx,css}"],
+      "vite": false
     },
     "docs/_examples": {
       "entry": ["**/*.{ts,tsx}"],
