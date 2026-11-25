@@ -93,7 +93,7 @@ plugins: [react(), webAgentsChatDev({ agents })],
 | [`resolveModel`](./resolve-model.md) | `@webmcp-agents/chat/server` | A `"<provider>/<model>"` id as an AI SDK model. Includes `modelAvailability`, `parseModelId`, `providerOptionsFor`, `displayName`, `PROVIDERS`, `ModelUnavailableError`. |
 | [`toToolLoopAgent`](./to-tool-loop-agent.md) | `@webmcp-agents/chat/server` | A `WebAgent` as an AI SDK `ToolLoopAgent`. Includes `toToolLoopAgentSettings`, `toToolSet`. |
 | [`buildSystemPrompt`](./system-prompt.md) | `@webmcp-agents/chat/server` | The system prompt the handler sends, and `DEFAULT_SYSTEM_PROMPT`. |
-| [`chatRequestSchema`](./chat-request-schema.md) | `@webmcp-agents/chat/server` | The zod schema and `LIMITS` for the POST body. Includes `ChatRequest`, `chatTraceSchema`, `TRACE_ID`, `validTraceparent`. |
+| [`chatRequestSchema`](./chat-request-schema.md) | `@webmcp-agents/chat/server` | The zod schema and `LIMITS` for the POST body. Includes `ChatRequest`, `chatTraceSchema`, `TRACE_ID`, `validTraceparent`, `isCrossSite`. |
 | [Adapter types](./adapter-types.md) | `@webmcp-agents/chat` | The contract an adapter implements. Includes `AgentAdapter`, `AdapterStatus`, `AgentRunRequest`, `AgentStreamPart`, `AgentMessage`, `AgentPart`, `ToolDescriptor`, `ToolOutput`, `ToolCallState`. |
 | [`callModelContextTool`](./call-model-context-tool.md) | `@webmcp-agents/chat` | Run one page tool for an agent, with a time limit and error codes. Includes `CallToolOptions`, `TOOL_TIMEOUT_MS`, `NAVIGATED`, `CANCELLED`, `isCancelled`. |
 | [`listToolDescriptors`](./list-tool-descriptors.md) | `@webmcp-agents/chat` | The tools on the page right now, as a model sees them. |

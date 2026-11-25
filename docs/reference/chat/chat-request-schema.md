@@ -9,7 +9,7 @@ The zod schema for the POST body of `/api/chat`, and the `LIMITS` it enforces. C
 ## Import
 
 ```ts
-import { chatRequestSchema, chatTraceSchema, LIMITS, TRACE_ID, validTraceparent } from "@webmcp-agents/chat/server";
+import { chatRequestSchema, chatTraceSchema, isCrossSite, LIMITS, TRACE_ID, validTraceparent } from "@webmcp-agents/chat/server";
 import type { ChatRequest } from "@webmcp-agents/chat/server";
 ```
 
@@ -81,6 +81,7 @@ The request's `traceparent` header is not part of the body: a valid W3C one (`va
 - A tool output keeps `content` and `isError` only: other keys of a result do not reach the server.
 - Only a same-origin path from `page.url` reaches the model, and only for a same-origin browser request.
 - The schema is not strict: a 0.4.0 handler strips the `trace` a 0.5.0 page sends, and serves the request as before.
+- `isCrossSite(req)` is the handler's cross-site rule, exported for other endpoints of the same app (the telemetry relay uses it): true when the request has an `Origin` that is not the endpoint's own. Requests without `Origin` (curl, server to server) pass; limiting them is a guard's job.
 
 ## See also
 
