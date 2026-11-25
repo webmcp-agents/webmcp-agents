@@ -10,6 +10,7 @@
  *
  *   node scripts/chat-inventory.mjs            # both lists on stdout
  *   node scripts/chat-inventory.mjs --out dir  # writes dir/strings.txt and dir/css.txt
+ *   node scripts/chat-inventory.mjs --src <copy of packages/chat/src> --out dir   # another version (e.g. 0.4.0)
  *
  * Read with the TypeScript compiler's parser (no type check), so a string split over lines or inside a template is
  * found as one. The output is the inventory the message catalog and the tokens were built from: run it again after a
@@ -20,7 +21,10 @@ import { join, relative, resolve } from "node:path";
 import ts from "typescript";
 
 const root = resolve(import.meta.dirname, "..");
-const src = join(root, "packages/chat/src");
+// `--src <dir>` reads another copy of packages/chat/src (an older version checked out elsewhere); paths stay relative to the repo
+const srcIdx = process.argv.indexOf("--src");
+const src = srcIdx === -1 ? join(root, "packages/chat/src") : resolve(process.argv[srcIdx + 1]);
+const shown = (file) => join("packages/chat/src", relative(src, file));
 
 /** Files whose sentence-like literals reach the person (components) or carry error text (adapter, session). */
 const SCANNED = [/^components\//, /^adapter\/cloud\.ts$/, /^session\/[^/]+\.ts$/, /^customize\/[^/]+\.tsx?$/];
@@ -52,7 +56,7 @@ function strings() {
     if (!SCANNED.some((r) => r.test(rel))) continue;
     const text = readFileSync(file, "utf8");
     const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-    const at = (node) => `${relative(root, file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`;
+    const at = (node) => `${shown(file)}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`;
     const literal = (node) =>
       ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)
         ? node.text
@@ -96,7 +100,8 @@ function strings() {
 // ---------- css ----------
 const RAW = [
   ["color", /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lab|lch)\(/i],
-  ["length", /(?<![\w-])-?\d*\.?\d+(?:px|rem|em|vh|vw|dvh|dvw|lh)\b/],
+  // a length; the whole viewport (100vw, 100dvh) is an extent, not a size
+  ["length", /(?<![\w-])-?\d*\.?\d+(?:px|rem|em|lh)\b|(?<![\w.-])(?!100(?:d?v[wh])\b)-?\d*\.?\d+d?v[wh]\b/],
   ["duration", /(?<![\w-])\d*\.?\d+m?s\b/],
   ["z-index", /^z-index$/],
   ["physical-side", /^(?:left|right|top|bottom|(?:margin|padding|border)-(?:left|right|top|bottom)(?:-\w+)?)$/],
@@ -125,19 +130,19 @@ function css() {
     if (!decl || code.includes("{")) return;
     const [, prop, value] = decl;
     if (prop.startsWith("--wa-chat-")) return; // a token declaration: raw values belong here
-    const kinds = RAW.filter(([kind, re]) => (kind === "z-index" || kind === "physical-side" ? re.test(prop) : re.test(value))).map(
-      ([k]) => k,
-    );
+    const kinds = RAW.filter(([kind, re]) =>
+      kind === "z-index" ? re.test(prop) && !/^var\(/.test(value) : kind === "physical-side" ? re.test(prop) : re.test(value),
+    ).map(([k]) => k);
     // a shorthand whose values name sides in physical order (top right bottom left) or a physical keyword
-    const parts = value
-      .replace(/\([^()]*\)/g, "f")
-      .trim()
-      .split(/\s+/);
+    let flat = value;
+    while (/\([^()]*\)/.test(flat)) flat = flat.replace(/\([^()]*\)/g, "f");
+    const parts = flat.trim().split(/\s+/);
     if (/^(margin|padding|inset|border-width|border-radius)$/.test(prop) && parts.length >= 3 && new Set(parts).size > 1)
       kinds.push("physical-shorthand");
     if (/^(transform-origin|text-align|float|clear)$/.test(prop) && /\b(left|right)\b/.test(value)) kinds.push("physical-keyword");
-    if (/translateX\(/.test(value)) kinds.push("physical-transform");
-    if (kinds.length) out.push(`${relative(root, file)}:${i + 1}\t${kinds.join(",")}\t${prop}: ${value}`);
+    // a horizontal move is physical unless it follows the chat's direction (`* var(--wa-chat--dir)`)
+    if (/translateX\(/.test(value) && !value.includes("var(--wa-chat--dir)")) kinds.push("physical-transform");
+    if (kinds.length) out.push(`${shown(file)}:${i + 1}\t${kinds.join(",")}\t${prop}: ${value}`);
   });
   return out;
 }

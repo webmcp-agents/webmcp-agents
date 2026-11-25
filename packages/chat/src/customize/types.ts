@@ -5,84 +5,15 @@
 import type { ComponentType, CSSProperties, ReactNode, RefObject } from "react";
 import type { WebAgentStep } from "../agent";
 import type { AdapterStatus, AgentMessage, AgentPart, ModelChoice } from "../types";
+import type { CHAT_PARTS } from "./parts";
 import type { THEME_GROUPS } from "./tokens";
 
 /**
  * Every element the chat renders. Also the value of its `data-wa-part` attribute, the key of `classNames` and
  * `styles`, and what a CSS selector targets: `[data-wa-part="toolCard"][data-state="awaiting-confirmation"]`.
- * The drawing inside an icon (`<path>`, `<rect>`) belongs to its `icon`.
+ * The drawing inside an icon (`<path>`, `<rect>`) belongs to its `icon`. The list is `CHAT_PARTS`.
  */
-export type ChatPart =
-  // the design's parts
-  | "root"
-  | "launcher"
-  | "panel"
-  | "header"
-  | "title"
-  | "close"
-  | "newChat"
-  | "adapterSwitcher"
-  | "modelPicker"
-  | "modelOption"
-  | "messages"
-  | "message"
-  | "bubble"
-  | "text"
-  | "reasoning"
-  | "toolCard"
-  | "toolName"
-  | "toolState"
-  | "toolInput"
-  | "toolOutput"
-  | "toolPrompt"
-  | "subagent"
-  | "suggestions"
-  | "suggestion"
-  | "composer"
-  | "input"
-  | "send"
-  | "stop"
-  | "downloadCard"
-  | "progress"
-  | "error"
-  | "empty"
-  | "resizer"
-  | "status"
-  | "working"
-  | "restore"
-  | "restoreConfirm"
-  | "restoreCancel"
-  // what the 0.4.0 chat renders that the design did not name (found by the inventory)
-  | "adapterOption"
-  | "adapterDot"
-  | "modelLabel"
-  | "modelSelect"
-  | "modelMeta"
-  | "emptyTitle"
-  | "emptyHint"
-  | "suggestionItem"
-  | "scroll"
-  | "messageBody"
-  | "workingDot"
-  | "workingLabel"
-  | "jumpToLatest"
-  | "restoreAsk"
-  | "restoreActions"
-  | "restored"
-  | "toolHead"
-  | "toolPromptText"
-  | "showOnPage"
-  | "downloadTitle"
-  | "downloadText"
-  | "downloadMeta"
-  | "downloadActions"
-  | "downloadButton"
-  | "progressBar"
-  | "errorText"
-  | "retry"
-  | "field"
-  | "announcer"
-  | "icon";
+export type ChatPart = (typeof CHAT_PARTS)[number];
 
 type Group<K extends readonly string[]> = Partial<Record<K[number], string>>;
 

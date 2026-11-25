@@ -100,7 +100,11 @@ export const en: ChatMessages = {
     waitingForYou: "Waiting for you: {tool}. Confirm on the page to continue.",
   },
   conversation: { label: "Conversation", working: "The assistant is working", jumpToLatest: "Jump to latest" },
-  status: { connecting: "Connecting to the assistant…", needsDownload: "Download the model to start.", notReady: "The model isn't ready yet." },
+  status: {
+    connecting: "Connecting to the assistant…",
+    needsDownload: "Download the model to start.",
+    notReady: "The model isn't ready yet.",
+  },
   trace: {
     running: "Running {tool}…",
     waiting: "Waiting for you: {tool}",

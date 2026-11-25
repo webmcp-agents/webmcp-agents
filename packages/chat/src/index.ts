@@ -34,6 +34,7 @@ export { defineChatMessages, defineChatTheme, themeToCssVars } from "./customize
 export type { ChatCssVar } from "./customize/theme";
 export { CHAT_ERROR_CODES, chatErrorCode } from "./customize/errors";
 export { THEME_TOKENS } from "./customize/tokens";
+export { CHAT_PARTS } from "./customize/parts";
 export { adapterLabel } from "./components/AdapterSwitcher";
 export type {
   ChatComponents,

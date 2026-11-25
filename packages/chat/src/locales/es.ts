@@ -100,7 +100,11 @@ export const es = {
     waitingForYou: "Esperándote: {tool}. Confirma en la página para continuar.",
   },
   conversation: { label: "Conversación", working: "El asistente está trabajando", jumpToLatest: "Ir a lo más reciente" },
-  status: { connecting: "Conectando con el asistente…", needsDownload: "Descarga el modelo para empezar.", notReady: "El modelo aún no está listo." },
+  status: {
+    connecting: "Conectando con el asistente…",
+    needsDownload: "Descarga el modelo para empezar.",
+    notReady: "El modelo aún no está listo.",
+  },
   trace: {
     running: "Ejecutando {tool}…",
     waiting: "Esperándote: {tool}",
