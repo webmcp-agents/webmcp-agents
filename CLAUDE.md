@@ -136,6 +136,12 @@ packages/devtools/      @webmcp-agents/devtools: store.ts (tools, calls, setting
                         @webmcp-agents/react (react depends on devtools): the cursor comes from core's currentAgentVisuals()
 packages/tools/         @webmcp-agents/tools: one factory per common tool (get-time.ts, get-location.ts, get-page.ts, go-to.ts,
                         go-back.ts, scroll-to.ts, set-theme.ts; calendar.ts is pure), each a defineWebTool tool, no framework
+packages/testing/       @webmcp-agents/testing: the Vitest kit the repo's own tests use. `.` (test with fixtures in test.ts, callTool,
+                        mockTool, page helpers in helpers/), matchers.ts (expect.extend + typed `Matchers` augmentation; one
+                        matcher per file in matchers/), setup.ts (polyfill, reduced motion, ids, cleanup; guard.ts fails a test
+                        that leaves a call running or a tool registered), vitest.ts (webAgentsProject), chat/ (mockAdapter,
+                        mockChatServer), server/ (mockModel, chatRequest, readChatStream, withSession), playwright/, telemetry/
+                        (shell until phase 5). A devDependency of the root only (core ↔ testing would be a Turbo cycle)
 capture/                the docs media harness: playwright.config.ts (webServer for the four apps; stills, mobile, clips
                         projects), *.capture.ts, encode.mjs (ffmpeg → docs/media, budgets: clips ≤ 1.5 MB, hero.gif ≤ 3 MB)
 docs/                   the docs site's content (apps/docs renders it), ordered by framework and by step (docs/README.md
@@ -230,15 +236,24 @@ tsconfig.base.json      shared compiler options (incl. customConditions)
 - `*.test.ts`: Node environment, pure logic (motion, events, SSR import).
 - `*.browser.test.ts`: real Chromium via Vitest browser mode; use `userEvent` from `vitest/browser` for **trusted**
   input (required for yield tests); targets must sit inside the ~414 px-wide test viewport.
-- Helpers in `packages/core/src/test-utils.ts`: `fixture`, `toolForm`, `uniqueName` (the polyfill registry lives for
-  the whole page, so tool names must be unique per test), `recordEvents`, `until`.
-- Always `destroy()` visuals and remove fixtures in `afterEach`.
-- The test helpers install the polyfill on import. A test of a page *without* `document.modelContext` (the provider
-  loading the polyfill, `polyfill: false`) is a file of its own that imports no helper: each browser test file gets a
-  fresh page (`web-agents.polyfill.browser.test.ts`, `provider.polyfill.browser.test.tsx`).
+- Every package's tests use `@webmcp-agents/testing` (no private helpers): `test` with fixtures (`tools`, `events`,
+  `user`, `mount`, `redactor`), the matchers (`toBeToolResult`, `toHaveParked`, `toHaveCalledTools`,
+  `toContainSensitive`…), `fixture`, `toolForm`, `echoForm`, `uniqueName`, `recordEvents`, `until`, and
+  `mockAdapter` / `mockModel` for agents and the endpoint. Configs list `webAgentsProject("unit" | "browser", …)`.
+- The browser setup (`@webmcp-agents/testing/setup`) installs the polyfill, reduces motion (core keeps it: `motion:
+  "full"`), resets ids, and after each test removes fixtures and React roots, then **fails the test** if a call it
+  started is still running or a tool it registered is still registered. Unregister what a test registers (abort its
+  signal, `unregisterTool`, or `tools.mock`). Visuals a test installs itself are its own to `destroy()`.
+- A test of a page *without* `document.modelContext` (the provider loading the polyfill, `polyfill: false`, a stand-in
+  "native" modelContext) runs in its own project whose only setup is `@webmcp-agents/testing/matchers`
+  (`*:no-webmcp` projects: core's `web-agents.polyfill` / `.native`, devtools' `store.late`, react's
+  `provider.polyfill`). Each browser test file gets a fresh page.
 - Example apps: `examples/*/e2e/*.spec.ts` (Playwright, desktop + Pixel 7, reduced motion so the cursor snaps) drive
-  tools through `window.agent` (`e2e/agent.ts`); a confirm gate is asserted with `.agent-cursor.is-waiting` + `data-agent-active` on the control, then a
-  real click (`parkedOn` in `e2e/agent.ts`). Apps typecheck twice: `tsconfig.json` (src, `vite/client`) and `tsconfig.node.json` (configs + e2e).
+  tools through `window.agent` with `@webmcp-agents/testing/playwright` (`openApp`, `runTool`, `listTools`); a confirm
+  gate is asserted with `parkedOn` (`.agent-cursor.is-waiting` + `data-agent-active` on the control), then a real click.
+  Apps typecheck twice: `tsconfig.json` (src, `vite/client`) and `tsconfig.node.json` (configs + e2e).
+- `docs/_examples/testing/` runs (`pnpm --filter @webmcp-agents/docs-examples test`, after `^build`): the testing docs'
+  snippets are those files, so a stale one fails `pnpm check`.
 
 ---
 
@@ -340,7 +355,7 @@ mid-run (the cursor must vanish and the tool still complete).
 - Nothing gates rendering on the polyfill, so Next.js prerenders every page inside `<Providers>`: a client component that
   calls `useSearchParams()` needs a `<Suspense>` boundary (`examples/nextjs/app/cart/page.tsx`), or `next build` fails.
 - Playwright's `page.waitForFunction` does not await an async predicate (a Promise is truthy): wait for `window.agent`,
-  then `expect.poll(() => list(page))` for the tools (`examples/*/e2e/agent.ts` `open`). The tools register a few ms after
+  then `expect.poll(() => listTools(page))` for the tools (`openApp` in `@webmcp-agents/testing/playwright`). The tools register a few ms after
   `window.agent` exists in a browser without WebMCP, once the polyfill the provider loads is there.
 - `cursor.css` must stay free of unknown pseudo-classes (Turbopack fails the build on one): Chrome's native `:tool-form-active` / `:tool-submit-active` rules live only in the optional `cursor-native.css`, one rule each.
 - Agents: `defineWebAgent` is plain shared data; the browser sends only the agent **id** and the server reads
@@ -359,6 +374,11 @@ mid-run (the cursor must vanish and the tool still complete).
   source; a tsdown plugin rewrites it to `./worker.js` in dist). Apps need `optimizeDeps.exclude` for the package and
   transformers, and `worker: { format: "es" }`. pnpm denies the install scripts of transformers' Node-only deps
   (`allowBuilds` in pnpm-workspace.yaml). Unit tests never download a model.
+- A `vitest.config.ts` imports the testing kit's config helper by relative path to its source
+  (`../testing/src/vitest.ts`, hence `allowImportingTsExtensions` in tsconfig.base): Vite loads configs with Node's
+  resolution, where the `@webmcp-agents/source` condition does not apply, and core's tests must run with the kit
+  unbuilt. Test files import `@webmcp-agents/testing` by name (source condition). `src/vitest.ts` has no relative
+  imports, so it loads that way. Turbo's `test` never depends on `build` (docs-examples' does, on purpose).
 - Node-environment Vitest tests that import *another* workspace package at runtime need
   `ssr: { resolve: { conditions: ["@webmcp-agents/source", ...defaultServerConditions] } }`, else they load its stale `dist`.
 - Vercel's function bundler resolves `api/chat.ts` imports with default conditions (`dist`, not `src`): a package used
