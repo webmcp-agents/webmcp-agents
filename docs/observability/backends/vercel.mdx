@@ -1,0 +1,28 @@
+---
+title: Vercel
+description: "On Vercel, register @vercel/otel once and the chat's spans join the app's traces and Vercel's trace drains."
+---
+
+**Not run by us.** Written from Vercel's docs and the `@vercel/otel` package (2.3.0) on 2026-11-25.
+
+## Set it up
+
+`registerOTel` from `@vercel/otel` registers a global OpenTelemetry provider, which the chat's layer finds and uses
+([rule 3](/observability/where-spans-go)). In Next.js, put it in `instrumentation.ts` at the project's root:
+
+<include meta='title="instrumentation.ts"'>/_examples/observability/backends/vercel-instrumentation.ts</include>
+
+The layer needs no options. `@vercel/otel` reads the `OTEL_EXPORTER_OTLP_*` variables for its own exporter, but its
+default protocol is `http/protobuf` (the layer's own is `http/json`), and it has no gRPC. Its `traceExporter` and
+`spanProcessors` options take an instance, such as its `OTLPHttpJsonTraceExporter`.
+
+Vercel's Trace Drains forward the traces to a backend of your choice, as OTLP over HTTP. They need `@vercel/otel`: a
+hand-written SDK setup gets no drains.
+
+On Vercel without `@vercel/otel`, the examples' [`createVercelTelemetryRoute`](/reference/vercel-api/create-vercel-telemetry-route)
+and the `OTEL_*` variables are enough: the handler hands its export to Vercel's `waitUntil`.
+
+## Sources
+
+- [Instrumentation](https://vercel.com/docs/tracing/instrumentation.md): `registerOTel`
+- [Trace drains](https://vercel.com/docs/drains/reference/traces.md)

@@ -1,0 +1,27 @@
+---
+title: New Relic
+description: "Send agent traces to New Relic's OTLP endpoint with your license key, as protobuf."
+---
+
+**Not run by us.** Written from New Relic's docs on 2026-11-25.
+
+## Set it up
+
+Install `@opentelemetry/exporter-trace-otlp-proto` and set:
+
+<include meta='title=".env"'>/_examples/observability/env/new-relic.env</include>
+
+| Value | From New Relic's docs |
+|---|---|
+| Endpoint | `https://otlp.nr-data.net` (US), `https://otlp.eu01.nr-data.net` (EU), `https://otlp.jp.nr-data.net` (JP), `https://gov-otlp.nr-data.net` (FedRAMP); ports 443, 4317 and 4318. |
+| Auth | `api-key: <license key>`. |
+| Protocol | New Relic recommends HTTP/protobuf and does not say JSON is accepted, so the recipe sets protobuf. |
+| Limits | 1 MB per payload; attribute values up to 4095 characters, at most 128 attributes per span. |
+
+With `recordInputs` or `recordOutputs` on, long prompts and answers are cut at 4095 characters.
+
+## Sources
+
+- [OpenTelemetry OTLP endpoint](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/)
+
+Not confirmed: OTLP JSON acceptance.

@@ -1,0 +1,35 @@
+---
+title: Braintrust
+description: "Send agent traces to a Braintrust project with its span processor, or with plain OTLP and two headers."
+---
+
+**Not run by us.** Written from Braintrust's docs and its `@braintrust/otel` package (1.1.0) on 2026-11-25.
+
+## Set it up
+
+Install `@braintrust/otel` (the OpenTelemetry code moved there from `braintrust` in 1.0) and pass its span processor
+with the project:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/braintrust.ts</include>
+
+<include meta='title=".env"'>/_examples/observability/env/braintrust.env</include>
+
+`BraintrustSpanProcessor` reads `BRAINTRUST_API_KEY`, `BRAINTRUST_PARENT` and `BRAINTRUST_API_URL`. `parent` is
+`project_name:<name>`, `project_id:<id>` or `experiment_id:<id>`.
+
+### Without the package
+
+<include meta='title=".env"'>/_examples/observability/env/braintrust-otlp.env</include>
+
+Braintrust's docs do not state the protocol for traces; its own package sends JSON, which is what the built-in
+exporter sends too.
+
+The default `conventions: "genai"` fits: Braintrust maps `gen_ai.*` attributes to its inputs, outputs and metrics.
+Braintrust documents no session or user attribute; `webmcp.conversation.id` is on every span to filter by.
+
+## Sources
+
+- [OpenTelemetry](https://docs.braintrust.dev/integrations/sdk-integrations/opentelemetry): the processor, endpoint and headers
+- [Attributes](https://docs.braintrust.dev/integrations/sdk-integrations/opentelemetry/attributes)
+
+Not confirmed on a docs page: OTLP JSON for traces (confirmed only by the vendor's package).

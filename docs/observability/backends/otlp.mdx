@@ -1,0 +1,36 @@
+---
+title: Any OTLP backend
+description: "Grafana Cloud, Honeycomb, SigNoz, Axiom, Jaeger or your own Collector: the two environment variables, and what each backend expects."
+sidebar:
+  label: Any OTLP backend
+---
+
+**Verified against a local Collector** (OpenTelemetry Collector 0.166.0) over `http/json`, `http/protobuf` and `grpc`:
+one trace per turn, the page's spans and the server's joined. The hosted backends below were not run by us; their
+values are from their docs on 2026-11-25.
+
+## Set it up
+
+A backend that accepts OTLP needs its URL and its auth header. For example, Honeycomb:
+
+<include meta='title=".env"'>/_examples/observability/env/honeycomb.env</include>
+
+The code is the [one line from the overview](/observability#a-complete-example). Header values are percent-encoded:
+a space is `%20` (`authorization=Bearer%20<key>`).
+
+| Backend | Endpoint | Auth header | JSON |
+|---|---|---|---|
+| Grafana Cloud | `https://otlp-gateway-<zone>.grafana.net/otlp` | Basic auth, as the OTLP tile of your stack shows it | accepted; Grafana recommends protobuf beyond testing |
+| Honeycomb | `https://api.honeycomb.io` (EU `https://api.eu1.honeycomb.io`) | `x-honeycomb-team: <key>` | accepted |
+| SigNoz Cloud | `https://ingest.<region>.signoz.cloud:443` | `signoz-ingestion-key: <key>` | not stated: use protobuf |
+| Axiom | `https://<your Axiom domain>/v1/traces` (traces endpoint) | `Authorization: Bearer <token>`, `X-Axiom-Dataset: <dataset>` | accepted |
+| Jaeger | `http://<host>:4318` | none | accepted |
+| Your Collector | `http://<host>:4318` | as you configure it | accepted |
+
+## Sources
+
+- [OTLP exporter configuration](https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md): the variables, the `/v1/traces` rule, the header format
+- [Grafana Cloud OTLP](https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp.md), [format considerations](https://grafana.com/docs/grafana-cloud/observe-and-act/send-data/otlp/otlp-format-considerations.md)
+- [Honeycomb](https://docs.honeycomb.io/send-data/opentelemetry/)
+- [SigNoz Cloud](https://signoz.io/docs/ingestion/signoz-cloud/overview/)
+- [Axiom](https://axiom.co/docs/send-data/opentelemetry.md)

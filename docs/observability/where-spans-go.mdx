@@ -1,0 +1,70 @@
+---
+title: Where spans go
+description: "How the telemetry layer picks a destination: the five rules in order, the OTEL_* variables it reads, and how to switch backend without changing code."
+related:
+  - /observability
+  - /observability/collector
+  - /reference/telemetry/define-observability
+---
+
+The layer decides once, on the first request, where its spans go. The first rule that matches wins:
+
+| # | When | Spans go |
+|---|---|---|
+| 1 | You pass `tracerProvider` | To that provider, as is. |
+| 2 | You pass `exporters` or `spanProcessors` | To a private provider built from them. |
+| 3 | The app registered a global OpenTelemetry provider (Sentry, `@vercel/otel`, Datadog, a `NodeSDK`) | To that provider. |
+| 4 | `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is set | To one OTLP exporter built from the environment. |
+| 5 | None of these | Nowhere: the layer is off, and says so once in development. |
+
+Rule 3 is what makes "any backend that follows the standard" work: if your app already sends traces somewhere, the
+chat's spans join them with no configuration here. Pass `tracerProvider: "own"` to ignore the app's provider, or
+`"global"` to require it (the layer is then off, with one error naming the fix, when there is none).
+
+The layer never registers a provider itself and never shuts down one it did not build.
+
+## The environment
+
+All names are the standard OpenTelemetry ones, except the last three.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | The backend's base URL; `/v1/traces` is appended (for `grpc`, used as given). | none |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | The exact traces URL, used as given. Wins over the base. | none |
+| `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_TRACES_HEADERS` | `key=value,key2=value2`, percent-encoded (a space is `%20`). | none |
+| `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` | `http/json`, `http/protobuf` or `grpc`. Anything else turns telemetry off with one error. | `http/json` |
+| `OTEL_EXPORTER_OTLP_TIMEOUT`, `OTEL_EXPORTER_OTLP_TRACES_TIMEOUT` | How long one export may take, in milliseconds. | `30000` |
+| `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | The resource: your service's name, and `key=value` pairs such as `deployment.environment=production`. | `web-agents` |
+| `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` | `always_on`, `always_off` or `traceidratio` with a ratio such as `0.2`. The `parentbased_*` forms are read the same way. | `always_on` |
+| `OTEL_SDK_DISABLED` | `true` turns everything off; the relay then accepts and drops what pages send. | |
+| `WEB_AGENTS_OTEL_ENABLED` | `false` turns off only this library's spans, not the app's own. | |
+| `WEB_AGENTS_OTEL_DEBUG` | `true` also prints each exported span to the console, redacted. | |
+| `RATE_LIMIT_TELEMETRY_PER_MINUTE` | Per-IP limit of the relay in `@webmcp-agents/vercel-api`. | |
+
+The `…_TRACES_…` variants win over the general ones, as the OpenTelemetry specification says. One difference from the
+specification: its default export timeout is 10 seconds; this layer waits 30, because the export runs after the
+answer has been sent (through the host's `waitUntil` where there is one).
+
+### Protocols
+
+`http/json` is built in: it needs no package and runs on any runtime with `fetch`, edge functions included. For
+`http/protobuf` install `@opentelemetry/exporter-trace-otlp-proto`, for `grpc` install
+`@opentelemetry/exporter-trace-otlp-grpc`; a missing package is one error naming it. Several backends accept only
+protobuf: each recipe says which.
+
+## Written out in code
+
+Everything the environment says can be passed instead, which is useful for a second target or values that come from
+your own config:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/explicit.ts</include>
+
+`otlp()` takes `endpoint` (the base) or `endpoints.traces` (exact), never both. Every option is on
+[`defineObservability`](/reference/telemetry/define-observability).
+
+## On serverless hosts
+
+Spans are exported after the answer has streamed. The chat handler and the relay hand the export to the host's
+`waitUntil` when they find one (an argument with `waitUntil`, such as a Worker's `ctx`, or Vercel's request context),
+so the function stays alive until the batch is sent and the person never waits for it. On a host without it, the batch
+is sent by a timer or with the next request.

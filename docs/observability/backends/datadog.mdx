@@ -1,0 +1,44 @@
+---
+title: Datadog
+description: "Send agent traces to Datadog APM and LLM Observability through its OTLP intake, or through dd-trace's OpenTelemetry provider."
+---
+
+**Not run by us.** Written from Datadog's docs on 2026-11-25.
+
+## Set it up
+
+Datadog's agentless intake takes OTLP over HTTP as JSON or protobuf (not gRPC), so the built-in exporter works with
+only the environment:
+
+<include meta='title=".env"'>/_examples/observability/env/datadog.env</include>
+
+| Value | From Datadog's docs |
+|---|---|
+| Endpoint | `https://otlp.<site>/v1/traces`: `otlp.datadoghq.com`, `otlp.datadoghq.eu`, `otlp.us5.datadoghq.com`, `otlp.ddog-gov.com`. A `403` means the host does not match your site. |
+| Headers | `dd-api-key: <key>`; `compute_stats=true` computes trace metrics, which the direct intake does not do by default. |
+| LLM Observability | Only with the resource attribute `dd_llmobs_enabled=true` (or the header `DD-LLMObs-Enabled: true`). It reads `gen_ai.*` and drops spans without it. |
+| A Datadog Agent | It receives OTLP on 4317 and 4318: point `OTEL_EXPORTER_OTLP_ENDPOINT` at it instead, and the Agent holds the key. |
+
+Keep the default `conventions: "genai"`: LLM Observability maps the AI SDK's older `ai.*` spans only partly.
+
+### With `dd-trace`
+
+If the app already runs `dd-trace`, register its OpenTelemetry provider, before any other import, and the layer uses
+it ([rule 3](/observability/where-spans-go)):
+
+<include meta='title="tracer.ts"'>/_examples/observability/backends/datadog-tracer.ts</include>
+
+## Group a conversation
+
+LLM Observability builds sessions from `gen_ai.conversation.id`:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/datadog.ts</include>
+
+## Sources
+
+- [OTLP intake endpoint](https://docs.datadoghq.com/opentelemetry/setup/intake_endpoint/) and [traces](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/)
+- [LLM Observability with OpenTelemetry](https://docs.datadoghq.com/llm_observability/instrumentation/otel_instrumentation.md)
+- [OTLP in the Agent](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest_in_the_agent.md)
+- [OpenTelemetry API support in dd-trace (Node.js)](https://docs.datadoghq.com/opentelemetry/instrument/api_support/nodejs.md)
+
+Not confirmed: the intake hosts of US3, AP1 and AP2 (they follow the same pattern).

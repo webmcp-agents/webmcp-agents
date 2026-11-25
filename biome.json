@@ -74,7 +74,7 @@
       }
     },
     {
-      "includes": ["**", "!packages/telemetry/**"],
+      "includes": ["**", "!packages/telemetry/**", "!docs/_examples/observability/backends/**"],
       "linter": {
         "rules": {
           "style": {

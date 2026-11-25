@@ -1,0 +1,29 @@
+---
+title: Traceloop
+description: "Send agent traces to Traceloop over OTLP, as protobuf, with the conversation as an association property."
+---
+
+**Not run by us.** Written from Traceloop's docs on 2026-11-25.
+
+## Set it up
+
+Install `@opentelemetry/exporter-trace-otlp-proto` and set:
+
+<include meta='title=".env"'>/_examples/observability/env/traceloop.env</include>
+
+`https://api.traceloop.com` is Traceloop's US instance; the exporter appends `/v1/traces`. Traceloop's docs do not say
+whether OTLP JSON is accepted, so the recipe sets protobuf.
+
+## Group a conversation
+
+Traceloop filters by association properties, any key under `traceloop.association.properties.`:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/traceloop.ts</include>
+
+## Sources
+
+- [Traceloop as a destination](https://www.traceloop.com/docs/openllmetry/integrations/traceloop.md)
+- [Configuration](https://www.traceloop.com/docs/openllmetry/configuration.md)
+- [Association properties](https://www.traceloop.com/docs/openllmetry/tracing/association.md)
+
+Not confirmed: OTLP JSON; an EU instance; whether Traceloop reads `gen_ai.*` spans that did not come from its own SDK.

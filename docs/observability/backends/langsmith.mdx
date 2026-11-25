@@ -1,0 +1,38 @@
+---
+title: LangSmith
+description: "Send agent traces to LangSmith over OTLP with two environment variables, as protobuf, with conversations grouped as threads."
+---
+
+**Not run by us.** Written from LangSmith's docs on 2026-11-25. Only the generic OTLP path it uses was run (against a
+local Collector).
+
+## Set it up
+
+LangSmith takes OTLP at `/otel` under its API host. Install `@opentelemetry/exporter-trace-otlp-proto` and set:
+
+<include meta='title=".env"'>/_examples/observability/env/langsmith.env</include>
+
+| Value | From LangSmith's docs |
+|---|---|
+| Endpoint | `https://api.smith.langchain.com/otel` (US). EU `https://eu.api.smith.langchain.com/otel`, APAC `apac.`, AWS `aws.`; self-hosted `https://<host>/api/v1/otel`. The exporter appends `/v1/traces`. |
+| Auth | `x-api-key: <LANGSMITH_API_KEY>`. |
+| Project | `Langsmith-Project: <name>` (the legacy form), or the newer `Langsmith-Agent-Id` with `Langsmith-Agent-Environment`, both or neither. Sending `Langsmith-Project` with the agent headers is refused with `400`. |
+| Protocol | **Protobuf.** LangSmith's docs do not say whether OTLP JSON is accepted, and every example of theirs, their own JS exporter included, uses protobuf. We could not confirm JSON, so this recipe sets `http/protobuf`. |
+
+The code is the [one line from the overview](/observability#a-complete-example).
+
+## Group a conversation
+
+LangSmith groups traces into threads by `langsmith.trace.session_id`:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/langsmith.ts</include>
+
+The default `conventions: "genai"` fits: LangSmith maps `gen_ai.*` attributes (model, token counts, messages).
+
+## Sources
+
+- [Trace with OpenTelemetry](https://docs.langchain.com/langsmith/trace-with-opentelemetry): endpoints, headers, `langsmith.trace.session_id`, `gen_ai.*` mapping
+- [Threads](https://docs.langchain.com/langsmith/threads)
+- [Legacy: trace with the Vercel AI SDK](https://docs.langchain.com/langsmith/legacy-trace-with-vercel-ai-sdk): installs the protobuf exporter
+
+Not confirmed: OTLP JSON acceptance; gRPC.

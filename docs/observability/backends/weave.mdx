@@ -1,0 +1,32 @@
+---
+title: W&B Weave
+description: "Send agent traces to W&B Weave over OTLP protobuf, filed under your entity and project, with conversations grouped as threads."
+---
+
+**Not run by us.** Written from Weave's docs on 2026-11-25.
+
+## Set it up
+
+Weave accepts OTLP as protobuf only. Install `@opentelemetry/exporter-trace-otlp-proto` and set:
+
+<include meta='title=".env"'>/_examples/observability/env/weave.env</include>
+
+Weave files traces by two resource attributes, `wandb.entity` and `wandb.project`, not by a header. Set them in code,
+or in `OTEL_RESOURCE_ATTRIBUTES=wandb.entity=my-team,wandb.project=field-store`:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/weave.ts</include>
+
+Dedicated and self-managed instances use `https://<your-subdomain>.wandb.io/traces/otel/v1/traces`. Weave maps both
+`gen_ai.*` and the AI SDK's `ai.*` attributes, so the default conventions work.
+
+## Group a conversation
+
+Weave groups turns into threads by `wandb.thread_id`, which the example maps.
+
+## Sources
+
+- [OpenTelemetry in Weave](https://docs.coreweave.com/weave/guides/tracking/otel): endpoint, `wandb-api-key`, resource attributes, protobuf only
+- [Vercel AI SDK](https://docs.coreweave.com/weave/guides/integrations/vercel_ai_sdk.md)
+
+The older form (`Authorization: Basic` with a `project_id` header) is no longer in the docs; we did not check whether
+it still works.

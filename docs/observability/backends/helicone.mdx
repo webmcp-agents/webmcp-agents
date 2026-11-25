@@ -1,0 +1,31 @@
+---
+title: Helicone
+description: "Helicone logs model calls as a gateway between the chat and the model provider: a model for createChatHandler, not a telemetry destination."
+---
+
+**Not run by us.** Written from Helicone's docs on 2026-11-25.
+
+Helicone is not an OpenTelemetry backend: it has no general OTLP endpoint. It sits between your server and the model
+provider and logs every model call that passes through it. So it is set up as the chat's model, and it works beside
+the telemetry layer, not instead of it.
+
+## Set it up
+
+Install `@helicone/ai-sdk-provider` and give the handler a Helicone model. Your provider keys are kept in Helicone's
+dashboard.
+
+<include meta='title="api/chat.ts"'>/_examples/observability/backends/helicone.ts</include>
+
+To group calls into a Helicone session, the provider takes `extraBody: { helicone: { sessionId, userId } }` per model.
+The older proxy form (`createOpenAI({ baseURL: "https://oai.helicone.ai/v1", headers: { "Helicone-Auth": … } })`
+with `Helicone-Session-Id` headers) is still maintained but no longer developed.
+
+Helicone does take OTLP JSON at `https://api.helicone.ai/v1/trace/log`, but only for spans from its OpenLLMetry
+integration; we did not confirm it understands this library's spans.
+
+## Sources
+
+- [Vercel AI SDK through the AI Gateway](https://docs.helicone.ai/gateway/integrations/vercel-ai-sdk.md)
+- [Vercel AI SDK (proxy)](https://docs.helicone.ai/getting-started/integration-method/vercelai.md)
+- [Sessions](https://docs.helicone.ai/features/sessions.md)
+- [`/v1/trace/log`](https://docs.helicone.ai/rest/trace/post-v1tracelog.md)

@@ -195,6 +195,11 @@ A handler. By method, in order:
 - **Run telemetry is experimental** (0.5.0): `telemetry`, `observability`, `waitUntil`, the `trace` and `session` in the hook contexts may still change in a minor release. Every refusal path calls `onRefused` whether or not a layer is given; with `telemetry: false` too.
 - A 0.4.0 page sends no `trace`: it is served as before, and its spans carry no conversation or run id. A 0.5.0 page talking to a 0.4.0 handler is served too: that handler strips the unknown `trace` field.
 
+### Telemetry types
+
+- `ChatTelemetrySettings`: the AI SDK telemetry settings of one call (`ToolLoopAgent`'s `telemetry`), what `ChatObservability.telemetry(ctx)` returns part of.
+- `ChatTelemetryMetadata`: what `telemetry.metadata` may return, `Record<string, string | number | boolean>`.
+
 ## See also
 
 - [Add the chat](../../build/add-the-chat.mdx), the page that teaches it

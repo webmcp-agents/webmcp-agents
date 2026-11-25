@@ -1,0 +1,36 @@
+---
+title: Run events without a backend
+description: "Count runs, failed tool calls and tokens in your own analytics with onAgentRun: no telemetry package, no OpenTelemetry, redacted by default."
+sidebar:
+  label: Run events
+related:
+  - /observability
+  - /reference/chat/on-agent-run
+---
+
+Not every question needs a tracing backend. How many runs end in an error? Which tool fails most? How long do people
+take to confirm? `onAgentRun` from `@webmcp-agents/chat` gives you each run's events as plain objects, and you send
+what you need to the analytics you already have.
+
+Experimental: `onAgentRun` is new in 0.5.0.
+
+## A complete example
+
+<include meta='title="agent-analytics.ts"'>/_examples/observability/on-agent-run.ts</include>
+
+Call it once, when the page starts. It returns a function that stops listening.
+
+## The events
+
+A run is `run-start`, then for each model step `step-start` and `step-finish` (with the model and token counts the
+server reported), then that step's tool calls (`tool-start`, `tool-park` when it waits for the person, `tool-yield`
+when the cursor got out of their way, `tool-finish`), and last `run-finish` with how it ended. Every event carries the
+conversation and run ids. The full list is on [`onAgentRun`](/reference/chat/on-agent-run#the-events).
+
+## Redacted by default
+
+Tool inputs, results and a parked call's prompt pass through the page's redactor and the tool's `sensitive` fields
+before your listener sees them. `onAgentRun(listener, { raw: true })` gives the values as they are: for your own
+trusted code only, never for anything that sends them off the page.
+
+A listener that throws never breaks a run.

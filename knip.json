@@ -26,7 +26,17 @@
       "project": ["**/*.{ts,tsx}"],
       "paths": {
         "@/components/ui/*": ["../../examples/ui/src/components/*"],
-        "@/*": ["shared/*"]
+        "@/*": ["shared/*"],
+        "langwatch/observability": ["observability/vendors/langwatch-observability.d.ts"],
+        "@langfuse/otel": ["observability/vendors/langfuse-otel.d.ts"],
+        "@posthog/ai/otel": ["observability/vendors/posthog-ai-otel.d.ts"],
+        "@braintrust/otel": ["observability/vendors/braintrust-otel.d.ts"],
+        "@opentelemetry/exporter-trace-otlp-proto": ["observability/vendors/opentelemetry-exporter-trace-otlp-proto.d.ts"],
+        "@arizeai/openinference-vercel": ["observability/vendors/arizeai-openinference-vercel.d.ts"],
+        "@sentry/node": ["observability/vendors/sentry-node.d.ts"],
+        "@vercel/otel": ["observability/vendors/vercel-otel.d.ts"],
+        "dd-trace": ["observability/vendors/dd-trace.d.ts"],
+        "@helicone/ai-sdk-provider": ["observability/vendors/helicone-ai-sdk-provider.d.ts"]
       },
       "vitest": false
     },

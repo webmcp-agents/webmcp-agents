@@ -33,6 +33,7 @@ The three OpenTelemetry packages are optional peers, loaded on the first request
 
 ## See also
 
+- [Observability](../../observability/index.mdx): the guide, and a recipe per backend
 - [`createChatHandler`](../chat/create-chat-handler.md#telemetry): the handler's own `telemetry` option and the `ChatObservability` interface this package implements
 - [`onAgentRun`](../chat/on-agent-run.md): the run events the browser spans are built from
 - [`configureRedaction`](../core/configure-redaction.md): the redactor every span passes through

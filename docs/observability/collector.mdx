@@ -1,0 +1,60 @@
+---
+title: Several backends with a Collector
+description: "Send to two backends at once without a second exporter in your function: one OTLP target, an OpenTelemetry Collector that fans out, with a ready otel-collector.yaml."
+sidebar:
+  label: Collector fan-out
+related:
+  - /observability/where-spans-go
+  - /observability/backends/otlp
+---
+
+To send the same traces to two backends (an LLM tool for the team that tunes prompts, and your APM for the on-call
+engineer), do not add a second exporter to the chat handler: each one adds a request at the end of every turn, and its
+keys live in your app. Point the app at one OpenTelemetry Collector instead, and let the Collector fan out. The keys
+then live in the Collector, and you can drop or rewrite attributes before anything leaves your network.
+
+## A complete example
+
+The app sends to the Collector:
+
+<include meta='title=".env"'>/_examples/observability/env/collector.env</include>
+
+The Collector receives OTLP and sends every trace to Langfuse and to LangSmith:
+
+<include meta='title="otel-collector.yaml"'>/_examples/observability/otel-collector.yaml</include>
+
+This file passes `otelcol validate` with the Collector's core distribution, version 0.166.0. We did not send it to the
+two backends. Run it with the keys in the Collector's environment:
+
+<include meta='title="terminal"'>/_examples/observability/run-collector.sh</include>
+
+## Notes
+
+- **Exporter names.** Since Collector 0.144 the OTLP exporters are `otlp_http` and `otlp_grpc`. The older `otlphttp`
+  and `otlp` still work as deprecated aliases, and most vendors' docs still show them.
+- **`endpoint` or `traces_endpoint`.** `endpoint` is a base (`/v1/traces` is appended); `traces_endpoint` is used as
+  given, as `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is in the app.
+- **Each backend's own rules** (protocol, headers, an attribute to group by) are on its [recipe page](/observability/backends).
+  `encoding: json` on an `otlp_http` exporter sends JSON; the default is protobuf, which every backend here accepts.
+- **One pipeline per backend** when they need different processing: give each its own `traces/<name>` pipeline with
+  its own processors.
+- **Batching.** The `batch` processor is still the documented choice. Do not combine it with exporter-side
+  `sending_queue` batching: the Collector warns about it.
+
+## Try it on your machine
+
+To see what the app sends before you pick a backend, run a Collector that only prints:
+
+<include meta='title="otel-collector.yaml"'>/_examples/observability/otel-collector.debug.yaml</include>
+
+<include meta='title="terminal"'>/_examples/observability/run-collector.debug.sh</include>
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in the app, send one message, and the Collector prints the
+trace. This is the setup this library was verified against, over `http/json`, `http/protobuf` and `grpc`: one trace per
+turn, the page's run span as the root, the server's model steps and the page's tool calls as its children.
+
+## Sources
+
+- [OTLP HTTP exporter](https://github.com/open-telemetry/opentelemetry-collector/blob/main/exporter/otlphttpexporter/README.md)
+- [Batch processor](https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/batchprocessor/README.md)
+- [Exporter helper (sending queue)](https://github.com/open-telemetry/opentelemetry-collector/blob/main/exporter/exporterhelper/README.md)

@@ -1,0 +1,62 @@
+---
+title: Privacy and consent
+description: "What a span contains by default (ids, timings, the model, token counts), how to record prompts and tool data, ask the person first, and why redaction always runs last."
+related:
+  - /security/redaction
+  - /observability/browser-spans
+  - /testing/privacy-and-telemetry
+---
+
+Telemetry leaves your app: it is data about the person's conversation, sent to a third party. So the defaults record
+as little as is useful, and every value passes through the redactor on its way out.
+
+## What is recorded by default
+
+Ids (conversation, run, step, tool call), timings, the agent and the model, token counts, how each run and tool call
+ended, error codes, and the page's URL with every query value redacted. Not recorded: the person's messages, the
+model's prompts and answers, tool inputs and tool results.
+
+## Record content
+
+Turn content on separately on each side. On the server, `recordInputs` records prompts and tool definitions on the
+model spans, and `recordOutputs` the model's answers. In the browser, the same two options of `observeAgents` record
+tool inputs and results on `execute_tool` spans.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/privacy.ts</include>
+
+The chat handler's own `telemetry.recordInputs` and `recordOutputs`, when set, win over the layer's.
+
+## Redaction runs last, always
+
+Every attribute is redacted after your span processors, after `metadataMapping`, and before the span filter and the
+exporters, with recording on or off. The rules are the page's on the page and the process's on the server
+([Redaction](/security/redaction)); `redact` replaces them for this layer, and `redact: false` turns it off, for local
+debugging only. The relay redacts what a page sends a second time, since it cannot trust the browser.
+
+Through an app's own provider (Sentry, `@vercel/otel`), the layer cannot own the pipeline. It then redacts every
+attribute it sets before the span exists. What the app's own processors or instrumentations add is theirs to handle.
+
+## `metadataMapping` exports the target raw
+
+`metadataMapping` copies an attribute to the name a backend groups by, such as
+`{ "webmcp.conversation.id": "session.id" }`. The copy happens before redaction, and the target name is exempt from
+the sensitive-key rule on purpose: names like `session.id` would otherwise match `session` and be replaced. So
+whatever you map is exported as it is. Map ids, never content, and never `webmcp.session.id` (the chat session's
+token, which is redacted by default) unless you mean to export it.
+
+## Ask the person first
+
+Where you need consent for analytics, gate the page's spans on it. `enabled` is read when each run starts: a run the
+person did not agree to produces no span, makes no request, and does not even load the span builder.
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+The server's spans do not know about the page's consent. If the model steps must not be exported either, decide it on
+the server: `sampling: { type: "custom", sampler }` receives the request, so it can read a consent cookie, or keep the
+layer off with `WEB_AGENTS_OTEL_ENABLED=false`.
+
+## Sampling
+
+`sampling: { type: "ratio", probability: 0.1 }` (or `OTEL_TRACES_SAMPLER=traceidratio` with `OTEL_TRACES_SAMPLER_ARG`)
+keeps a share of turns. The server decides from the trace id, for its own spans and for the ones the page relays, so a
+turn is kept or dropped whole.
