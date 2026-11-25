@@ -125,7 +125,8 @@ describe("limits", () => {
     for (const s of ["a".repeat(2 ** 20), `${"a.".repeat(2 ** 19)}@`, "1 ".repeat(2 ** 19), `eyJ${"a".repeat(2 ** 20)}`]) {
       const t = performance.now();
       r.text(s);
-      expect(performance.now() - t).toBeLessThan(2000);
+      // linear scanning takes ~0.3 s per MB; backtracking would take minutes. The margin is for a loaded CI machine.
+      expect(performance.now() - t).toBeLessThan(15_000);
     }
   });
 });

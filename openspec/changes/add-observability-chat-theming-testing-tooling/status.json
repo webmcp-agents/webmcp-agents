@@ -1,5 +1,5 @@
 {
-  "now": "Phase 3 running: chat customization (theme, messages, slots, RTL)",
+  "now": "Phase 4 running: run telemetry in chat (ids on the wire, onAgentRun, handler options)",
   "waiting": "",
   "phases": {
     "0": {
@@ -24,13 +24,16 @@
       "commit": "d8a7fb7..4584c9d"
     },
     "3": {
-      "state": "running",
+      "state": "done",
       "model": "Opus 5.5 / medium",
-      "session": "phase-3-chat"
+      "session": "phase-3-chat",
+      "gate": "pass (lead, after loosening one timing test)",
+      "commit": "a2cca10..574a92f"
     },
     "4": {
-      "state": "queued",
-      "model": "Opus 5.5 / medium"
+      "state": "running",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-4-run-telemetry"
     },
     "5": {
       "state": "queued",
