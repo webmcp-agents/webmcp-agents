@@ -1,0 +1,13 @@
+{
+  "now": "Setting up: progress mod, branch, then phase 0",
+  "waiting": "",
+  "phases": {
+    "0": { "state": "queued", "model": "Sonnet 5.5 / medium" },
+    "1": { "state": "queued", "model": "Opus 5.5 / medium" },
+    "2": { "state": "queued", "model": "Opus 5.5 / medium" },
+    "3": { "state": "queued", "model": "Opus 5.5 / medium" },
+    "4": { "state": "queued", "model": "Opus 5.5 / medium" },
+    "5": { "state": "queued", "model": "Opus 5.5 / medium" },
+    "6": { "state": "queued", "model": "Opus 5.5 (docs) + Sonnet 5.5 (examples) / medium" }
+  }
+}
