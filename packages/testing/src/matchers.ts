@@ -15,7 +15,7 @@ import { toHaveCalledTools } from "./matchers/to-have-called-tools";
 import { toHaveEventOrder } from "./matchers/to-have-event-order";
 import { toHaveFilled } from "./matchers/to-have-filled";
 import { toHaveFinishedWith } from "./matchers/to-have-finished-with";
-import { toHaveNoHardcodedText } from "./matchers/to-have-no-hardcoded-text";
+import { type NoHardcodedTextOptions, toHaveNoHardcodedText } from "./matchers/to-have-no-hardcoded-text";
 import { toHaveParked } from "./matchers/to-have-parked";
 import { toHaveSpan } from "./matchers/to-have-span";
 import { toHaveStarted } from "./matchers/to-have-started";
@@ -79,8 +79,11 @@ export interface WebAgentsMatchers<R = unknown> {
   toBeOneTrace(): R;
   /** One of `values` is in this sink (use it negated). Async on a `Response`. */
   toContainSensitive(values: (string | RegExp)[]): R;
-  /** Phase 3 of 0.5.0 (chat theming): no text bypassed the messages catalog. Fails with a sentence until then. */
-  toHaveNoHardcodedText(): R;
+  /**
+   * The rendered chat (`renderChat({ sentinel: true })`, or an element) shows only catalog markers, punctuation and
+   * digits, plus the text in `allow` (the person's and the model's own words).
+   */
+  toHaveNoHardcodedText(options?: NoHardcodedTextOptions): R;
 }
 
 declare module "vitest" {

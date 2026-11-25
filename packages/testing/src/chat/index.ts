@@ -39,4 +39,4 @@ export {
   type MockChatServerRequest,
   mockChatServer,
 } from "./mock-chat-server";
-export { type RenderChatOptions, type RenderedChat, renderChat } from "./render-chat";
+export { type RenderChatOptions, type RenderedChat, renderChat, SENTINEL, sentinelMessages } from "./render-chat";

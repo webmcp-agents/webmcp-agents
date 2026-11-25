@@ -4,12 +4,11 @@
  */
 
 /** Which later piece of 0.5.0 a shell waits for. */
-export type PendingPart = "run-events" | "telemetry" | "chat-theming";
+export type PendingPart = "run-events" | "telemetry";
 
 const ARRIVES: Record<PendingPart, string> = {
   "run-events": "the chat's run events (AgentRunEvent, onAgentRun), phase 4 of 0.5.0",
   telemetry: "@webmcp-agents/telemetry, phase 5 of 0.5.0",
-  "chat-theming": "the chat's messages catalog and slots, phase 3 of 0.5.0",
 };
 
 /** The error a shell throws: what was called, what it needs, when that arrives. */

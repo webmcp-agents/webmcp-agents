@@ -71,7 +71,7 @@ expect(received).toHaveCalledTools(["track_last_order","add_to_cart"])
 | `@webmcp-agents/testing` | `test` with the fixtures (`tools`, `events`, `user`, `mount`, `redactor`), `callTool`, `mockTool`, page helpers, `expect`, `vi` |
 | `/vitest` | `webAgentsProject("unit" \| "browser", options?)` |
 | `/setup`, `/matchers` | setup files: everything, or the matchers alone (a page that must stay without WebMCP) |
-| `/chat` | `mockAdapter`, `text`, `toolCall`, `reasoning`, `fail`, `mockChatServer` |
+| `/chat` | `mockAdapter`, `text`, `toolCall`, `reasoning`, `fail`, `mockChatServer`, `renderChat` (with `sentinelMessages`) |
 | `/server` | `mockModel`, `chatRequest`, `readChatStream`, `withSession` |
 | `/playwright` | `openApp`, `runTool`, `listTools`, `parkedOn`, `confirm` |
 | `/telemetry` | `memoryExporter`, `spanTree` (with `@webmcp-agents/telemetry`, 0.5.0) |
@@ -80,7 +80,8 @@ Vitest 4 or later is the one required peer. `@webmcp-agents/chat`, `ai`, `react`
 `@vitest/browser-playwright` are optional: an entry that needs a missing one fails at import with a sentence naming it.
 
 Parts that arrive later in 0.5.0 are typed now and fail with a sentence when used: the `runs` and `spans` fixtures,
-`toHaveSpan`, `toBeOneTrace`, `renderChat`, `toHaveNoHardcodedText`, and the `/telemetry` functions.
+`toHaveSpan`, `toBeOneTrace`, and the `/telemetry` functions. `renderChat` and `toHaveNoHardcodedText` (the
+sentinel-catalog check: no string of the chat bypasses its messages catalog) are here.
 
 Never import this package from runtime code: it is for tests (the repository's lint enforces it for its own packages).
 

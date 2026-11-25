@@ -59,4 +59,4 @@ pnpm add -D @webmcp-agents/testing vitest @vitest/browser-playwright
 | [`toHaveBeenOfferedTools`](./to-have-been-offered-tools.md) | The model was offered these tools. |
 | [`toContainSensitive`](./to-contain-sensitive.md) | A secret is in this sink (use it negated). |
 | [`toHaveSpan`](./to-have-span.md), [`toBeOneTrace`](./to-be-one-trace.md) | Telemetry (0.5.0). |
-| [`toHaveNoHardcodedText`](./to-have-no-hardcoded-text.md) | The chat's messages catalog (0.5.0). |
+| [`toHaveNoHardcodedText`](./to-have-no-hardcoded-text.md) | The rendered chat shows no string outside its catalog. |
