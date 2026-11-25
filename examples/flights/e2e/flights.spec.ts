@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { list, open, parkedOn, run } from "./agent";
+import { listTools, openApp, parkedOn, runTool } from "@webmcp-agents/testing/playwright";
 
 const RESULTS_URL = /\/flights\/lhr\/dxb\/oneway\/economy\/1\/0\/0\/\d{4}-\d{2}-\d{2}$/;
 const RESULTS_TOOLS = ["filter_results", "list_results", "select_flight", "sort_results"];
@@ -22,50 +22,52 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function searchFromHome(page: Page): Promise<string | undefined> {
-  await open(page, "/?latency=0");
-  await expect.poll(() => list(page)).toContain("search_flights");
-  return run(page, "search_flights", search);
+  await openApp(page, "/?latency=0");
+  await expect.poll(() => listTools(page)).toContain("search_flights");
+  return runTool(page, "search_flights", search);
 }
 
 async function selectFirst(page: Page): Promise<void> {
   await searchFromHome(page);
   await expect(page).toHaveURL(RESULTS_URL);
-  await expect.poll(() => list(page)).toContain("select_flight");
-  const listing = await run(page, "list_results", { limit: 1 });
+  await expect.poll(() => listTools(page)).toContain("select_flight");
+  const listing = await runTool(page, "list_results", { limit: 1 });
   const id = listing?.match(/\[id (F-[A-Z0-9]{3})\]/)?.[1];
   expect(id).toBeTruthy();
-  expect(await run(page, "select_flight", { flightId: id })).toMatch(new RegExp(`^Selected .*\\[id ${id}\\]`));
+  expect(await runTool(page, "select_flight", { flightId: id })).toMatch(new RegExp(`^Selected .*\\[id ${id}\\]`));
   await expect(page).toHaveURL(/\/flights\/booking$/);
 }
 
 test("search_flights answers, then shows the results; results tools exist only there", async ({ page }) => {
-  await open(page, "/?latency=0");
-  await expect.poll(() => list(page)).toContain("search_flights");
-  const names = await list(page);
+  await openApp(page, "/?latency=0");
+  await expect.poll(() => listTools(page)).toContain("search_flights");
+  const names = await listTools(page);
   expect(names).toContain("get_booking");
   for (const t of RESULTS_TOOLS) expect(names).not.toContain(t);
 
-  expect(await run(page, "search_flights", search)).toMatch(/^Found \d+ flights London \(LHR\) → Dubai \(DXB\) on .*Cheapest: .*\[id F-/);
+  expect(await runTool(page, "search_flights", search)).toMatch(
+    /^Found \d+ flights London \(LHR\) → Dubai \(DXB\) on .*Cheapest: .*\[id F-/,
+  );
   await expect(page).toHaveURL(RESULTS_URL);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/London.*Dubai/);
-  await expect.poll(() => list(page)).toEqual(expect.arrayContaining(RESULTS_TOOLS));
+  await expect.poll(() => listTools(page)).toEqual(expect.arrayContaining(RESULTS_TOOLS));
 });
 
 test("search_flights takes airports and dates the way agents copy them; a date it can't read says how to send it", async ({ page }) => {
-  await open(page, "/?latency=0");
-  await expect.poll(() => list(page)).toContain("search_flights");
-  expect(await run(page, "search_flights", { ...search, date: "next Friday" })).toBe(
+  await openApp(page, "/?latency=0");
+  await expect.poll(() => listTools(page)).toContain("search_flights");
+  expect(await runTool(page, "search_flights", { ...search, date: "next Friday" })).toBe(
     'Error [invalid_input]: Departure date must be YYYY-MM-DD, got "next Friday".',
   );
-  const answer = await run(page, "search_flights", { ...search, from: "LHR.", to: "Dubai", date: `Fri ${search.date}.` });
+  const answer = await runTool(page, "search_flights", { ...search, from: "LHR.", to: "Dubai", date: `Fri ${search.date}.` });
   expect(answer).toMatch(/^Found \d+ flights London \(LHR\) → Dubai \(DXB\)/);
   await expect(page).toHaveURL(RESULTS_URL);
 });
 
 test("search_flights errors reach the agent and the page", async ({ page }) => {
-  await open(page, "/?latency=0");
-  await expect.poll(() => list(page)).toContain("search_flights");
-  expect(await run(page, "search_flights", { ...search, trip: "roundtrip" })).toBe(
+  await openApp(page, "/?latency=0");
+  await expect.poll(() => listTools(page)).toContain("search_flights");
+  expect(await runTool(page, "search_flights", { ...search, trip: "roundtrip" })).toBe(
     "Error [invalid_input]: A round trip needs a returnDate (YYYY-MM-DD).",
   );
   await expect(page.getByRole("alert")).toHaveText("A round trip needs a returnDate (YYYY-MM-DD).");
@@ -75,9 +77,9 @@ test("search_flights errors reach the agent and the page", async ({ page }) => {
 test("filter_results and sort_results change what the page shows", async ({ page }) => {
   await searchFromHome(page);
   await expect(page).toHaveURL(RESULTS_URL);
-  await expect.poll(() => list(page)).toContain("filter_results");
+  await expect.poll(() => listTools(page)).toContain("filter_results");
 
-  expect(await run(page, "filter_results", { stops: "0" })).toMatch(/^Showing \d+ of \d+ flights/);
+  expect(await runTool(page, "filter_results", { stops: "0" })).toMatch(/^Showing \d+ of \d+ flights/);
   const cards = page.locator("[data-flight-id]");
   await expect(cards.first()).toBeVisible();
   const stops = await page
@@ -86,7 +88,7 @@ test("filter_results and sort_results change what the page shows", async ({ page
   expect(stops.length).toBeGreaterThan(0);
   expect(stops.every(Boolean)).toBe(true);
 
-  expect(await run(page, "sort_results", { by: "price-desc" })).toMatch(/^Sorted \d+ flights/);
+  expect(await runTool(page, "sort_results", { by: "price-desc" })).toMatch(/^Sorted \d+ flights/);
   await expect(page.getByRole("button", { name: "Price: high to low" })).toHaveAttribute("aria-pressed", "true");
   const prices = await page.locator("[data-price]").evaluateAll((els) => els.map((el) => Number(el.getAttribute("data-price"))));
   expect(prices.length).toBeGreaterThan(0);
@@ -96,9 +98,9 @@ test("filter_results and sort_results change what the page shows", async ({ page
 test("filter_results by airline name ticks that airline's checkbox", async ({ page }) => {
   test.skip(test.info().project.name === "mobile", "the filters sit in a closed sheet on phones");
   await searchFromHome(page);
-  await expect.poll(() => list(page)).toContain("filter_results");
+  await expect.poll(() => listTools(page)).toContain("filter_results");
   const name = (await page.locator("[data-flight-id]").first().getAttribute("aria-label"))!.split(/ [A-Z]{2} \d/)[0]!;
-  expect(await run(page, "filter_results", { airlines: [name.toLowerCase()] })).toMatch(/^Showing \d+ of \d+ flights/);
+  expect(await runTool(page, "filter_results", { airlines: [name.toLowerCase()] })).toMatch(/^Showing \d+ of \d+ flights/);
   const box = page.getByRole("complementary", { name: "Filters" }).getByRole("checkbox", { name });
   await expect(box).toBeChecked();
   await box.uncheck();
@@ -109,17 +111,17 @@ test("filter_results by airline name ticks that airline's checkbox", async ({ pa
 test("select_flight opens the booking page; results tools go away", async ({ page }) => {
   await selectFirst(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Book your flight");
-  await expect.poll(() => list(page)).toEqual(expect.arrayContaining(["fill_traveler_details", "book_flight"]));
-  await expect.poll(() => list(page)).not.toContain("filter_results");
+  await expect.poll(() => listTools(page)).toEqual(expect.arrayContaining(["fill_traveler_details", "book_flight"]));
+  await expect.poll(() => listTools(page)).not.toContain("filter_results");
 });
 
 test("book_flight: missing details is an error; then details → confirm gate → booked", async ({ page }) => {
   await selectFirst(page);
-  await expect.poll(() => list(page)).toContain("book_flight");
+  await expect.poll(() => listTools(page)).toContain("book_flight");
   const book = page.getByRole("button", { name: /^Book flight · USD/ });
 
   // without details: the gate still waits for the person; the answer names the missing fields
-  const early = run(page, "book_flight", { acceptTerms: true });
+  const early = runTool(page, "book_flight", { acceptTerms: true });
   await parkedOn(page, book);
   await expect(page.getByRole("checkbox", { name: /I accept the fare rules/ })).toBeChecked(); // ticked by the cursor
   await book.click();
@@ -136,11 +138,11 @@ test("book_flight: missing details is an error; then details → confirm gate �
     dob_1: "1990-12-10",
     document_1: "X1234567",
   };
-  expect(await run(page, "fill_traveler_details", details)).toBe(
+  expect(await runTool(page, "fill_traveler_details", details)).toBe(
     "Saved details for 1 traveler. Next: book_flight (needs the user's confirmation).",
   );
 
-  const pending = run(page, "book_flight", { acceptTerms: true });
+  const pending = runTool(page, "book_flight", { acceptTerms: true });
   await parkedOn(page, book);
   const state = await Promise.race([pending.then(() => "settled"), page.waitForTimeout(500).then(() => "pending")]);
   expect(state).toBe("pending");
@@ -151,14 +153,14 @@ test("book_flight: missing details is an error; then details → confirm gate �
   await expect(page).toHaveURL(new RegExp(`/bookings/${ref}$`));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("You're booked");
 
-  expect(await run(page, "get_booking", { reference: ref })).toMatch(
+  expect(await runTool(page, "get_booking", { reference: ref })).toMatch(
     new RegExp(`^Booking ${ref}: confirmed\\.\\nLondon \\(LHR\\) → Dubai \\(DXB\\)`),
   );
 });
 
 test("fill_traveler_details types into the TanStack Form fields; the person sees every value before booking", async ({ page }) => {
   await selectFirst(page);
-  await expect.poll(() => list(page)).toContain("fill_traveler_details");
+  await expect.poll(() => listTools(page)).toContain("fill_traveler_details");
   const details = {
     firstName: "Mustafa",
     lastName: "Elsayed",
@@ -169,7 +171,7 @@ test("fill_traveler_details types into the TanStack Form fields; the person sees
     dob_1: "2000-01-01",
     document_1: "A12345678",
   };
-  expect(await run(page, "fill_traveler_details", details)).toBe(
+  expect(await runTool(page, "fill_traveler_details", details)).toBe(
     "Saved details for 1 traveler. Next: book_flight (needs the user's confirmation).",
   );
   const contact = page.getByRole("region", { name: "Contact information" });
@@ -184,15 +186,15 @@ test("fill_traveler_details types into the TanStack Form fields; the person sees
 test("filter_results ticks the stops radio it sets; the results tools follow the URL", async ({ page, isMobile }) => {
   test.skip(isMobile, "the filters sit in a closed sheet on phones");
   await searchFromHome(page);
-  await expect.poll(() => list(page)).toContain("filter_results");
-  expect(await run(page, "filter_results", { stops: "0" })).toMatch(/^Showing \d+ of \d+ flights/);
+  await expect.poll(() => listTools(page)).toContain("filter_results");
+  expect(await runTool(page, "filter_results", { stops: "0" })).toMatch(/^Showing \d+ of \d+ flights/);
   await expect(page.getByRole("radio", { name: /^Direct/ })).toBeChecked();
   // back home, client-side: the tools whose `match` no longer fits turn off
   await page.goBack();
   await expect(page).toHaveURL(/\/\?latency=0$/);
-  await expect.poll(() => list(page)).not.toContain("filter_results");
+  await expect.poll(() => listTools(page)).not.toContain("filter_results");
   await page.goForward();
-  await expect.poll(() => list(page)).toEqual(expect.arrayContaining(RESULTS_TOOLS));
+  await expect.poll(() => listTools(page)).toEqual(expect.arrayContaining(RESULTS_TOOLS));
 });
 
 test("a malformed results URL shows a readable error page", async ({ page }) => {
@@ -214,9 +216,9 @@ test.describe("get_location", () => {
     await page.route("https://api.bigdatacloud.net/**", (route) =>
       route.fulfill({ json: { city: "London", locality: "London", principalSubdivision: "England", countryName: "United Kingdom" } }),
     );
-    await open(page, "/");
-    expect(await list(page)).toContain("get_location");
-    const answer = await run(page, "get_location");
+    await openApp(page, "/");
+    expect(await listTools(page)).toContain("get_location");
+    const answer = await runTool(page, "get_location");
     expect(answer).toMatch(
       /^The user is in London, England, United Kingdom at 51\.5074, -0\.1278 \(accurate to about 0\.1 km\)\. The nearest airport is London Heathrow \(LHR\), about \d+ km away\./,
     );
@@ -225,8 +227,8 @@ test.describe("get_location", () => {
 
   test("still answers coordinates and airports when the city lookup fails", async ({ page }) => {
     await page.route("https://api.bigdatacloud.net/**", (route) => route.abort());
-    await open(page, "/");
-    expect(await run(page, "get_location")).toMatch(/^The user is at 51\.5074, -0\.1278 .*London Heathrow \(LHR\)/);
+    await openApp(page, "/");
+    expect(await runTool(page, "get_location")).toMatch(/^The user is at 51\.5074, -0\.1278 .*London Heathrow \(LHR\)/);
   });
 });
 
@@ -235,12 +237,12 @@ test.describe("get_location without the location", () => {
 
   test("falls back to the time zone when the location isn't shared", async ({ page, context }) => {
     await context.clearPermissions();
-    await open(page, "/");
+    await openApp(page, "/");
     // a blocked location reads as "not shared"
     await page.evaluate(() => {
       Object.defineProperty(navigator, "permissions", { value: { query: async () => ({ state: "denied" }) }, configurable: true });
     });
-    expect(await run(page, "get_location")).toMatch(
+    expect(await runTool(page, "get_location")).toMatch(
       /no coordinates, but their time zone \(Asia\/Dubai\) suggests Dubai International \(DXB\)\. Confirm with the user/,
     );
   });
@@ -251,9 +253,9 @@ test.describe("get_time", () => {
 
   test("answers the user's date, time and what relative dates mean", async ({ page }) => {
     await page.clock.setFixedTime(new Date("2026-11-08T11:05:00Z")); // 14:05 in Riyadh, a Sunday
-    await open(page, "/");
-    expect(await list(page)).toContain("get_time");
-    const answer = await run(page, "get_time");
+    await openApp(page, "/");
+    expect(await listTools(page)).toContain("get_time");
+    const answer = await runTool(page, "get_time");
     expect(answer).toContain("Now: 14:05 on Sun 2026-11-08 for the user (Asia/Riyadh, UTC+03:00)");
     expect(answer).toContain("Tomorrow: 2026-11-09 (Mon)");
     expect(answer).toContain("Fri 2026-11-13");
