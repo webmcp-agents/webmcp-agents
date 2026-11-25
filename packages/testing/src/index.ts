@@ -38,4 +38,5 @@ export type { NoHardcodedTextOptions } from "./matchers/to-have-no-hardcoded-tex
 export type { Mount, Mountable } from "./mount";
 export { NotYetAvailableError } from "./not-yet";
 export type { FinishReason, RecordedCall, RecordedFinish, RunRecord } from "./run-record";
-export { type RunLog, type SpansFixture, type ToolsFixture, test, type WebAgentsFixtures } from "./test";
+export { type SpansFixture, type ToolsFixture, test, type WebAgentsFixtures } from "./test";
+export { isRunLog, type RunLog, type RunLogOptions } from "./run-record";

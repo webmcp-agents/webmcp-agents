@@ -79,9 +79,10 @@ expect(received).toHaveCalledTools(["track_last_order","add_to_cart"])
 Vitest 4 or later is the one required peer. `@webmcp-agents/chat`, `ai`, `react`, `react-dom`, `@playwright/test` and
 `@vitest/browser-playwright` are optional: an entry that needs a missing one fails at import with a sentence naming it.
 
-Parts that arrive later in 0.5.0 are typed now and fail with a sentence when used: the `runs` and `spans` fixtures,
-`toHaveSpan`, `toBeOneTrace`, and the `/telemetry` functions. `renderChat` and `toHaveNoHardcodedText` (the
-sentinel-catalog check: no string of the chat bypasses its messages catalog) are here.
+Parts that arrive later in 0.5.0 are typed now and fail with a sentence when used: the `spans` fixture, `toHaveSpan`,
+`toBeOneTrace`, and the `/telemetry` functions. `renderChat` and `toHaveNoHardcodedText` (the sentinel-catalog check: no
+string of the chat bypasses its messages catalog) are here, and so is the `runs` fixture: every run event of the test
+(`onAgentRun`), which the run matchers read (it tells `"max-steps"` from `"stop"`).
 
 Never import this package from runtime code: it is for tests (the repository's lint enforces it for its own packages).
 

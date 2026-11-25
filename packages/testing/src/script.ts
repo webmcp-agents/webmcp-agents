@@ -5,10 +5,16 @@
  *   mockAdapter([toolCall("track_last_order"), toolCall("add_to_cart", { qty: 2 }), text("Back in your cart.")]);
  */
 
-/** Token usage a step reports. */
+/** Token usage a step reports (the names of the chat's `StepUsage`). */
 export interface StepUsage {
+  /** Prompt tokens, cached ones included. */
   inputTokens?: number;
+  /** Generated tokens, reasoning included. */
   outputTokens?: number;
+  /** Of `outputTokens`, the ones spent reasoning. Default 0. */
+  reasoningTokens?: number;
+  /** Of `inputTokens`, the ones read from the prompt cache. Default 0. */
+  cachedInputTokens?: number;
 }
 
 /** One tool call in a step. */

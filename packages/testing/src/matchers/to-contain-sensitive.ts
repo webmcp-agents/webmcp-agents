@@ -2,6 +2,7 @@ import type { AgentEvent } from "@webmcp-agents/core";
 import type { MatcherResult, MatcherState } from "vitest";
 import { describeEvent, hint, MatcherInputError, show } from "../format";
 import { isEventLog } from "../helpers/events";
+import { isRunLog } from "../run-record";
 import { RUN_RECORD } from "../run-record";
 
 /** A place a value was found: the sink, where in it, and (for an event) which event. */
@@ -65,6 +66,11 @@ function scan(received: unknown, needles: (string | RegExp)[]): Scan {
     // the event is named by its type and tool only: a fill's value is what is being looked for
     for (const [i, e] of events.entries()) walk(e, `events[${i}]`, check(describeEvent(e.type === "fill" ? { ...e, value: "…" } : e)));
     return { sink: "the event log", hits };
+  }
+  if (isRunLog(received)) {
+    // each event is named by its type and tool only: inputs and outputs are what is being looked for
+    for (const [i, e] of received.events.entries()) walk(e, `events[${i}]`, check(`${e.type}${"tool" in e ? ` ${e.tool}` : ""}`));
+    return { sink: "the run log", hits };
   }
   if (isSpy(received)) {
     for (const [i, args] of received.mock.calls.entries()) walk(args, `calls[${i}]`, check());

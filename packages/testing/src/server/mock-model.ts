@@ -40,6 +40,8 @@ function partsFor(step: Step): LanguageModelV4StreamPart[] {
   const usage = step.usage ?? {};
   const inputTokens = usage.inputTokens ?? 10;
   const outputTokens = usage.outputTokens ?? 5;
+  const cacheRead = usage.cachedInputTokens ?? 0;
+  const reasoning = usage.reasoningTokens ?? 0;
   const parts: LanguageModelV4StreamPart[] = [{ type: "stream-start", warnings: [] }];
   if (step.error) {
     parts.push({ type: "error", error: Object.assign(new Error(step.error.message ?? "Failed."), { code: step.error.code }) });
@@ -63,8 +65,8 @@ function partsFor(step: Step): LanguageModelV4StreamPart[] {
   parts.push({
     type: "finish",
     usage: {
-      inputTokens: { total: inputTokens, noCache: inputTokens, cacheRead: 0, cacheWrite: 0 },
-      outputTokens: { total: outputTokens, text: outputTokens, reasoning: 0 },
+      inputTokens: { total: inputTokens, noCache: inputTokens - cacheRead, cacheRead, cacheWrite: 0 },
+      outputTokens: { total: outputTokens, text: outputTokens - reasoning, reasoning },
     },
     finishReason: { unified: step.calls?.length ? "tool-calls" : "stop", raw: undefined },
   });

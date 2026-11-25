@@ -16,17 +16,25 @@ describe("mockAdapter", () => {
   test("owns the loop: a tool step runs the call on the page, then the next step follows", async () => {
     const adapter = mockAdapter([[reasoning("Let me look."), toolCall("add_to_cart", { qty: 2 })], text("Done: two mugs.")]);
     const { parts, callTool } = await play(adapter);
+    // as the cloud adapter: each step framed by its markers, and closed (with its usage) before its calls run
     expect(parts.map((p) => p.type)).toEqual([
+      "step-start",
       "message-start",
       "reasoning",
       "tool-call",
-      "tool-result",
       "step-finish",
+      "tool-result",
+      "step-start",
       "message-start",
       "text-delta",
       "text-delta",
       "text-delta",
+      "step-finish",
       "finish",
+    ]);
+    expect(parts.filter((p) => p.type === "step-finish")).toEqual([
+      { type: "step-finish", step: 1, usage: { inputTokens: 10, outputTokens: 5 }, model: "mock/model" },
+      { type: "step-finish", step: 2, usage: { inputTokens: 10, outputTokens: 5 }, model: "mock/model" },
     ]);
     expect(callTool).toHaveBeenCalledWith({ id: expect.stringMatching(/^call-\d+$/), name: "add_to_cart", input: { qty: 2 } });
     expect(adapter.run).toHaveBeenCalledOnce();
@@ -37,8 +45,23 @@ describe("mockAdapter", () => {
   test("fail(code) ends the run with that code", async () => {
     const adapter = mockAdapter([fail("rate_limited")]);
     const { parts } = await play(adapter);
-    expect(parts).toEqual([{ type: "error", error: "Too many requests: try again in a minute.", code: "rate_limited" }]);
+    expect(parts).toEqual([
+      { type: "step-start", step: 1 },
+      { type: "error", error: "Too many requests: try again in a minute.", code: "rate_limited" },
+    ]);
     expect(adapter).toHaveFinishedWith("error", "rate_limited");
+  });
+
+  test("usage: a step's own, or none at all like an on-device adapter", async () => {
+    const counted = await play(mockAdapter([text("Hi.", { usage: { inputTokens: 120, outputTokens: 7, cachedInputTokens: 100 } })]));
+    expect(counted.parts.find((p) => p.type === "step-finish")).toEqual({
+      type: "step-finish",
+      step: 1,
+      usage: { inputTokens: 120, outputTokens: 7, cachedInputTokens: 100 },
+      model: "mock/model",
+    });
+    const onDevice = await play(mockAdapter([text("Hi.")], { usage: false }));
+    expect(onDevice.parts.find((p) => p.type === "step-finish")).toEqual({ type: "step-finish", step: 1 });
   });
 
   test("a function script is called for every model step", async () => {

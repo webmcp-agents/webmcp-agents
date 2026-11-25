@@ -39,4 +39,5 @@ export {
   type MockChatServerRequest,
   mockChatServer,
 } from "./mock-chat-server";
+export { recordRuns } from "./record-runs";
 export { type RenderChatOptions, type RenderedChat, renderChat, SENTINEL, sentinelMessages } from "./render-chat";

@@ -1,7 +1,7 @@
 import { defineWebTool } from "@webmcp-agents/core";
 import { z } from "zod";
 import { describe, expect } from "vitest";
-import { notYet } from "../src/not-yet";
+import { isRunLog } from "../src/run-record";
 import { test } from "../src/test";
 
 const addToCart = defineWebTool({
@@ -27,9 +27,9 @@ describe("fixtures are lazy", () => {
     expect(() => mount("<p>x</p>")).toThrow("mount() needs a page: run this test in browser mode");
   });
 
-  test("the runs fixture's sentence", () => {
-    expect(() => notYet("The runs fixture", "run-events")).toThrow(
-      "The runs fixture is not available yet: it needs the chat's run events (AgentRunEvent, onAgentRun), phase 4 of 0.5.0",
-    );
+  test("the runs fixture loads in Node too: an empty log until a run happens", ({ runs }) => {
+    expect(runs.events).toEqual([]);
+    expect(runs.runIds()).toEqual([]);
+    expect(isRunLog(runs)).toBe(true);
   });
 });

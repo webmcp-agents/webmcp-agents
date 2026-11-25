@@ -2,7 +2,9 @@ import type { AgentEvent } from "@webmcp-agents/core";
 import { toolError } from "@webmcp-agents/core";
 import { describe, expect, test, vi } from "vitest";
 import { mockAdapter, text, toolCall } from "../src/chat";
+import type { AgentRunEvent } from "@webmcp-agents/chat";
 import "../src/matchers";
+import { RUN_LOG, type RunLog } from "../src/run-record";
 import { recordEvents } from "../src/helpers/events";
 
 /** The message an assertion fails with (fails the test when it passes). */
@@ -216,7 +218,7 @@ describe("run matchers", () => {
     for (const run of [() => expect("text").toHaveCalledTools([]), () => expect("text").not.toHaveCalledTools([])]) {
       expect(await failure(run)).toContain("toHaveCalledTools needs a run: the WebAgentResult agent.invoke resolved to, a mockAdapter");
     }
-    expect(await failure(() => expect({ events: [] }).toHaveAnswered("x"))).toContain("cannot read a RunLog yet");
+    expect(await failure(() => expect({ events: [] }).toHaveAnswered("x"))).toContain("toHaveAnswered needs a run");
     expect(await failure(() => expect(run).toHaveFinishedWith("done" as never))).toContain('takes one of "stop", "max-steps"');
     expect(await failure(() => expect(run).toHaveBeenOfferedTools(["x"]))).toContain("toHaveBeenOfferedTools needs a mockAdapter");
   });
@@ -294,5 +296,55 @@ describe("matcher types", () => {
   test("a misspelled matcher is a type error", () => {
     // @ts-expect-error: not a matcher
     expect(() => expect(ok("x")).toBeToolResutl()).toThrow();
+  });
+});
+
+describe("run matchers on a RunLog (the runs fixture)", () => {
+  const ref = (run: string, parent?: string) => ({ conversation: "c1", run, ...(parent ? { parent } : {}) });
+  /** A log as `recordRuns` makes it, from events written by hand. */
+  function log(events: AgentRunEvent[]): RunLog {
+    return {
+      [RUN_LOG]: true,
+      events,
+      types: () => events.map((e) => e.type),
+      of: (run) => events.filter((e) => e.ref.run === run),
+      runIds: () => [],
+      clear: () => {},
+      stop: () => {},
+    } as RunLog;
+  }
+  const run = (reason: "stop" | "max-steps" | "aborted" | "error", extra: Partial<AgentRunEvent> = {}): AgentRunEvent[] => [
+    { type: "run-start", ref: ref("r1"), adapter: "mock", at: 0 },
+    { type: "tool-start", ref: ref("r1"), step: 1, call: "d1", tool: "delegate_to_helper", at: 1, input: { task: "find" } },
+    { type: "run-start", ref: ref("r2", "d1"), agent: "helper", adapter: "mock", at: 2 },
+    { type: "tool-start", ref: ref("r2", "d1"), step: 1, call: "c1", tool: "search", at: 3, input: { q: "mugs" } },
+    { type: "run-finish", ref: ref("r2", "d1"), reason: "stop", ms: 1, steps: 1 },
+    { type: "run-finish", ref: ref("r1"), reason, ms: 5, steps: 2, ...(extra as object) } as AgentRunEvent,
+  ];
+
+  test("calls, in order, with the sub-agent that made each", () => {
+    expect(log(run("stop"))).toHaveCalledTools(["delegate_to_helper", "search"]);
+    expect(log(run("stop"))).toHaveCalledTool("search", { q: "mugs" });
+  });
+
+  test("tells max-steps from stop (a WebAgentResult cannot), and reads an error's code", async () => {
+    expect(log(run("max-steps"))).toHaveFinishedWith("max-steps");
+    expect(await failure(() => expect(log(run("max-steps"))).toHaveFinishedWith("stop"))).toContain('It ended with "max-steps"');
+    expect(log(run("error", { code: "rate_limited", error: "Too many." } as never))).toHaveFinishedWith("error", "rate_limited");
+  });
+
+  test("a sub-agent's run-finish is not the run's", async () => {
+    const events = run("stop").slice(0, 5); // the top-level run has not finished
+    expect(await failure(() => expect(log(events)).toHaveFinishedWith("stop"))).toContain("nothing yet: no run finished");
+  });
+
+  test("toHaveAnswered says a RunLog has no answer text", async () => {
+    expect(await failure(() => expect(log(run("stop"))).toHaveAnswered("x"))).toContain("run events carry no answer text");
+  });
+
+  test("toContainSensitive names the run log and the event", async () => {
+    const message = await failure(() => expect(log(run("stop"))).not.toContainSensitive(["mugs"]));
+    expect(message).toContain("Found in the run log");
+    expect(message).toContain("tool-start search");
   });
 });

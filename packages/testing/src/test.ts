@@ -12,6 +12,8 @@ import { type CallToolOptions, callTool, type MockedTool, type MockToolDefinitio
 import { sleep } from "./helpers/wait";
 import { createMount, type Mount } from "./mount";
 import { notYet } from "./not-yet";
+import { requirePeer } from "./peer";
+import type { RunLog } from "./run-record";
 
 /** The `tools` fixture: the page's tools, as an agent reaches them. */
 export interface ToolsFixture {
@@ -24,16 +26,6 @@ export interface ToolsFixture {
   mock(name: string, definition: MockToolDefinition, impl?: MockToolImpl): MockedTool;
   /** Resolve once the tool list has been quiet (no `toolchange`) for `quietMs` (default 150), e.g. after a navigation. */
   settled(quietMs?: number): Promise<void>;
-}
-
-/**
- * Every `AgentRunEvent` of the chat's runs. A typed shell until the chat emits run events (0.5.0, phase 4):
- * destructuring it fails the test with a sentence saying so. Until then, assert on the `mockAdapter` or the
- * `WebAgentResult` (`toHaveCalledTools`, `toHaveAnswered`, `toHaveFinishedWith` read both).
- */
-export interface RunLog {
-  /** The run events, in order. */
-  readonly events: readonly unknown[];
 }
 
 /**
@@ -57,7 +49,10 @@ export interface WebAgentsFixtures {
   mount: Mount;
   /** A fresh page redactor (`configureRedaction({})`), reset again after the test. */
   redactor: Redactor;
-  /** Run events (phase 4 of 0.5.0): a shell that fails with a sentence when used. */
+  /**
+   * Every `AgentRunEvent` of the test (the chat's, `useWebAgent`'s, `agent.invoke`'s, sub-agents'), redacted as a
+   * listener sees them by default; recording stops after the test. Needs `@webmcp-agents/chat`.
+   */
   runs: RunLog;
   /** Telemetry spans (phase 5 of 0.5.0): a shell that fails with a sentence when used. */
   spans: SpansFixture;
@@ -77,8 +72,8 @@ const once = (fn: () => unknown): (() => unknown) => {
 };
 
 /**
- * Vitest's `test` with the kit's fixtures: `tools`, `events`, `user`, `mount`, `redactor` (and the `runs` and `spans`
- * shells). Use it like `test`; destructure what the test needs.
+ * Vitest's `test` with the kit's fixtures: `tools`, `events`, `user`, `mount`, `redactor`, `runs` (and the `spans`
+ * shell). Use it like `test`; destructure what the test needs.
  *
  * @example
  * test("adds to the cart", async ({ tools, events, mount }) => {
@@ -151,7 +146,15 @@ export const test = base.extend<WebAgentsFixtures>({
     await reset();
   },
   // biome-ignore lint/correctness/noEmptyPattern: see above
-  runs: async ({}, _use) => notYet("The runs fixture", "run-events"),
+  runs: async ({}, use) => {
+    // loaded on use: a test that never destructures `runs` needs no chat, and a missing one fails here with a sentence
+    const { recordRuns } = await requirePeer(() => import("./chat/record-runs"), { peer: "@webmcp-agents/chat", by: "The runs fixture" });
+    const log = recordRuns();
+    const stop = once(() => log.stop());
+    deferCleanup(stop);
+    await use(log);
+    await stop();
+  },
   // biome-ignore lint/correctness/noEmptyPattern: see above
   spans: async ({}, _use) => notYet("The spans fixture", "telemetry"),
 });

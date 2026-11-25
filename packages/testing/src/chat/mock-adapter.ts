@@ -1,4 +1,4 @@
-import type { AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart, ToolDescriptor, WebAgent } from "@webmcp-agents/chat";
+import type { AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart, RunRef, ToolDescriptor, WebAgent } from "@webmcp-agents/chat";
 import { type Mock, vi } from "vitest";
 import { nextId } from "../ids";
 import { type RecordedFinish, RUN_RECORD, type RunRecord } from "../run-record";
@@ -31,6 +31,14 @@ export interface MockAdapterOptions {
   id?: string;
   /** Its label in the adapter switcher. Default `"Mock"`. */
   label?: string;
+  /**
+   * Report each step's token usage on its `step-finish` part, as the cloud adapter does when the server sends it: the
+   * step's `usage`, or `{ inputTokens: 10, outputTokens: 5 }`. `false` reports none, like an on-device adapter.
+   * Default true.
+   */
+  usage?: boolean;
+  /** The model id each `step-finish` reports (with `usage`). Default `"mock/model"`. */
+  model?: string;
 }
 
 /** A request as the adapter received it: the messages copied at that moment, the tools as they were offered. */
@@ -39,6 +47,8 @@ export interface MockRequest {
   tools: ToolDescriptor[];
   agent?: WebAgent;
   signal: AbortSignal;
+  /** The run's ids (`conversation`, `run`, `parent` for a sub-agent's run), as the cloud adapter would send them. */
+  ref?: RunRef;
 }
 
 /** A model-free `AgentAdapter` that plays a script, and remembers what it was sent and what it did. */
@@ -136,6 +146,8 @@ export function mockAdapter(script: MockScript, options: MockAdapterOptions = {}
         yield* result;
         return;
       }
+      // a whole stream (above) frames its own steps, or leaves them to the run's tracker
+      yield { type: "step-start", step: stepNo };
       if (result === undefined) {
         const scripted = Array.isArray(script) ? `was scripted with ${script.length} step(s) and ` : "";
         yield finish({
@@ -151,6 +163,7 @@ export function mockAdapter(script: MockScript, options: MockAdapterOptions = {}
       }
       const messageId = nextId("a");
       yield { type: "message-start", messageId };
+      const usage = options.usage === false ? undefined : { inputTokens: 10, outputTokens: 5, ...step.usage };
       if (step.reasoning) {
         yield {
           type: "reasoning",
@@ -164,14 +177,16 @@ export function mockAdapter(script: MockScript, options: MockAdapterOptions = {}
         if (req.signal.aborted) break;
         yield { type: "text-delta", messageId, delta };
       }
-      const calls = step.calls ?? [];
+      // the reply (its calls announced), then the end of the step (its usage), then the calls run: as the cloud adapter
+      const calls = req.signal.aborted
+        ? []
+        : (step.calls ?? []).map((call) => ({ id: call.id ?? nextId("call"), name: call.name, input: call.input ?? {} }));
+      for (const call of calls) yield { type: "tool-call", messageId, ...call };
+      if (!req.signal.aborted) yield { type: "step-finish", step: stepNo, ...(usage && { usage, model: options.model ?? "mock/model" }) };
       for (const call of calls) {
         if (req.signal.aborted) break;
-        const id = call.id ?? nextId("call");
-        const input = call.input ?? {};
-        yield { type: "tool-call", messageId, id, name: call.name, input };
-        const output = await req.callTool({ id, name: call.name, input });
-        yield { type: "tool-result", id, output };
+        const output = await req.callTool(call);
+        yield { type: "tool-result", id: call.id, output };
       }
       if (req.signal.aborted) {
         yield finish({ reason: "aborted" });
@@ -185,14 +200,19 @@ export function mockAdapter(script: MockScript, options: MockAdapterOptions = {}
         yield finish({ reason: "max-steps" });
         return;
       }
-      yield { type: "step-finish", step: stepNo };
     }
   }
 
   const run = vi.fn((req: AgentRunRequest): AsyncIterable<AgentStreamPart> => {
     const n = ++runs;
     lastSignal = req.signal;
-    requests.push({ messages: copy(req.messages), tools: [...req.tools], ...(req.agent ? { agent: req.agent } : {}), signal: req.signal });
+    requests.push({
+      messages: copy(req.messages),
+      tools: [...req.tools],
+      ...(req.agent ? { agent: req.agent } : {}),
+      signal: req.signal,
+      ...(req.ref ? { ref: { ...req.ref } } : {}),
+    });
     record.finishes[n - 1] = undefined;
     return observe(play(req, n), n);
   });

@@ -4,10 +4,9 @@
  */
 
 /** Which later piece of 0.5.0 a shell waits for. */
-export type PendingPart = "run-events" | "telemetry";
+export type PendingPart = "telemetry";
 
 const ARRIVES: Record<PendingPart, string> = {
-  "run-events": "the chat's run events (AgentRunEvent, onAgentRun), phase 4 of 0.5.0",
   telemetry: "@webmcp-agents/telemetry, phase 5 of 0.5.0",
 };
 
