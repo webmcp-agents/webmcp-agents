@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { AgentChat } from "../src/components/AgentChat";
+import { toolsSettled } from "../src/session/run-agent";
 import type { AgentMessage, AgentRunRequest } from "../src/types";
 import { modelContext, until } from "@webmcp-agents/testing";
 import { mockAdapter } from "@webmcp-agents/testing/chat";
@@ -10,7 +11,6 @@ const KEY = "page-moves-test";
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
 const textarea = () => host().querySelector<HTMLTextAreaElement>("textarea")!;
 const stored = (): AgentMessage[] => JSON.parse(sessionStorage.getItem(KEY) ?? "[]") as AgentMessage[];
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const firstText = (req: Pick<AgentRunRequest, "messages"> | undefined): string => {
   const part = req?.messages.at(-1)?.parts[0];
   return part?.type === "text" ? part.text : "";
@@ -53,12 +53,18 @@ describe("useAgentSession: page moves between turns", () => {
     const released = new Promise<void>((r) => {
       release = r;
     });
+    let run1Returned!: () => void;
+    const returned = new Promise<void>((r) => {
+      run1Returned = r;
+    });
     const adapter = mockAdapter(async function* (req, { run: n }) {
       yield { type: "message-start", messageId: `a${n}` };
       yield { type: "text-delta", messageId: `a${n}`, delta: n === 1 ? "first" : "second" };
       // run 1 ignores Stop until released; run 2 streams until it is stopped
-      if (n === 1) await released;
-      else await new Promise((r) => req.signal.addEventListener("abort", r, { once: true }));
+      if (n === 1) {
+        await released;
+        run1Returned();
+      } else await new Promise((r) => req.signal.addEventListener("abort", r, { once: true }));
     });
     await render(<AgentChat adapter={adapter} defaultOpen storageKey={KEY} />);
     await userEvent.type(textarea(), "one{Enter}");
@@ -69,7 +75,10 @@ describe("useAgentSession: page moves between turns", () => {
     await until(() => stored().filter((m) => m.role === "assistant").length === 2, 3000, "run 2's reply");
     history.replaceState(null, "", "/moved");
     release();
-    await sleep(500); // run 1 returns, then waits for the page to settle before it would stamp
+    // Wait on what happened, not on a clock: run 1 returned, and the page then stayed quiet for longer than the quiet
+    // period the session itself waits (150 ms) before it would stamp, so by now it has decided not to.
+    await returned;
+    await toolsSettled(400);
     expect(stored().at(-1)).toMatchObject({ role: "assistant" });
     expect(stored().at(-1)?.page).toBeUndefined();
     host().querySelector<HTMLButtonElement>('[aria-label="Stop"]')!.click();
