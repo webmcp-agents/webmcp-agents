@@ -1,0 +1,97 @@
+{
+  "name": "@webmcp-agents/telemetry",
+  "version": "0.4.0",
+  "type": "module",
+  "description": "Send WebMCP agent runs to any OpenTelemetry backend: model steps from the chat handler, runs and tool calls from the browser through a relay, with standard OTEL_* env, no vendor code and redaction on by default.",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "@webmcp-agents/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "@webmcp-agents/source": "./src/server/index.ts",
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./react": {
+      "@webmcp-agents/source": "./src/react.tsx",
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "size": "node scripts/size.mjs",
+    "check-exports": "publint && attw --pack . --profile esm-only"
+  },
+  "peerDependencies": {
+    "@ai-sdk/otel": ">=1",
+    "@opentelemetry/api": ">=1.9.0 <2",
+    "@opentelemetry/exporter-trace-otlp-grpc": ">=0.200",
+    "@opentelemetry/exporter-trace-otlp-proto": ">=0.200",
+    "@opentelemetry/sdk-trace": ">=2.9",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/otel": {
+      "optional": true
+    },
+    "@opentelemetry/api": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-trace-otlp-grpc": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-trace-otlp-proto": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-trace": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@webmcp-agents/chat": "workspace:^",
+    "@webmcp-agents/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@ai-sdk/otel": "1.0.163",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "0.301.2",
+    "@opentelemetry/exporter-trace-otlp-proto": "0.301.2",
+    "@opentelemetry/sdk-trace": "3.1.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "@webmcp-agents/devtools": "workspace:^",
+    "ai": "^7.0.163",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsdown": "^0.23.7",
+    "vite": "^8.3.6",
+    "vitest-browser-react": "^2.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webmcp-agents/webmcp-agents.git",
+    "directory": "packages/telemetry"
+  },
+  "homepage": "https://webmcp-agents.dev",
+  "publishConfig": {
+    "access": "public"
+  }
+}

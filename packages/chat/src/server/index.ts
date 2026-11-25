@@ -25,7 +25,7 @@ export { TURNSTILE_HEADER, TURNSTILE_VERIFY_URL, turnstileVerify } from "./turns
 export type { TurnstileOptions } from "./turnstile";
 export type { ChatSession, ChatSessionOptions, SessionKeeper } from "./session";
 export { buildSystemPrompt, DEFAULT_SYSTEM_PROMPT } from "./system-prompt";
-export { chatRequestSchema, chatTraceSchema, LIMITS, TRACE_ID } from "./validate";
+export { chatRequestSchema, chatTraceSchema, isCrossSite, LIMITS, TRACE_ID } from "./validate";
 export type { ChatRequest } from "./validate";
 export {
   AGENT_ID,

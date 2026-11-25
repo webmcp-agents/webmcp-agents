@@ -74,7 +74,51 @@
       }
     },
     {
+      "includes": ["**", "!packages/telemetry/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@opentelemetry/*", "@ai-sdk/otel", "@ai-sdk/otel/*"],
+                    "message": "OpenTelemetry stays in @webmcp-agents/telemetry: only packages/telemetry may import @opentelemetry/* or @ai-sdk/otel (design decision 5)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["packages/*/src/**", "!packages/testing/**", "!**/*.test.ts", "!**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@webmcp-agents/testing", "@webmcp-agents/testing/*"],
+                    "message": "The testing kit is for tests only: runtime code never imports @webmcp-agents/testing (R-TEST-7)."
+                  },
+                  {
+                    "group": ["@opentelemetry/*", "@ai-sdk/otel", "@ai-sdk/otel/*"],
+                    "message": "OpenTelemetry stays in @webmcp-agents/telemetry: only packages/telemetry may import @opentelemetry/* or @ai-sdk/otel (design decision 5)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/telemetry/src/**", "!**/*.test.ts", "!**/*.test.tsx"],
       "linter": {
         "rules": {
           "style": {
@@ -122,6 +166,10 @@
                   {
                     "group": ["@webmcp-agents/testing", "@webmcp-agents/testing/*"],
                     "message": "The testing kit is for tests only: runtime code never imports @webmcp-agents/testing (R-TEST-7)."
+                  },
+                  {
+                    "group": ["@opentelemetry/*", "@ai-sdk/otel", "@ai-sdk/otel/*"],
+                    "message": "OpenTelemetry stays in @webmcp-agents/telemetry: only packages/telemetry may import @opentelemetry/* or @ai-sdk/otel (design decision 5)."
                   }
                 ]
               }

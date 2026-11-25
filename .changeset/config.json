@@ -16,7 +16,8 @@
       "@webmcp-agents/chat",
       "@webmcp-agents/local-agent",
       "@webmcp-agents/tools",
-      "@webmcp-agents/testing"
+      "@webmcp-agents/testing",
+      "@webmcp-agents/telemetry"
     ]
   ],
   "linked": [],
