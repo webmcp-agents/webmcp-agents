@@ -40,17 +40,17 @@ export function Footer() {
       <Separator />
 
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:px-6">
-      <p>
-        Demo store. Nothing here ships. Product photos from{" "}
-        <a href="https://unsplash.com/?utm_source=web-agents&utm_medium=referral" className="underline underline-offset-4">
-          Unsplash
-        </a>
-        .
-      </p>
-      {/* the assistant's language: Arabic switches the chat to right-to-left */}
-      <Button variant="outline" size="sm" lang={toggleLabel === "English" ? "en" : "ar"} aria-label={toggleName} onClick={toggle}>
-        {toggleLabel}
-      </Button>
+        <p>
+          Demo store. Nothing here ships. Product photos from{" "}
+          <a href="https://unsplash.com/?utm_source=web-agents&utm_medium=referral" className="underline underline-offset-4">
+            Unsplash
+          </a>
+          .
+        </p>
+        {/* the assistant's language: Arabic switches the chat to right-to-left */}
+        <Button variant="outline" size="sm" lang={toggleLabel === "English" ? "en" : "ar"} aria-label={toggleName} onClick={toggle}>
+          {toggleLabel}
+        </Button>
       </div>
     </footer>
   );

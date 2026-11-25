@@ -63,7 +63,15 @@ const num = (value: string | undefined, fallback: number): number => {
  * Claude Sonnet 5.5 (cheaper, faster), 4096 output tokens (thinking counts against them) and 6 steps; every limit is
  * an env var (see docs/more/deploy.md).
  */
-export function createVercelChatRoute({ app, env = process.env, model, agents, tools, session = {}, observability }: VercelChatRouteOptions) {
+export function createVercelChatRoute({
+  app,
+  env = process.env,
+  model,
+  agents,
+  tools,
+  session = {},
+  observability,
+}: VercelChatRouteOptions) {
   // each tool step is one request: a 6-step turn is 7, so a burst limit must fit a few turns
   const perMinute = num(env.RATE_LIMIT_PER_MINUTE, 30);
   const perDay = num(env.RATE_LIMIT_PER_DAY, 300);
