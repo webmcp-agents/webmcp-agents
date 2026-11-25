@@ -28,7 +28,7 @@ Sidebar orders changed: Observability 5, Testing 6, More 7 (was 5), Examples 8 (
   copy), `shared/lib/consent.ts`; `routeTree.gen.ts` gained `/api/telemetry`.
 - `docs/_examples/testing/`: new `tool-on-page`, `chat`, `spans` browser tests, `app/quantity-form.tsx`, `ci.yml`;
   `privacy.browser.test.tsx` now checks `events`, `runs`, `spans` and the console; `confirmation` checks
-  `toHaveYielded("pointer")`. `@webmcp-agents/telemetry` is a docs-examples devDependency. All execute (17 tests).
+  `toHaveYielded("pointer")`. `@webmcp-agents/telemetry` is a docs-examples devDependency. All execute (15 tests in 8 files; e2e/ is type-checked only).
 - `apps/docs/scripts/generate-partials.mjs` writes `docs/_partials/chat-tokens.mdx` (from `chat.css`) and
   `docs/_partials/testing-reference.mdx` (from `docs/reference/testing/*.md`); `--check` runs in the docs app's `test`
   (so `pnpm check` fails on a stale table). `apps/docs/turbo.json` test inputs include `chat.css`.
