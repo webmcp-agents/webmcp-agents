@@ -73,13 +73,15 @@ examples/playground/    demo storefront; every action is a WebMCP tool (useWebTo
                         one declarative form as the alternative)
 examples/ecommerce/     "Field Store" example (React Router 7): an app-wide catalog, component tools (the cart drawer's exist only
                         while it is open), confirm-gated checkout; data/ (mock JSON + pure queries), store/ (module stores: cart,
-                        ui, cart-rules), lib/navigate.ts (the router's navigate for module tools), e2e/ (Playwright)
+                        ui, cart-rules, chat-locale), lib/navigate.ts (the router's navigate for module tools), lib/chat-theme.ts (the themed
+                        chat), the footer's Arabic toggle (RTL chat), a `sensitive` card number on checkout, e2e/ (Playwright)
 examples/flights/       "Skyline" example: search in the URL, results tools with `match` on the results route, forms on React Hook
                         Form (traveler details on TanStack Form), confirm-gated booking
 examples/nextjs/        "Field Store on Next.js" (App Router, port 5176): Server Components render pages, client components hold
                         the tools, the chat is the registry's agent-chat block, lib/env.server.ts taints the key. tsconfig maps
                         `@/components/ui/*` to examples/ui for the registry blocks. Consumes the packages' dist (predev builds
-                        them); app/layout.tsx imports @webmcp-agents/core/cursor.css.
+                        them); app/layout.tsx imports @webmcp-agents/core/cursor.css. lib/observability.ts (defineObservability, off without OTEL_*)
+                        feeds app/api/chat and app/api/telemetry (the relay); <ObserveAgents> sits in app/providers.tsx.
 apps/docs/              @webmcp-agents/docs (private, port 4321): the one website, a Blume site. The docs are ../../docs, mounted
                         under /docs (`basePath`; edit content in docs/). The home page is the landing: pages/index.astro (its own
                         document, not Blume's PageLayout) hydrates components/landing/landing.tsx as one React island, styled by
@@ -136,6 +138,12 @@ packages/devtools/      @webmcp-agents/devtools: store.ts (tools, calls, setting
                         @webmcp-agents/react (react depends on devtools): the cursor comes from core's currentAgentVisuals()
 packages/tools/         @webmcp-agents/tools: one factory per common tool (get-time.ts, get-location.ts, get-page.ts, go-to.ts,
                         go-back.ts, scroll-to.ts, set-theme.ts; calendar.ts is pure), each a defineWebTool tool, no framework
+packages/telemetry/     @webmcp-agents/telemetry (OpenTelemetry export; optional peers `@opentelemetry/*`, `@ai-sdk/otel`, loaded by literal
+                        `import()` on first use): `.` (browser: observeAgents, consoleExporter; browser/ engine, exporters, a bridge chunk
+                        to a page's own provider), `/server` (defineObservability, otlp, resolveTarget; server/ config (OTEL_* env), runtime,
+                        pipeline, relay), `/react` (<ObserveAgents>), shared/ (util.ts: VERSION read from package.json at build time, so a
+                        bump keeps it true), semconv.ts. Depends on chat and core; chat never imports it. The only package that may import
+                        `@opentelemetry/*` / `@ai-sdk/otel` (Biome `noRestrictedImports`)
 packages/testing/       @webmcp-agents/testing: the Vitest kit the repo's own tests use. `.` (test with fixtures in test.ts, callTool,
                         mockTool, page helpers in helpers/), matchers.ts (expect.extend + typed `Matchers` augmentation; one
                         matcher per file in matchers/), setup.ts (polyfill, reduced motion, ids, cleanup; guard.ts fails a test
@@ -144,6 +152,13 @@ packages/testing/       @webmcp-agents/testing: the Vitest kit the repo's own te
                         (shell until phase 5). A devDependency of the root only (core ↔ testing would be a Turbo cycle)
 capture/                the docs media harness: playwright.config.ts (webServer for the four apps; stills, mobile, clips
                         projects), *.capture.ts, encode.mjs (ffmpeg → docs/media, budgets: clips ≤ 1.5 MB, hero.gif ≤ 3 MB)
+docs/observability/     overview, where-spans-go (the OTEL_* rules), privacy, browser-spans, on-agent-run, collector, backends/ (one recipe per
+                        vendor, each value read from the vendor's docs with the source linked; code in docs/_examples/observability/, whose
+                        `vendors/*.d.ts` are type stand-ins for the vendor packages, mapped in the tsconfig `paths` AND in `knip.json`)
+docs/testing/           the ten testing pages (snippets are files in docs/_examples/testing/ that run in `pnpm check`)
+docs/more/chat-theming.mdx, chat-localization.mdx   theming (the token table is generated from chat.css) and localization
+apps/docs/scripts/generate-partials.mjs   writes docs/_partials/chat-tokens.mdx (from packages/chat chat.css) and testing-reference.mdx
+                        (from docs/reference/testing/*.md); run it after changing chat.css; `--check` runs in the docs app's `test`
 docs/                   the docs site's content (apps/docs renders it), ordered by framework and by step (docs/README.md
                         "How these docs are written"): (get-started)/ (index.mdx, installation/ with one page per framework),
                         build/ (the eleven-page path), concepts/, security/ (locking /api/chat: sessions, tool allowlist, Turnstile, limits),
@@ -407,3 +422,13 @@ mid-run (the cursor must vanish and the tool still complete).
   (`knip.json` lists each workspace's entries): delete the dead code or dependency, or add a real entry (a file the tool cannot
   see being loaded); never add an ignore for a finding. Deprecated alias exports kept for compatibility are the one `ignoreIssues`
   (`duplicates`) exception. Registry blocks' dependencies live in `registry/registry.json`, so `knip.json` ignores them.
+- Telemetry (`packages/telemetry`, `packages/vercel-api`): Vite's SSR picks `@opentelemetry/api` 1.9.1's ESM build, whose imports
+  have no extension, so a Node test project that loads `@ai-sdk/otel` needs
+  `test: { server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } } }` (telemetry and vercel-api have it). A browser
+  test that stubs `fetch` must pass every non-relay URL through to the real one. Never give `observeAgents` an exporter whose
+  `flush()` calls back into the observer (infinite recursion; the testing kit's fixture wraps its exporter for that reason).
+  AI SDK per-call `experimental_telemetry` integrations replace the registered ones, so the handler merges `observability`'s in
+  (`telemetry: false` passes none). Sentry's OpenTelemetry setup needs `enableOpenTelemetrySetup: true` (default only in some SDKs).
+  The layer's export timeout is 30 s (the OpenTelemetry default is 10 s); the docs say so.
+- Redaction and the chat CSS: `core/redact` is its own entry and the main entry may import only `isSensitiveControl` from it (size
+  budgets). After changing `chat.css`, run `node apps/docs/scripts/generate-partials.mjs`: `pnpm check` fails on a stale token table.

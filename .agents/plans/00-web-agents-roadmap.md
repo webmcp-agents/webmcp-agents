@@ -26,6 +26,7 @@ If a phase needs to change a contract here, update this file in the same commit.
 | 14 | `14-imperative-tools.md` | one way to write a tool: `useWebTool({…})` with `execute`, the cursor finds controls by role and name (`target` locators, `fields`, `fill`), plain flags, `match`, `tool.invoke`, `createWebAgents`; then `agent.invoke` / `useWebAgent`, `@webmcp-agents/tools`, apps and docs moved over. Done (2026-11-09): code, apps, e2e and docs | 13 | High |
 | 15 | `15-docs-framework-first.md` | docs that start with your framework and stay in it: Get started (Introduction, Installation per framework), a ten-page Build path, Concepts, More, Examples; framework views (`<View>`), compiled examples in `docs/_examples`, one reference template, a docs check. Four steps: A foundation and one slice (2026-11-09), B the Build path, C reference, D concepts, more, examples and links | 14 | Medium |
 | 17 | chat restore (full rewind) | Cursor-like conversation restore in `@webmcp-agents/chat`: `session.restore(userMessageId)` truncates the thread, auto-restores field fills from an in-memory journal, and runs optional per-tool `defineWebTool({ revert })` newest-first. Distinct from a field undo toast. Library API + AgentChat/registry Restore control; examples wire `revert` on mutating tools | 5, 14 | Medium |
+| 18 | `openspec/changes/add-observability-chat-theming-testing-tooling/` (0.5.0) | six capabilities: repo tooling (Knip, konsistent), data redaction (`core/redact`), the testing kit (`@webmcp-agents/testing`), chat customization (theme, messages, `ar`/`es`, slots, RTL), run telemetry in the chat, and OpenTelemetry export (`@webmcp-agents/telemetry`). Plan, specs and per-phase notes live in the OpenSpec change, not here | 17 | High |
 
 Phases 3 and 5 are independent of each other and may run in parallel after Phase 2.
 Phase 7's static-deploy half can run any time after Phase 4; the `/api/chat` half needs Phase 5.
@@ -95,6 +96,8 @@ Always confirm versions with `npm view <pkg> version` before pinning; numbers ab
 │   ├── chat/              @webmcp-agents/chat      <AgentChat>, AgentAdapter, cloud adapter, /server handler, /vite dev plugin
 │   ├── local-agent/       @webmcp-agents/local-agent  in-browser adapter (Worker + transformers.js / Prompt API)
 │   ├── tools/             @webmcp-agents/tools     common tools: get_time, get_location, get_page, go_to, go_back, scroll_to, set_theme
+│   ├── testing/           @webmcp-agents/testing   (0.5.0) the Vitest kit: fixtures, matchers, mocks; /playwright, /chat, /server, /telemetry
+│   ├── telemetry/         @webmcp-agents/telemetry (0.5.0) OpenTelemetry export: `.` (browser), /server, /react
 │   └── vercel-api/        @webmcp-agents/vercel-api (private) shared /api/chat for the apps: guard, rate limit (Phase 7)
 ├── .agents/plans/
 ├── biome.json  turbo.json  pnpm-workspace.yaml  tsconfig.base.json  vitest.config.ts  package.json
@@ -105,6 +108,13 @@ Dependency direction (no cycles, enforced by review): `core` → none (types onl
 polyfill is core's own `src/polyfill`, reached by dynamic import); `polyfill` (deprecated) → core; `react` → core, devtools (2026-11-10: the provider loads the devtools in development); `devtools` → core (never react:
 its React entry finds the cursor with core's `currentAgentVisuals()`); `chat` → core, react;
 `local-agent` → chat (types only); `tools` → core. Apps → anything.
+
+0.5.0 additions: `telemetry` → chat (types), core; `testing` → core, with `chat`, `telemetry`, `vitest`, Playwright and React as
+optional peers (a root devDependency only: core ↔ testing would be a Turbo cycle); `chat` never imports `telemetry` (it
+takes an `Observability` by type from the app, and emits `onAgentRun`, which the telemetry package listens to). Only
+`packages/telemetry` imports `@opentelemetry/*` and `@ai-sdk/otel`, always by literal dynamic `import()` on first use
+(optional peers); the other packages must stay free of them (Biome `noRestrictedImports`). `core/redact` is core's own
+entry: the main entry imports only `isSensitiveControl` from it.
 
 ---
 
@@ -426,6 +436,45 @@ export function setTheme(o?: { get?, set?, control?: ToolLocator | false }): Web
 export { calendarAt, weekOf, DEFAULT_WEEK };                              // the pure calendar get_time uses
 // No router, no ctx.context, no DOM at import (SSR-safe); sideEffects: false.
 ```
+
+### 0.5.0 contracts (`openspec/changes/add-observability-chat-theming-testing-tooling/`)
+
+New packages: `@webmcp-agents/telemetry` and `@webmcp-agents/testing` (both in the changeset `fixed` group, so every public
+package versions together). New entries: `@webmcp-agents/core/redact`, `@webmcp-agents/chat/locales/ar`,
+`@webmcp-agents/chat/locales/es`, and the telemetry package's `.`, `/server`, `/react`. All additive; the one visible
+change for existing users is that sensitive data is now masked where the library shows or logs a call.
+
+```ts
+// 1. repo tooling: `pnpm knip` and `pnpm konsistent` (knip.json, konsistent.json) are part of `pnpm check`.
+
+// 2. data redaction (@webmcp-agents/core/redact, on by default; the main entry never imports the redactor)
+defineWebTool({ sensitive: ["passport"] | { input: [...], output: [...] }, hideFromModel? });  // x-sensitive / format: "password" in schemas;
+// [data-agent-sensitive], password and autocomplete cc-* / one-time-code controls are detected.
+createRedactor(options); getRedactor(); configureRedaction(options);   // <WebAgentsProvider redact>, createChatHandler({ redact })
+// Sinks: the cursor's `fill` event, devtools log, chat tool card, onAgentRun, telemetry spans, URLs, console, server logs.
+
+// 3. testing kit (@webmcp-agents/testing): test (fixtures tools, events, user, mount, redactor), matchers (toBeToolResult, toHaveParked,
+//    toHaveCalledTools, toContainSensitive…), mockAdapter, mockChatServer, mockModel, webAgentsProject("unit" | "browser");
+//    /playwright (openApp, runTool, listTools, parkedOn, confirm); /telemetry (spans, runs matchers). Peer: vitest >=4.
+
+// 4. chat customization
+<AgentChat theme={defineChatTheme({ light, dark })} messages={defineChatMessages({...})} locale="ar" dir? colorScheme?
+           classNames styles components unstyled />;     // every visual value is a --wa-chat-* variable; every part has data-wa-part
+import { ar } from "@webmcp-agents/chat/locales/ar";     // direction follows the locale (RTL for ar)
+
+// 5. run telemetry in the chat
+onAgentRun(listener); // run, step and tool ids; per-step usage; `trace` body field and `traceparent` header on chat requests
+createChatHandler({ redact, telemetry, observability, messages });
+
+// 6. OpenTelemetry export (@webmcp-agents/telemetry)
+defineObservability({ serviceName?, exporters?, ... });  // /server: OTEL_* env decides; off when nothing is set; .relay() for the page's spans
+observeAgents({ enabled?, ... });  <ObserveAgents />      // `.` and /react: a run becomes spans, posted to the relay
+consoleExporter(); otlp(); resolveTarget();               // the GenAI conventions by default, "legacy" optional
+```
+
+The 0.4.0 chat names (`--wa-chat-*` variables, `data-wa-part` values) keep working; the docs pages (`docs/observability/`,
+`docs/testing/`, `docs/security/redaction.mdx`, `docs/more/chat-theming.mdx`, `docs/more/chat-localization.mdx`) and
+`docs/reference/<pkg>/` are the reference for every option.
 
 ---
 
