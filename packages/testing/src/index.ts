@@ -36,7 +36,6 @@ export { sleep, type UntilOptions, until } from "./helpers/wait";
 export type { WebAgentsMatchers } from "./matchers";
 export type { NoHardcodedTextOptions } from "./matchers/to-have-no-hardcoded-text";
 export type { Mount, Mountable } from "./mount";
-export { NotYetAvailableError } from "./not-yet";
 export type { FinishReason, RecordedCall, RecordedFinish, RunRecord } from "./run-record";
 export { type SpansFixture, type ToolsFixture, test, type WebAgentsFixtures } from "./test";
 export { isRunLog, type RunLog, type RunLogOptions } from "./run-record";

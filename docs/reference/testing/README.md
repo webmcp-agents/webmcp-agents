@@ -13,7 +13,7 @@ pnpm add -D @webmcp-agents/testing vitest @vitest/browser-playwright
 
 <include meta='title="vitest.config.ts"'>/_examples/testing/vitest.config.ts</include>
 
-`*.test.*` files run in Node, `*.browser.test.*` files in Chromium, where a test needs no setup or cleanup of its own. Vitest 4 or later is the one required peer; `@webmcp-agents/chat`, `ai`, `react`, `react-dom`, `@playwright/test` and `@vitest/browser-playwright` are optional, and an entry that needs a missing one fails with a sentence naming it.
+`*.test.*` files run in Node, `*.browser.test.*` files in Chromium, where a test needs no setup or cleanup of its own. Vitest 4 or later is the one required peer; `@webmcp-agents/chat`, `@webmcp-agents/telemetry`, `ai`, `react`, `react-dom`, `@playwright/test` and `@vitest/browser-playwright` are optional, and an entry that needs a missing one fails with a sentence naming it.
 
 ## Entries
 
@@ -38,7 +38,7 @@ pnpm add -D @webmcp-agents/testing vitest @vitest/browser-playwright
 | [`mount`](./mount.md) | Mount HTML or a React element; removed after the test. |
 | [`redactor`](./redactor.md) | A fresh page redactor, reset after the test. |
 | [`runs`](./runs.md) | Run events (0.5.0). |
-| [`spans`](./spans.md) | Telemetry spans (0.5.0). |
+| [`spans`](./spans.md) | Every browser span of the test, in memory (needs `@webmcp-agents/telemetry`). |
 
 ## Matchers
 
@@ -58,5 +58,5 @@ pnpm add -D @webmcp-agents/testing vitest @vitest/browser-playwright
 | [`toHaveFinishedWith`](./to-have-finished-with.md) | The run ended this way. |
 | [`toHaveBeenOfferedTools`](./to-have-been-offered-tools.md) | The model was offered these tools. |
 | [`toContainSensitive`](./to-contain-sensitive.md) | A secret is in this sink (use it negated). |
-| [`toHaveSpan`](./to-have-span.md), [`toBeOneTrace`](./to-be-one-trace.md) | Telemetry (0.5.0). |
+| [`toHaveSpan`](./to-have-span.md), [`toBeOneTrace`](./to-be-one-trace.md) | A span by name and attributes; one trace with one root. |
 | [`toHaveNoHardcodedText`](./to-have-no-hardcoded-text.md) | The rendered chat shows no string outside its catalog. |

@@ -1,10 +1,10 @@
 ---
-description: "Every span belongs to one trace with one root (telemetry, 0.5.0)."
+description: "Every span belongs to one trace, with one root."
 ---
 
 # `toBeOneTrace`
 
-Passes when every span belongs to one trace, with one root. It arrives with `@webmcp-agents/telemetry` (0.5.0): until then it is typed and registered, and calling it fails with a sentence saying so.
+Passes when every span belongs to one trace and exactly one of them is a root (a span whose parent is not among them): the browser's and the server's spans of one turn joined up. No spans at all fails. It reads what [`toHaveSpan`](./to-have-span.md) reads; a failure names the traces, or the roots.
 
 ## Import
 
@@ -15,7 +15,7 @@ import "@webmcp-agents/testing/matchers"; // in setupFiles (the main entry and .
 ## Example
 
 ```ts
-expect(spans).toBeOneTrace();
+expect([...browser.spans, ...server.spans]).toBeOneTrace();
 ```
 
 ## Options

@@ -4,7 +4,7 @@ description: "Vitest's test, extended with the kit's fixtures."
 
 # `test`
 
-Vitest's `test`, extended with the kit's fixtures through `test.extend`: [`tools`](./tools.md), [`events`](./events.md), [`user`](./user.md), [`mount`](./mount.md), [`redactor`](./redactor.md), and the [`runs`](./runs.md) and [`spans`](./spans.md) shells. Vitest sets up only the fixtures a test destructures, so a Node test that destructures none pays for no browser fixture.
+Vitest's `test`, extended with the kit's fixtures through `test.extend`: [`tools`](./tools.md), [`events`](./events.md), [`user`](./user.md), [`mount`](./mount.md), [`redactor`](./redactor.md), [`runs`](./runs.md) and [`spans`](./spans.md). Vitest sets up only the fixtures a test destructures, so a Node test that destructures none pays for no browser fixture.
 
 ## Import
 

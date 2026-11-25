@@ -74,15 +74,15 @@ expect(received).toHaveCalledTools(["track_last_order","add_to_cart"])
 | `/chat` | `mockAdapter`, `text`, `toolCall`, `reasoning`, `fail`, `mockChatServer`, `renderChat` (with `sentinelMessages`) |
 | `/server` | `mockModel`, `chatRequest`, `readChatStream`, `withSession` |
 | `/playwright` | `openApp`, `runTool`, `listTools`, `parkedOn`, `confirm` |
-| `/telemetry` | `memoryExporter`, `spanTree` (with `@webmcp-agents/telemetry`, 0.5.0) |
+| `/telemetry` | `memoryExporter` (browser and OpenTelemetry spans in one shape), `spanTree` |
 
-Vitest 4 or later is the one required peer. `@webmcp-agents/chat`, `ai`, `react`, `react-dom`, `@playwright/test` and
+Vitest 4 or later is the one required peer. `@webmcp-agents/chat`, `@webmcp-agents/telemetry`, `ai`, `react`, `react-dom`, `@playwright/test` and
 `@vitest/browser-playwright` are optional: an entry that needs a missing one fails at import with a sentence naming it.
 
-Parts that arrive later in 0.5.0 are typed now and fail with a sentence when used: the `spans` fixture, `toHaveSpan`,
-`toBeOneTrace`, and the `/telemetry` functions. `renderChat` and `toHaveNoHardcodedText` (the sentinel-catalog check: no
-string of the chat bypasses its messages catalog) are here, and so is the `runs` fixture: every run event of the test
-(`onAgentRun`), which the run matchers read (it tells `"max-steps"` from `"stop"`).
+`renderChat` and `toHaveNoHardcodedText` check the chat (the sentinel-catalog check: no string of the chat bypasses its
+messages catalog). The `runs` fixture records every run event of the test (`onAgentRun`), which the run matchers read
+(it tells `"max-steps"` from `"stop"`); the `spans` fixture records every browser span (`observeAgents`), which
+`toHaveSpan`, `toBeOneTrace` and `toContainSensitive` read.
 
 Never import this package from runtime code: it is for tests (the repository's lint enforces it for its own packages).
 

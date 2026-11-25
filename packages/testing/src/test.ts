@@ -11,9 +11,9 @@ import { type EventLog, recordEvents } from "./helpers/events";
 import { type CallToolOptions, callTool, type MockedTool, type MockToolDefinition, type MockToolImpl, mockTool } from "./helpers/tools";
 import { sleep } from "./helpers/wait";
 import { createMount, type Mount } from "./mount";
-import { notYet } from "./not-yet";
 import { requirePeer } from "./peer";
 import type { RunLog } from "./run-record";
+import type { SpansFixture } from "./telemetry/observe-spans";
 
 /** The `tools` fixture: the page's tools, as an agent reaches them. */
 export interface ToolsFixture {
@@ -28,14 +28,7 @@ export interface ToolsFixture {
   settled(quietMs?: number): Promise<void>;
 }
 
-/**
- * Spans from `observeAgents`, kept in memory. A typed shell until @webmcp-agents/telemetry exists (0.5.0, phase 5):
- * destructuring it fails the test with a sentence saying so.
- */
-export interface SpansFixture {
-  /** The finished spans, in order. */
-  readonly spans: readonly unknown[];
-}
+export type { SpansFixture } from "./telemetry/observe-spans";
 
 /** The fixtures the kit's `test` adds. */
 export interface WebAgentsFixtures {
@@ -54,7 +47,10 @@ export interface WebAgentsFixtures {
    * listener sees them by default; recording stops after the test. Needs `@webmcp-agents/chat`.
    */
   runs: RunLog;
-  /** Telemetry spans (phase 5 of 0.5.0): a shell that fails with a sentence when used. */
+  /**
+   * Every browser span of the test (`observeAgents` into a memory exporter, redacted as it would be exported), with
+   * `flush()` to wait for the buffered ones. Needs `@webmcp-agents/telemetry`.
+   */
   spans: SpansFixture;
 }
 
@@ -72,8 +68,8 @@ const once = (fn: () => unknown): (() => unknown) => {
 };
 
 /**
- * Vitest's `test` with the kit's fixtures: `tools`, `events`, `user`, `mount`, `redactor`, `runs` (and the `spans`
- * shell). Use it like `test`; destructure what the test needs.
+ * Vitest's `test` with the kit's fixtures: `tools`, `events`, `user`, `mount`, `redactor`, `runs` and `spans`. Use it
+ * like `test`; destructure what the test needs.
  *
  * @example
  * test("adds to the cart", async ({ tools, events, mount }) => {
@@ -156,5 +152,16 @@ export const test = base.extend<WebAgentsFixtures>({
     await stop();
   },
   // biome-ignore lint/correctness/noEmptyPattern: see above
-  spans: async ({}, _use) => notYet("The spans fixture", "telemetry"),
+  spans: async ({}, use) => {
+    // loaded on use, like `runs`: a missing telemetry package fails here with a sentence naming it
+    const { observeSpans } = await requirePeer(() => import("./telemetry/observe-spans"), {
+      peer: "@webmcp-agents/telemetry",
+      by: "The spans fixture",
+    });
+    const spans = observeSpans();
+    const stop = once(() => spans.stop());
+    deferCleanup(stop);
+    await use(spans);
+    await stop();
+  },
 });

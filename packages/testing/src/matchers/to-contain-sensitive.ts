@@ -3,6 +3,7 @@ import type { MatcherResult, MatcherState } from "vitest";
 import { describeEvent, hint, MatcherInputError, show } from "../format";
 import { isEventLog } from "../helpers/events";
 import { isRunLog } from "../run-record";
+import { isMemoryExporter } from "../telemetry";
 import { RUN_RECORD } from "../run-record";
 
 /** A place a value was found: the sink, where in it, and (for an event) which event. */
@@ -71,6 +72,11 @@ function scan(received: unknown, needles: (string | RegExp)[]): Scan {
     // each event is named by its type and tool only: inputs and outputs are what is being looked for
     for (const [i, e] of received.events.entries()) walk(e, `events[${i}]`, check(`${e.type}${"tool" in e ? ` ${e.tool}` : ""}`));
     return { sink: "the run log", hits };
+  }
+  if (isMemoryExporter(received)) {
+    // each span is named by its name: attribute values are what is being looked for
+    for (const [i, s] of received.spans.entries()) walk(s, `spans[${i}]`, check(s.name));
+    return { sink: "the spans", hits };
   }
   if (isSpy(received)) {
     for (const [i, args] of received.mock.calls.entries()) walk(args, `calls[${i}]`, check());

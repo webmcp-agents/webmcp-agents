@@ -73,9 +73,9 @@ export interface WebAgentsMatchers<R = unknown> {
   toHaveFinishedWith(reason: FinishReason, code?: string): R;
   /** Every model step of the mock adapter was offered these tools (or the names satisfy the asymmetric matcher). */
   toHaveBeenOfferedTools(expected: string[] | unknown): R;
-  /** Phase 5 of 0.5.0 (telemetry): a span named `name` with these attributes. Fails with a sentence until then. */
-  toHaveSpan(name: string, attributes?: Record<string, unknown>): R;
-  /** Phase 5 of 0.5.0 (telemetry): every span is in one trace. Fails with a sentence until then. */
+  /** A span named `name` (or matching it) whose attributes include these. Reads a memory exporter or an array of spans. */
+  toHaveSpan(name: string | RegExp, attributes?: Record<string, unknown>): R;
+  /** Every span is in one trace, with one root. */
   toBeOneTrace(): R;
   /** One of `values` is in this sink (use it negated). Async on a `Response`. */
   toContainSensitive(values: (string | RegExp)[]): R;
