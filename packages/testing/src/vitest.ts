@@ -6,6 +6,7 @@
  * Node only (it runs in your Vitest config). It imports nothing of the kit by relative path, so the repo's own
  * configs can load it from source (`../testing/src/vitest.ts`).
  */
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -94,14 +95,49 @@ const installed = (specifier: string): boolean => {
 };
 
 /**
- * Pre-bundled up front when the app has them: a dependency discovered mid-run reloads Vite and the test with it.
- * React (one copy), and `ai/test`, which `mockChatServer` loads on its first request.
+ * A dependency the project being tested lists itself. Asked of its package.json, not of the resolver: under Vitest a
+ * package the project does not have can still resolve (through the kit), and Vite then fails to pre-bundle it by name.
+ */
+const declared = (name: string): boolean => {
+  try {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as Record<string, Record<string, string> | undefined>;
+    return ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"].some(
+      (field) => pkg[field]?.[name] !== undefined,
+    );
+  } catch {
+    return false;
+  }
+};
+
+/** Resolvable from the kit itself (its own dependencies and peers). */
+const kitHas = (specifier: string): boolean => {
+  try {
+    require.resolve(specifier);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const REACT = ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom", "react-dom/client"];
+
+/**
+ * Pre-bundled up front: a dependency discovered mid-run reloads Vite and the test with it (on a cold cache, so in CI
+ * first). React (one copy), and `ai/test`, which `mockChatServer` loads on its first request.
+ *
+ * The kit's own files name `react-dom` and `ai/test` in `import()`s, which Vite resolves as soon as it serves the
+ * file, used or not. A project without React of its own (a no-framework page) still reaches the kit's copy that way:
+ * it is then listed through the kit (`"@webmcp-agents/testing > react-dom"`), the form Vite takes for a dependency of
+ * a package it does not pre-bundle.
  */
 function knownDeps(): string[] {
-  return [
-    ...(installed("react") ? ["react", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom", "react-dom/client"] : []),
-    ...(installed("ai") ? ["ai/test"] : []),
-  ];
+  // its package.json: the entry itself has no `require` condition, so Node cannot resolve it from here
+  const viaKit = installed("@webmcp-agents/testing/package.json") ? (dep: string) => `@webmcp-agents/testing > ${dep}` : undefined;
+  const list = (deps: string[], probe: string): string[] => {
+    if (declared(probe)) return deps;
+    return viaKit && kitHas(probe) ? deps.map(viaKit) : [];
+  };
+  return [...list(REACT, "react"), ...list(["ai/test"], "ai")];
 }
 
 /**

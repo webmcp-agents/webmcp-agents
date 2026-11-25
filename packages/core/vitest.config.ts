@@ -1,4 +1,4 @@
-import { defaultClientConditions } from "vite";
+import { defaultClientConditions, defaultServerConditions } from "vite";
 import { defineConfig } from "vitest/config";
 // The testing kit's config helper, from source: Vite loads a config with Node's resolution, where the
 // `@webmcp-agents/source` condition does not apply, and core's tests must not need the kit built (it depends on core).
@@ -9,6 +9,9 @@ const NO_WEBMCP = ["src/web-agents.polyfill.browser.test.ts", "src/web-agents.na
 
 export default defineConfig({
   resolve: { conditions: ["@webmcp-agents/source", ...defaultClientConditions] },
+  // Node tests load the kit from source, and the kit imports this package by name: without the condition that is
+  // `dist`, which a fresh checkout (CI: `test` never waits for `build`) does not have.
+  ssr: { resolve: { conditions: ["@webmcp-agents/source", ...defaultServerConditions] } },
   test: {
     projects: [
       webAgentsProject("unit", { name: "core:unit", include: ["src/**/*.test.ts"] }),
