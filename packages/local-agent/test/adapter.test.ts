@@ -151,6 +151,7 @@ describe("createLocalAdapter", () => {
     // no error and no empty bubble: a plain note pointing at the download card
     expect(parts.map((p) => p.type)).toEqual(["message-start", "text-delta", "finish"]);
     expect(parts[1]).toMatchObject({ delta: expect.stringMatching(/can't run on this device. Download the on-device model below/) });
+    // the broken provider's step never showed anything: its step-start was dropped with its message-start
     expect(await settled(adapter)).toEqual({ state: "needs-download", bytes: 5, note: undefined });
   });
 

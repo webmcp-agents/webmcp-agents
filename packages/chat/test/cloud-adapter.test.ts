@@ -24,25 +24,31 @@ function setup(steps: Step[], opts: { maxSteps?: number; agents?: WebAgent[] } =
 }
 
 async function collect(adapter: ReturnType<typeof createCloudAdapter>, req: Partial<AgentRunRequest> = {}) {
-  const parts: AgentStreamPart[] = [];
+  const all: AgentStreamPart[] = [];
   const callTool = vi.fn(async () => ({ content: [{ type: "text", text: "Added 2 × Mug." }] }));
-  for await (const p of adapter.run({ messages: [user], tools, signal: new AbortController().signal, callTool, ...req })) parts.push(p);
-  return { parts, callTool };
+  for await (const p of adapter.run({ messages: [user], tools, signal: new AbortController().signal, callTool, ...req })) all.push(p);
+  // `parts` without the step markers (0.5.0): what 0.4.0's tests read; `all` with them
+  const parts = all.filter((p) => p.type !== "step-start" && p.type !== "step-finish");
+  return { parts, all, callTool };
 }
 
 describe("createCloudAdapter", () => {
   it("runs the model ↔ tool loop against the real handler", async () => {
     const { adapter, bodies } = setup([{ calls: [{ id: "c1", name: "add_to_cart", input: { qty: 2 } }] }, { text: "Done: 2 mugs." }]);
-    const { parts, callTool } = await collect(adapter);
-    expect(parts.map((p) => p.type)).toEqual([
+    const { parts, all, callTool } = await collect(adapter);
+    // each step is framed by its markers, and ends (with its usage) before its tool calls run
+    expect(all.map((p) => p.type)).toEqual([
+      "step-start",
       "message-start",
       "tool-call",
-      "tool-result",
       "step-finish",
+      "tool-result",
+      "step-start",
       "message-start",
       "text-delta",
       "text-delta",
       "text-delta",
+      "step-finish",
       "finish",
     ]);
     expect(parts.at(-1)).toEqual({ type: "finish", reason: "stop" });

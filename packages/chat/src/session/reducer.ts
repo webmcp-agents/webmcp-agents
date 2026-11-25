@@ -174,6 +174,7 @@ function applyPart(state: SessionState, part: AgentStreamPart): SessionState {
           () => ({ state: isCancelled(part.error) ? "cancelled" : "error", error: part.error, prompt: undefined }),
         ),
       };
+    case "step-start":
     case "step-finish":
       return state;
     case "finish":

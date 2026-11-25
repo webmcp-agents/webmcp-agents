@@ -38,6 +38,7 @@ import {
 } from "./restore-journal";
 import { clearAppSnapshots, type ChatRestoreSnapshots, loadAppSnapshots, reapplyCheckpoint, saveAppSnapshots } from "./restore-snapshot";
 import { pagePath, runAgent, toolsSettled } from "./run-agent";
+import { runId } from "./run-events";
 
 /** Options for `useAgentSession`. */
 export interface UseAgentSessionOptions extends ChatRestoreSnapshots {
@@ -83,6 +84,30 @@ function load(key: string | false): SessionState {
     return Array.isArray(messages) ? sessionReducer({ messages, status: "idle" }, { type: "stop" }) : initialSession;
   } catch {
     return initialSession;
+  }
+}
+
+/** Where the conversation's id is kept, next to its messages (whose stored format stays as in 0.4.0). */
+const conversationKey = (key: string | false): string | false => key && `${key}:conversation`;
+
+/** Ids the server accepts (`trace` in the request body): a stored value that is not one is replaced. */
+const VALID_ID = /^[a-zA-Z0-9_.-]{1,64}$/;
+
+/**
+ * The conversation's id: the stored one when the conversation was restored from storage, else a new one (stored).
+ * Storage that throws (a private window, a quota) keeps the id in memory only.
+ */
+function loadConversation(key: string | false, fresh = false): string {
+  const slot = conversationKey(key);
+  if (!slot || typeof sessionStorage === "undefined") return runId("conversation");
+  try {
+    const stored = fresh ? null : sessionStorage.getItem(slot);
+    if (stored && VALID_ID.test(stored)) return stored;
+    const id = runId("conversation");
+    sessionStorage.setItem(slot, id);
+    return id;
+  } catch {
+    return runId("conversation");
   }
 }
 
@@ -153,6 +178,16 @@ export function useAgentSession(
     apps.current = loadAppSnapshots(storageKey);
   }, [storageKey]);
 
+  // ---------- the conversation's id (run events, `trace`): kept across reloads and restores, new on reset ----------
+  const [loadedConversation] = useState(() => loadConversation(storageKey));
+  const conversation = useRef(loadedConversation);
+  const storedKey = useRef(storageKey);
+  useEffect(() => {
+    if (storedKey.current === storageKey) return;
+    storedKey.current = storageKey;
+    conversation.current = loadConversation(storageKey);
+  }, [storageKey]);
+
   // ---------- runs ----------
   const controller = useRef<AbortController | null>(null);
   /** Counts runs, so a run that ended only stamps the page while no newer run has started. */
@@ -173,6 +208,7 @@ export function useAgentSession(
           messages,
           signal: ctrl.signal,
           listTools: refreshTools,
+          conversation: conversation.current,
           onPart: (part, within) => {
             if (controller.current !== ctrl) return;
             if (part.type === "tool-call") journal.current.beginCall(part.id, part.name);
@@ -285,6 +321,7 @@ export function useAgentSession(
     journal.current.clear();
     apps.current.clear();
     clearAppSnapshots(storageKey);
+    conversation.current = loadConversation(storageKey, true);
     dispatch({ type: "reset" });
   }, [stop, storageKey]);
 

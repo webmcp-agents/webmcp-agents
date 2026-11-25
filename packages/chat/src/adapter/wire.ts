@@ -7,6 +7,7 @@
  */
 import type { UIMessage, UIMessageChunk } from "ai";
 import { CANCELLED } from "../shared";
+import type { StepUsage } from "../session/run-events";
 import type { AgentMessage, AgentPart, AgentStreamPart, ToolOutput } from "../types";
 
 /** Longest tool text sent back to the model; the rest is cut with a marker. */
@@ -109,15 +110,57 @@ async function* sseChunks(body: ReadableStream<Uint8Array>): AsyncGenerator<UIMe
   }
 }
 
+/** What the server reports about a step in the stream's message metadata (`createChatHandler({ telemetry })`). */
+export interface StepMetadata {
+  usage?: StepUsage;
+  /** The model id the server ran, e.g. "anthropic/claude-opus-5-5". */
+  model?: string;
+}
+
+const USAGE_KEYS = ["inputTokens", "outputTokens", "reasoningTokens", "cachedInputTokens", "totalTokens"] as const;
+
+/**
+ * The step metadata in a chunk's `messageMetadata`, checked: only finite, non-negative token counts and a short model
+ * id pass (the stream comes from a server, but a proxy or an old one may send anything). Undefined when there is none.
+ */
+export function readStepMetadata(value: unknown): StepMetadata | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const { usage, model } = value as { usage?: unknown; model?: unknown };
+  const out: StepMetadata = {};
+  if (usage && typeof usage === "object") {
+    const counts: StepUsage = {};
+    for (const key of USAGE_KEYS) {
+      const n = (usage as Record<string, unknown>)[key];
+      if (typeof n === "number" && Number.isFinite(n) && n >= 0) counts[key] = n;
+    }
+    if (Object.keys(counts).length) out.usage = counts;
+  }
+  if (typeof model === "string" && model.length > 0 && model.length <= 200) out.model = model;
+  return out.usage || out.model ? out : undefined;
+}
+
 /**
  * Turn a UI message stream response into stream parts for the assistant
  * message `messageId`. Text arrives as deltas; each tool call once its input
  * is complete; signed reasoning once it ends (to be sent back next request).
+ * `onMetadata`: the step's usage and model, when the server sends them (in the `finish` chunk's `messageMetadata`,
+ * or a `message-metadata` chunk); a server that sends none (0.4.0) never calls it.
  */
-export async function* readParts(body: ReadableStream<Uint8Array>, messageId: string): AsyncGenerator<AgentStreamPart> {
+export async function* readParts(
+  body: ReadableStream<Uint8Array>,
+  messageId: string,
+  onMetadata?: (metadata: StepMetadata) => void,
+): AsyncGenerator<AgentStreamPart> {
   const reasoning = new Map<string, { text: string; providerMetadata?: Record<string, Record<string, unknown>> }>();
   for await (const chunk of sseChunks(body)) {
     switch (chunk.type) {
+      case "start":
+      case "finish":
+      case "message-metadata": {
+        const metadata = onMetadata && readStepMetadata(chunk.messageMetadata);
+        if (metadata) onMetadata?.(metadata);
+        break;
+      }
       case "text-delta":
         if (chunk.delta) yield { type: "text-delta", messageId, delta: chunk.delta };
         break;

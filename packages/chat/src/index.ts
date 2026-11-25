@@ -54,6 +54,9 @@ export type {
   PartProps,
   Translate,
 } from "./customize/types";
+// ---------- run telemetry (0.5.0, experimental) ----------
+export { onAgentRun } from "./session/run-events";
+export type { AgentRunEvent, AgentRunListener, OnAgentRunOptions, RunRef, StepUsage } from "./session/run-events";
 export { useWebAgent } from "./session/use-web-agent";
 export type { UseWebAgentOptions, WebAgentHandle, WebAgentStatus } from "./session/use-web-agent";
 export { useAgentSession } from "./session/use-agent-session";

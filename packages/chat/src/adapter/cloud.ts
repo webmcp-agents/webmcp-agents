@@ -11,9 +11,10 @@
 import { getRedactor } from "@webmcp-agents/core/redact";
 import { en } from "../customize/en";
 import type { ChatErrorCode } from "../customize/types";
+import type { RunRef } from "../session/run-events";
 import { displayName, LIMITS, newId } from "../shared";
 import type { AdapterStatus, AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart } from "../types";
-import { outputText, readParts, toolOutputForModel } from "./wire";
+import { outputText, readParts, type StepMetadata, toolOutputForModel } from "./wire";
 
 /** Options for `createCloudAdapter`. */
 export interface CloudAdapterOptions {
@@ -100,6 +101,22 @@ const forServer = (history: AgentMessage[]): AgentMessage[] =>
     parts: m.parts.map((p) => (p.type === "tool" && p.agent ? { ...p, agent: undefined } : p)),
   }));
 
+/** The id pattern the server accepts in `trace` (`chatRequestSchema`), and its step range. */
+const TRACE_ID = /^[a-zA-Z0-9_.-]{1,64}$/;
+const MAX_TRACE_STEP = 64;
+
+/**
+ * The `trace` field of a step request: the run's ids and the step number. Omitted (the request is then untraced, as
+ * from a 0.4.0 page) when an id would not pass the server's check or the step is past 64, so the ids can never be
+ * the reason a request is refused.
+ */
+function traceFor(ref: RunRef | undefined, step: number): { conversation: string; run: string; step: number; parent?: string } | undefined {
+  if (!ref || step > MAX_TRACE_STEP) return undefined;
+  if (!TRACE_ID.test(ref.conversation) || !TRACE_ID.test(ref.run) || (ref.parent !== undefined && !TRACE_ID.test(ref.parent)))
+    return undefined;
+  return { conversation: ref.conversation, run: ref.run, step, ...(ref.parent !== undefined && { parent: ref.parent }) };
+}
+
 /** An agent backed by `/api/chat` (a frontier model on your server); tools run on the page. Create it once per page. */
 export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter {
   const api = opts.api ?? "/api/chat";
@@ -182,6 +199,7 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
       // maxSteps tool steps, then one more request: the server gives it no tools, so the model answers.
       for (let step = 1; step <= steps + 1; step++) {
         if (signal.aborted) return yield aborted;
+        yield { type: "step-start", step };
 
         // ---------- 1. one model step ----------
         let res: Response;
@@ -192,8 +210,12 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
             // the model reads it: credentials, hash and sensitive parameters dropped (design §8.3 row 6)
             page: typeof location === "undefined" ? undefined : { url: getRedactor().url(location.href, { for: "model" }) },
             agent: req.agent?.id, // only the id: the server holds the instructions
+            // the run's ids, for the server's telemetry: a 0.4.0 server strips the unknown field
+            trace: traceFor(req.ref, step),
           });
-          const post = () => doFetch(api, { method: "POST", headers: headers(), signal, body });
+          // the step's server span sits under this run's (W3C trace context)
+          const trace: Record<string, string> = req.ref?.traceparent ? { traceparent: req.ref.traceparent } : {};
+          const post = () => doFetch(api, { method: "POST", headers: { ...headers(), ...trace }, signal, body });
           res = await post();
           // no session yet (run before the first check answered) or it expired: the GET starts one, then retry once
           if (res.status === 401 && (await sessionMissing(res))) {
@@ -220,8 +242,11 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
         history.push(assistant);
         yield { type: "message-start", messageId };
         const calls: { id: string; name: string; input: unknown }[] = [];
+        let metadata: StepMetadata = {};
         try {
-          for await (const part of readParts(res.body, messageId)) {
+          for await (const part of readParts(res.body, messageId, (m) => {
+            metadata = { ...metadata, ...m };
+          })) {
             if (part.type === "error") return yield part;
             if (part.type === "text-delta") {
               const last = assistant.parts.at(-1);
@@ -252,6 +277,8 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
           if (signal.aborted) return yield aborted;
           return yield fail("network");
         }
+        // the step's reply is complete: its usage (when the server sent it) closes it, before any tool runs
+        yield { type: "step-finish", step, ...metadata };
         if (calls.length === 0) return yield { type: "finish", reason: "stop" };
         if (step > steps) break; // the summary request still called tools: stop here
 
@@ -266,7 +293,6 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
             : { type: "tool-result", id: call.id, output: recorded };
           if (signal.aborted) return yield aborted;
         }
-        yield { type: "step-finish", step };
       }
       yield { type: "finish", reason: "max-steps" };
     },

@@ -30,6 +30,8 @@ export interface LocalLoopOptions {
 const TOO_LONG = "This request is too long for the on-device model. Start a new chat, or try the cloud assistant.";
 const TIMEOUT = "The on-device model took too long. Try a shorter request or the cloud assistant.";
 const APOLOGY = "Sorry, I couldn't work out how to do that on this page. Try rephrasing, or use the cloud assistant.";
+/** What a call the model asked for, but the loop stopped before running, answers (shown as cancelled). */
+const NOT_RUN = "Error [cancelled]: Not run: the agent stopped before this call.";
 const REPEAT = "I stopped because I was going in circles. Tell me more about what you want, or try the cloud assistant.";
 const MAX_STEPS = (n: number): string =>
   `I stopped after ${n} steps without finishing. Try a more specific request (a product name, a size), or the cloud assistant.`;
@@ -153,6 +155,8 @@ export async function* runLocalAgent(
 
   for (let step = 1; step <= maxSteps; step++) {
     if (req.signal.aborted) return yield { type: "finish", reason: "aborted" };
+    // run events time the step from here (the prompt is fitted, then generated); an on-device step has no usage
+    yield { type: "step-start", step };
     // ---------- 0. the prompt: the page's tools fresh each step, as many as the model's window takes ----------
     let tools: CompactTool[] = [];
     let system = "";
@@ -239,13 +243,20 @@ export async function* runLocalAgent(
       repaired = true;
       turns.push({ role: "tool", name: parsed.calls[0]?.name ?? "tool", content: `Error: ${parsed.errors.join(" ")} Try again.` });
     }
+    // the model's reply is complete, its calls included: the step ends before any of them runs (run events)
+    const ids = calls.map(() => newId());
+    for (const [i, call] of calls.entries()) yield { type: "tool-call", messageId, id: ids[i]!, name: call.name, input: call.arguments };
+    yield { type: "step-finish", step };
     if (calls.length === 0) return yield { type: "finish", reason: "stop" };
+    /** Calls announced but not run when the loop stops early: answered, so no card is left running. */
+    const skip = function* (from: number): Generator<AgentStreamPart> {
+      for (const id of ids.slice(from)) yield { type: "tool-error", id, error: NOT_RUN };
+    };
 
     // ---------- 2. run the calls on the page, in order ----------
-    for (const call of calls) {
+    for (const [i, call] of calls.entries()) {
       const key = JSON.stringify(call);
-      const id = newId();
-      yield { type: "tool-call", messageId, id, name: call.name, input: call.arguments };
+      const id = ids[i]!;
       const output = await req.callTool({ id, name: call.name, input: call.arguments });
       used.push(call.name);
       // The same call with the same answer as before (search → browse → search …): it learned nothing. Say so once;
@@ -254,6 +265,7 @@ export async function* runLocalAgent(
       seen.set(key, textOf(output));
       if (same && ++loops >= 2) {
         yield output.isError ? { type: "tool-error", id, error: textOf(output) } : { type: "tool-result", id, output };
+        yield* skip(i + 1);
         yield { type: "text-delta", messageId, delta: REPEAT };
         return yield { type: "finish", reason: "stop" };
       }
@@ -264,11 +276,13 @@ export async function* runLocalAgent(
       failure = output.isError ? textOf(output).slice(0, 300) : null;
       if (!output.isError) results.push(textOf(output));
       yield output.isError ? { type: "tool-error", id, error: textOf(output) } : { type: "tool-result", id, output };
-      if (req.signal.aborted) return yield { type: "finish", reason: "aborted" };
+      if (req.signal.aborted) {
+        yield* skip(i + 1);
+        return yield { type: "finish", reason: "aborted" };
+      }
     }
     // small models echo the last tool answer and stop: restate the request, as the user, so the next step continues it
     turns.push({ role: "user", content: continuePrompt(query) });
-    yield { type: "step-finish", step };
   }
   // out of steps: say so (with what was found), rather than end on a silent tool card
   const messageId = newId();

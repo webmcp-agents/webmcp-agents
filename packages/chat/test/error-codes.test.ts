@@ -20,7 +20,8 @@ const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", tex
 /** The first part a cloud adapter yields when the endpoint answers `status` with `body`. */
 async function refused(status: number, body: unknown, headers: Record<string, string> = {}): Promise<AgentStreamPart> {
   const adapter = createCloudAdapter({ fetch: async () => new Response(JSON.stringify(body), { status, headers }) });
-  for await (const p of adapter.run({ messages: [user], tools: [], signal: new AbortController().signal, callTool: vi.fn() })) return p;
+  for await (const p of adapter.run({ messages: [user], tools: [], signal: new AbortController().signal, callTool: vi.fn() }))
+    if (p.type !== "step-start") return p; // the step marker comes first (0.5.0): the refusal is the part after it
   throw new Error("no part");
 }
 
@@ -49,7 +50,10 @@ describe("the table: each failure has its code, and the English text for callers
     const parts: AgentStreamPart[] = [];
     for await (const p of adapter.run({ messages: [user], tools: [], signal: new AbortController().signal, callTool: vi.fn() }))
       parts.push(p);
-    expect(parts).toEqual([{ type: "error", code: "network", error: en.errors.network }]);
+    expect(parts).toEqual([
+      { type: "step-start", step: 1 },
+      { type: "error", code: "network", error: en.errors.network },
+    ]);
   });
 
   it("the adapter's unavailable status carries a code too (the chat words it)", async () => {
