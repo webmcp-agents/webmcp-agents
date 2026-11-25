@@ -1,13 +1,18 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { AgentChat } from "../src/components/AgentChat";
 import { toolsSettled } from "../src/session/run-agent";
 import type { AgentMessage, AgentRunRequest } from "../src/types";
-import { modelContext, until } from "@webmcp-agents/testing";
+import { modelContext, uniqueName, until } from "@webmcp-agents/testing";
 import { mockAdapter } from "@webmcp-agents/testing/chat";
 
-const KEY = "page-moves-test";
+/**
+ * One storage key per test. A run that is still winding down when its test ends saves its conversation once more
+ * (the end-of-run page stamp), after `afterEach` cleared the storage and before the component is unmounted: with a
+ * shared key the next test would load that conversation.
+ */
+let KEY = "";
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
 const textarea = () => host().querySelector<HTMLTextAreaElement>("textarea")!;
 const stored = (): AgentMessage[] => JSON.parse(sessionStorage.getItem(KEY) ?? "[]") as AgentMessage[];
@@ -19,6 +24,9 @@ const firstText = (req: Pick<AgentRunRequest, "messages"> | undefined): string =
 describe("useAgentSession: page moves between turns", () => {
   const start = location.pathname + location.search;
   beforeAll(() => modelContext());
+  beforeEach(() => {
+    KEY = uniqueName("page-moves");
+  });
   afterEach(() => {
     history.replaceState(null, "", start);
     sessionStorage.clear();
@@ -46,6 +54,8 @@ describe("useAgentSession: page moves between turns", () => {
     await userEvent.type(textarea(), "book the cheapest{Enter}");
     await until(() => adapter.requests.length === 2);
     expect(firstText(adapter.requests[1])).toContain('from the page "/results?from=CAI" to "/results?from=JFK"');
+    // let the second run finish (its end stamp) before the test ends: nothing of this test is then left in flight
+    await until(() => stored().at(-1)?.page === "/results?from=JFK", 3000, "the second run's end stamp");
   });
 
   it("a stopped run that winds down after a newer one started does not stamp the newer turn", async () => {
