@@ -48,7 +48,7 @@ An unsubscribe function: `() => void`. Call it to stop listening.
 
 ## Notes
 
-- A listener that throws never breaks a tool run: the error is caught and logged with `console.error`, as its message passed through the page's [redactor](./get-redactor.md) once one exists.
+- A listener that throws never breaks a tool run: the error is caught and logged with `console.error` as it is: it is your own listener's error, not tool data, so it is not redacted.
 - Not redacted, on purpose: `start` keeps `args` and `result` keeps `result` exactly as the tool got and gave them (the visual layer and existing integrations depend on them). Only a `fill`'s `value` is masked. Treat what a listener receives as raw data, and pass it through [`getRedactor()`](./get-redactor.md) before you log or send it.
 - The `log` option of [`installAgentVisuals`](./install-agent-visuals.md) receives the same entries.
 - Listeners are module-level: subscribing works whether or not the visuals are installed, but most events come from the visual layer. `park` is also emitted by [`waitingForUser`](./waiting-for-user.md) and by confirm-gated tools.

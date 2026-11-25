@@ -36,7 +36,6 @@ import { ACTIONS, type FieldTarget, locateAll, locateField, type ToolLocator, us
 import { polyfillLoading, whenModelContext } from "./model-context";
 import { abortError, errorResult, isAbortError, toolErrorCode, toToolResult, WebToolError } from "./result";
 import type { SensitiveOption } from "./redact/sensitive";
-import { forLog } from "./redact/slot";
 import { isControl, writeControl } from "./write";
 
 /**
@@ -295,11 +294,7 @@ export function defineWebTool<I, O>(config: WebToolConfig<I, O>): WebTool<I, O> 
       const output = await execute(await parse(input), ctx);
       if (outputSchema && isDev()) {
         const checked = await outputSchema["~standard"].validate(output);
-        if (checked.issues)
-          console.warn(
-            `[web-agents] "${id}" returned output that doesn't match its outputSchema:`,
-            forLog(checked.issues.map(describeIssue).join("; ")),
-          );
+        if (checked.issues) console.warn(`[web-agents] "${id}" returned output that doesn't match its outputSchema:`, checked.issues);
       }
       return output;
     },

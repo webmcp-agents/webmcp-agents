@@ -3,7 +3,6 @@
  * `createWebAgents` (so `<WebAgentsProvider>` too) loads the polyfill, a chunk of its own, and the tools registered
  * meanwhile wait here instead of being dropped.
  */
-import { forLog } from "./redact/slot";
 
 /** `"auto"`: load the polyfill where the browser has no WebMCP. `false`: never load it; tools need native WebMCP. */
 export type PolyfillOption = "auto" | false;
@@ -43,7 +42,7 @@ export function loadWebMCPPolyfill(): Promise<ModelContext | undefined> {
         try {
           listener(installed);
         } catch (err) {
-          console.error(forLog(err)); // one failure never keeps the next tool from registering
+          console.error(err); // one failure never keeps the next tool from registering
         }
       }
       return installed;

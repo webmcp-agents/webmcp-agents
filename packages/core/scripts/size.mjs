@@ -52,19 +52,22 @@ const redact = fileURLToPath(new URL("../src/redact/index.ts", import.meta.url))
  * and `getRegisteredWebTool` and `writeControl` for @webmcp-agents/chat add about 80 B to the whole package
  * (18.48 KB); the visuals stay within 10.45 KB. Whole-package budget raised to 18.5 KB.
  *
- * Redaction (2026-11-25, 0.5.0, plan 17 phase 1): `@webmcp-agents/core/redact` is its own entry. Design §8 set it at
- * 1.5 KB; the feature set it specifies (seven detectors with Luhn, key matching by trailing words, a walker that
- * survives cycles and throwing getters, JSON inside strings, two strengths of URL redaction, the indexed style, paths,
- * `custom`, `extend` and `scope`) measures 2.73 KB after trimming, so its budget is 2.75 KB. In the main entry the
- * cursor masks every sensitive control (`isSensitiveControl`: one `closest()` selector, 62 B) instead of passwords
- * only, and core's console lines print a caught value through the page's redactor once one exists (`forLog`, a
- * `globalThis` slot, ~40 B), without bundling the redactor. Savings in the cursor (one cancel error, the confirm
- * prompt, the touch point, a redundant selector, the cursor's HTML whitespace) paid back 20 B; the visuals measure
- * 10.53 KB and the whole package 18.63 KB. Budgets raised to 10.55 KB and 18.7 KB (lead session, phase 1 review).
+ * Redaction (2026-11-25, 0.5.0, plan 17 phase 1). `@webmcp-agents/core/redact` is its own entry, measured on its own:
+ * 2.74 KB. Design §8 set it at 1.5 KB, but the feature set it specifies does not fit in that: seven detectors with
+ * Luhn, key matching by trailing words, a walker that survives cycles and throwing getters, JSON inside strings, two
+ * strengths of URL redaction, the indexed style, `paths`, `custom`, `extend` and `scope`. `toolSensitivity` (0.38 KB)
+ * was moved out of it and back after measuring, since the main entry cannot carry it either. Budget: 2.75 KB.
+ * In the main entry, the cursor masks every sensitive control, not only passwords: `isSensitiveControl` is one
+ * `closest()` selector (62 B). `web-tool.ts` marks a step's parameter `secret` from `sensitive` and the schema's
+ * `x-sensitive` / `format: "password"` (75 B). Core's own console lines print no tool data and stay unredacted: a
+ * `globalThis` hook cost 40 to 60 B in either measurement. Savings in the cursor paid back 20 B: one cancel error, the
+ * confirm prompt reused, the touch point, a redundant submit selector, and the cursor's HTML whitespace. Measured
+ * 10.49 KB (10739 B) and 18.58 KB (19029 B); budgets raised to 10.55 KB and 18.6 KB (decided by the user through the
+ * lead session).
  */
 const CHECKS = [
   { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.55 * KB },
-  { name: "whole package", exports: "*", budget: 18.7 * KB },
+  { name: "whole package", exports: "*", budget: 18.6 * KB },
   { name: "redact (@webmcp-agents/core/redact)", exports: "*", from: redact, budget: 2.75 * KB },
 ];
 

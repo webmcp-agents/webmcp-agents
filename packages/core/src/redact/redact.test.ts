@@ -234,6 +234,8 @@ describe("urls", () => {
       "https://shop.test/reset?token=[REDACTED]&email=[REDACTED]&page=2",
     );
     expect(redact.url("https://shop.test/q?note=mail%20a%40b.co", { for: "model" })).toBe("https://shop.test/q?note=[REDACTED]");
+    // a kept value goes out exactly as written: no re-encoding
+    expect(redact.url("/s?q=a,b&tag=x%20y&flag", { for: "model" })).toBe("/s?q=a,b&tag=x%20y&flag");
   });
 
   it("a URL inside a value is cleaned strictly; headers by name and value", () => {

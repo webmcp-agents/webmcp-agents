@@ -288,10 +288,17 @@ export function createRedactor(options: RedactOptions = {}): Redactor {
     } catch {
       return scan(s);
     }
-    const query = [...u.searchParams]
-      .map(([name, v]) => {
-        const keep = allowQuery.includes(name) || (reader === "model" && !sensitiveKey(name) && scan(v) === v);
-        return `${encodeURIComponent(name)}=${keep ? encodeURIComponent(v) : replace(v, norm(name).toUpperCase())}`;
+    // Built by hand, pair by pair: `URLSearchParams` decodes each pair here, but its serializer would percent-encode the
+    // token (`%5BREDACTED%5D`) and re-encode the values that are kept. A kept value goes out exactly as it was written.
+    const query = u.search
+      .slice(1)
+      .split("&")
+      .filter(Boolean)
+      .map((pair) => {
+        const [[name, v] = ["", ""]] = new URLSearchParams(pair);
+        return allowQuery.includes(name) || (reader === "model" && !sensitiveKey(name) && scan(v) === v)
+          ? pair
+          : `${pair.split("=")[0]}=${replace(v, norm(name).toUpperCase())}`;
       })
       .join("&");
     return `${relative ? "" : `${u.protocol}//${u.host}`}${scan(u.pathname)}${query ? `?${query}` : ""}`;

@@ -36,7 +36,6 @@ The current [`Redactor`](./create-redactor.md#returns). It is created with the d
 ## Notes
 
 - Read it where you use it, not once at start-up: a later `configureRedaction` replaces it.
-- The first call also turns on redaction of core's own console lines (an event listener that throws, a polyfill that fails to load). The provider, the devtools and the chat make that call for you.
 
 ## See also
 

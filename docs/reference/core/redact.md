@@ -53,7 +53,7 @@ Where the library applies the page's rules:
 | The devtools: call log, fields typed, results, "copy as code" | Redacted when recorded. "Reveal values" shows them as they were, in development builds only. |
 | The chat's tool card (and the registry's `agent-tool` block) | Input, output and errors redacted. The person's own message is never changed. |
 | URLs leaving the page | Logs and telemetry: every query value outside `allowQuery` is redacted. The two URLs the model reads, the page URL of a step request and the note sent when the person changed pages, lose credentials, the hash and any parameter that is sensitive by name or by value: `?from=CAI&to=LHR` reaches the model, `?token=abc` does not. |
-| Console lines that print a caught value | The error's message only, redacted. Core's own lines use the page's redactor once one exists (the provider, the devtools and the chat create it). |
+| Console lines that print a caught value | The error's message only, redacted (the chat, the devtools, the provider). Core's own few lines print no tool data (a polyfill that failed to load, a registration error, a listener of yours that threw) and stay as they are, which keeps the cursor's bundle small. |
 | Server logs, model errors | Redacted by the handler's own rules, or the process's. Request bodies are never logged. |
 
 Not redacted, on purpose:

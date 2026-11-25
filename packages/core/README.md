@@ -90,11 +90,11 @@ A field that is `type="password"`, has a payment or one-time-code `autocomplete`
 `[data-agent-sensitive]` is masked with no option at all. What the model receives is unchanged unless a tool sets
 `hideFromModel`, and `onAgentEvent` listeners still get `args` and `result` as they are. It reduces accidental leakage;
 it is not a security boundary against a hostile page, or a model that repeats data in prose.
-`@webmcp-agents/core/redact` is its own entry and chunk (2.73 KB min+gz, budget 2.75 KB, no dependency).
+`@webmcp-agents/core/redact` is its own entry and chunk (2.74 KB min+gz, budget 2.75 KB, no dependency).
 
 Bundle budgets (min+gz, `pnpm --filter @webmcp-agents/core size`): the visuals alone (`installAgentVisuals`,
-`onAgentEvent`) 10.55 KB (measured 10.53 KB); the whole package 18.7 KB (measured 18.63 KB); the redact entry 2.75 KB
-(measured 2.73 KB). The polyfill chunk (2.45 KB) is loaded on demand and not counted.
+`onAgentEvent`) 10.55 KB (measured 10.49 KB); the whole package 18.6 KB (measured 18.58 KB); the redact entry 2.75 KB
+(measured 2.74 KB). The polyfill chunk (2.45 KB) is loaded on demand and not counted.
 
 ## Docs
 
