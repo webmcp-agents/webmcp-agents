@@ -5,7 +5,7 @@
  * an Item without approve/deny buttons: the click happens on the page, not in the chat, so a script can never confirm
  * on the person's behalf.
  */
-import { redactToolCall, type ToolPhase } from "@webmcp-agents/chat";
+import { createTranslator, redactToolCall, type ToolPhase, type Translate } from "@webmcp-agents/chat";
 import type { UIMessage } from "ai";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -21,6 +21,9 @@ import {
 
 export type AgentToolPart = Extract<UIMessage["parts"][number], { type: "dynamic-tool" }>;
 
+/** English, for a block rendered without the chat's translate function. */
+const english = createTranslator();
+
 /** `add_to_cart` → "add to cart". */
 export const toolWords = (name: string): string => name.replace(/[_.-]+/g, " ").trim();
 
@@ -29,19 +32,20 @@ const outputText = (output: unknown): string => {
   return content ? content.map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("\n") : JSON.stringify(output, null, 2);
 };
 
-export function AgentTool({ part, phase }: { part: AgentToolPart; phase?: ToolPhase }) {
+/** `t`: the chat's translate function (`useAgentChat().t`), so the line reads in the page's language. Default English. */
+export function AgentTool({ part, phase, t = english }: { part: AgentToolPart; phase?: ToolPhase; t?: Translate }) {
   const words = toolWords(part.toolName);
   const state = phase?.phase ?? (part.state === "output-available" ? "done" : part.state === "output-error" ? "error" : "running");
   const title =
     state === "running"
-      ? `Running ${words}…`
+      ? t("trace.running", { tool: words })
       : state === "parked"
-        ? `Waiting for you: ${words}`
+        ? t("trace.waiting", { tool: words })
         : state === "done"
-          ? `Ran ${words}`
+          ? t("trace.done", { tool: words })
           : state === "cancelled"
-            ? `Cancelled ${words}`
-            : `Failed to run ${words}`;
+            ? t("trace.cancelled", { tool: words })
+            : t("trace.failed", { tool: words });
   const status = state === "running" ? "running" : state === "error" ? "error" : state === "cancelled" ? "pending" : undefined;
   // as the person sees it: the page's redaction rules and the tool's `sensitive` fields applied (the call itself is unchanged)
   const shown = redactToolCall({
@@ -55,21 +59,21 @@ export function AgentTool({ part, phase }: { part: AgentToolPart; phase?: ToolPh
 
   if (state === "parked") {
     return (
-      <Item variant="outline" size="sm" data-slot="agent-tool" data-state="parked">
+      <Item variant="outline" size="sm" data-slot="agent-tool" data-wa-part="toolCard" data-state="parked">
         <ItemContent>
-          <ItemTitle>Confirm on the page</ItemTitle>
-          <ItemDescription>{phase?.prompt ?? `${words}: click to confirm.`}</ItemDescription>
+          <ItemTitle>{t("trace.confirmTitle")}</ItemTitle>
+          <ItemDescription>{phase?.prompt ?? t("trace.confirmFallback", { tool: words })}</ItemDescription>
         </ItemContent>
       </Item>
     );
   }
   return (
-    <Trace data-slot="agent-tool" data-state={state}>
+    <Trace data-slot="agent-tool" data-wa-part="toolCard" data-state={state}>
       <TraceCollapsible defaultOpen={state === "error"}>
         <TraceCollapsibleTrigger>
           <TraceLine status={status}>
             <TraceTitle>{title}</TraceTitle>
-            {state === "done" && <TraceDescription>done</TraceDescription>}
+            {state === "done" && <TraceDescription>{t("trace.doneNote")}</TraceDescription>}
           </TraceLine>
         </TraceCollapsibleTrigger>
         <TraceCollapsibleContent>

@@ -7,7 +7,14 @@
  *
  * The code is yours: restyle or rearrange it like any shadcn component.
  */
-import { type AgentChatState, createCloudAdapter, type UseAgentChatOptions, useAgentChat } from "@webmcp-agents/chat";
+import {
+  type AgentChatState,
+  type ChatPart,
+  createCloudAdapter,
+  directionOf,
+  type UseAgentChatOptions,
+  useAgentChat,
+} from "@webmcp-agents/chat";
 import { CheckIcon, MessageSquareIcon, PlusIcon, SendIcon, SquareIcon, Undo2Icon, XIcon } from "lucide-react";
 import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
@@ -30,76 +37,85 @@ import { AgentSubagent } from "@/components/web-agents/agent-subagent";
 import { AgentTool } from "@/components/web-agents/agent-tool";
 
 const DEFAULT_ADAPTERS = [createCloudAdapter()];
-/** The restore confirm button's name and tooltip. */
-const CONFIRM_RESTORE = "Remove this turn and everything after";
 
+/**
+ * The block's props: `useAgentChat`'s (with `messages` and `locale`: every string comes from the chat's catalog, as in
+ * `<AgentChat>`), plus `classNames` per part (the same part names as `<AgentChat>`'s `data-wa-part`).
+ */
 export interface AgentChatBlockProps extends Partial<UseAgentChatOptions> {
+  /** The panel's heading. Default: the catalog's `title` ("Assistant"). */
   title?: string;
   defaultOpen?: boolean;
   /** Which corner. Default "bottom-right". */
   position?: "bottom-right" | "bottom-left";
+  /** Extra classes per part, added after the block's own. */
+  classNames?: Partial<Record<ChatPart, string>>;
 }
 
 /** The parts of one assistant message. */
 function Parts({ message, chat }: { message: AgentChatState["messages"][number]; chat: AgentChatState }) {
+  const { t } = chat;
   return (
     <>
       {message.parts.map((part, i) => {
         // a message's parts only grow at the end, so the position is a stable key for parts without an id
         const key = part.type === "dynamic-tool" ? part.toolCallId : `${message.id}-${i}`;
         if (part.type === "text") return part.text.trim() ? <Streamdown key={key}>{part.text}</Streamdown> : null;
-        if (part.type === "reasoning") return <AgentReasoning key={key} part={part} />;
+        if (part.type === "reasoning") return <AgentReasoning key={key} part={part} t={t} />;
         if (part.type !== "dynamic-tool") return null;
         const phase = chat.toolPhase(part);
         return part.toolName.startsWith("delegate_to_") ? (
-          <AgentSubagent key={key} part={part} phase={phase} toolPhase={chat.toolPhase} />
+          <AgentSubagent key={key} part={part} phase={phase} toolPhase={chat.toolPhase} t={t} />
         ) : (
-          <AgentTool key={key} part={part} phase={phase} />
+          <AgentTool key={key} part={part} phase={phase} t={t} />
         );
       })}
     </>
   );
 }
 
-const mb = (bytes: number): string => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`);
-
 /** What the adapter needs before it can answer (a model download, a load from disk), or nothing. */
-function AdapterCard({ chat }: { chat: AgentChatState }) {
+function AdapterCard({ chat, className }: { chat: AgentChatState; className?: string }) {
+  const { t } = chat;
   const s = chat.adapterStatus;
   if (s.state === "ready" || !chat.prepare) return null;
   if (s.state === "needs-download") {
     return (
-      <Item variant="outline" size="sm">
+      <Item variant="outline" size="sm" data-wa-part="downloadCard" data-state={s.state} className={className}>
         <ItemContent>
-          <ItemTitle>Run the assistant on this device</ItemTitle>
+          <ItemTitle>{t("download.offer")}</ItemTitle>
           <ItemDescription>
-            {s.bytes ? `Downloads ${mb(s.bytes)} once. ` : ""}Nothing you type leaves your browser.{s.note ? ` ${s.note}` : ""}
+            {s.bytes ? `${t("download.size", { size: t.format.bytes(s.bytes) })} ` : ""}
+            {t("download.privacy")}
+            {s.note ? ` ${s.note}` : ""}
           </ItemDescription>
         </ItemContent>
         <ItemActions>
           <Button size="sm" onClick={() => void chat.prepare?.().catch(() => {})}>
-            Download
+            {t("download.start")}
           </Button>
         </ItemActions>
       </Item>
     );
   }
   if (s.state === "downloading" || (s.state === "loading" && s.progress !== undefined)) {
-    const pct = Math.round((s.progress ?? 0) * 100);
+    const progress = s.progress ?? 0;
     return (
-      <Item variant="outline" size="sm">
+      <Item variant="outline" size="sm" data-wa-part="downloadCard" data-state={s.state} className={className}>
         <ItemContent>
-          <ItemTitle>{s.state === "loading" ? "Loading the model from this device…" : "Downloading the model…"}</ItemTitle>
-          <ItemDescription>{pct}%</ItemDescription>
+          <ItemTitle>{s.state === "loading" ? t("download.loadingTitle") : t("download.title")}</ItemTitle>
+          <ItemDescription>
+            {t("download.progress", { percent: Math.round(progress * 100), formatted: t.format.percent(progress) })}
+          </ItemDescription>
         </ItemContent>
       </Item>
     );
   }
   if (s.state === "error") {
     return (
-      <Item variant="outline" size="sm">
+      <Item variant="outline" size="sm" data-wa-part="downloadCard" data-state="error" className={className}>
         <ItemContent>
-          <ItemTitle>The model couldn't load</ItemTitle>
+          <ItemTitle>{t("download.loadFailed")}</ItemTitle>
           <ItemDescription>{s.error}</ItemDescription>
         </ItemContent>
       </Item>
@@ -108,6 +124,9 @@ function AdapterCard({ chat }: { chat: AgentChatState }) {
   return null;
 }
 
+/** The block's classes, then the page's for that part (`classNames`): no merging, the page's come last. */
+const cn = (...classes: (string | undefined)[]): string => classes.filter(Boolean).join(" ");
+
 export function AgentChatBlock({
   adapter,
   adapters,
@@ -115,7 +134,10 @@ export function AgentChatBlock({
   storageKey,
   getSnapshot,
   applySnapshot,
-  title = "Assistant",
+  messages,
+  locale,
+  classNames = {},
+  title: titleProp,
   defaultOpen = false,
   position = "bottom-right",
 }: AgentChatBlockProps) {
@@ -127,7 +149,11 @@ export function AgentChatBlock({
     storageKey,
     getSnapshot,
     applySnapshot,
+    messages,
+    locale,
   });
+  const { t } = chat;
+  const title = titleProp ?? t("title");
   const [open, setOpen] = useState(defaultOpen);
   const [text, setText] = useState("");
   /** User message id waiting for a second click before `restore` runs. */
@@ -137,13 +163,16 @@ export function AgentChatBlock({
   const restoring = useRef(false);
   const inputId = useId();
   const busy = chat.status === "submitted" || chat.status === "streaming";
+  const status = chat.adapterStatus;
   const unavailable =
-    chat.adapterStatus.state === "unavailable"
-      ? chat.adapterStatus.reason
-      : chat.adapterStatus.state === "loading" && chat.adapterStatus.progress === undefined
-        ? "Connecting to the assistant…"
-        : chat.adapterStatus.state !== "ready"
-          ? "The model isn't ready yet."
+    status.state === "unavailable"
+      ? status.code
+        ? t(`errors.${status.code}`)
+        : status.reason
+      : status.state === "loading" && status.progress === undefined
+        ? t("status.connecting")
+        : status.state !== "ready"
+          ? t("status.notReady")
           : null;
 
   useEffect(
@@ -182,13 +211,21 @@ export function AgentChatBlock({
       .map((p) => (p.type === "text" ? p.text : ""))
       .join("")
       .trim();
-    if (!text) return "Message";
+    if (!text) return t("restore.untitled");
     return text.length > 42 ? `${text.slice(0, 41)}…` : text;
   }
 
   if (!open) {
     return (
-      <Button className={`fixed ${corner} z-50 shadow-lg`} onClick={() => setOpen(true)} aria-expanded={false} data-web-agents-ui="chat">
+      <Button
+        className={cn(`fixed ${corner} z-50 shadow-lg`, classNames.launcher)}
+        onClick={() => setOpen(true)}
+        aria-expanded={false}
+        data-web-agents-ui="chat"
+        data-wa-part="launcher"
+        dir={directionOf(t.locale)}
+        lang={t.locale}
+      >
         <MessageSquareIcon /> {title}
       </Button>
     );
@@ -197,12 +234,21 @@ export function AgentChatBlock({
     // data-web-agents-ui: typing here never counts as the person taking over from the agent cursor
     <section
       data-web-agents-ui="chat"
+      data-wa-part="root"
       aria-label={title}
-      className={`fixed ${corner} z-50 flex h-[min(640px,calc(100dvh-2rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-xl`}
+      dir={directionOf(t.locale)}
+      lang={t.locale}
+      className={cn(
+        `fixed ${corner} z-50 flex h-[min(640px,calc(100dvh-2rem))] w-[min(400px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-background shadow-xl`,
+        classNames.root,
+        classNames.panel,
+      )}
     >
-      <header className="flex items-center gap-2 border-b px-3 py-2">
-        <h2 className="text-sm font-medium">{title}</h2>
-        <div className="ml-auto flex items-center gap-1">
+      <header data-wa-part="header" className={cn("flex items-center gap-2 border-b px-3 py-2", classNames.header)}>
+        <h2 data-wa-part="title" className={cn("text-sm font-medium", classNames.title)}>
+          {title}
+        </h2>
+        <div className="ms-auto flex items-center gap-1">
           {chat.messages.length > 0 && (
             <Button
               variant="ghost"
@@ -211,37 +257,52 @@ export function AgentChatBlock({
                 clearRestoredNote();
                 chat.clear();
               }}
-              aria-label="New chat"
+              aria-label={t("header.newChat")}
+              data-wa-part="newChat"
+              className={classNames.newChat}
             >
               <PlusIcon />
             </Button>
           )}
-          <Button variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Close assistant">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setOpen(false)}
+            aria-label={t("header.close")}
+            data-wa-part="close"
+            className={classNames.close}
+          >
             <XIcon />
           </Button>
         </div>
       </header>
 
       <MessageScrollerProvider autoScroll>
-        <MessageScroller className="min-h-0 flex-1">
+        <MessageScroller data-wa-part="messages" aria-label={t("conversation.label")} className={cn("min-h-0 flex-1", classNames.messages)}>
           <MessageScrollerViewport className="px-3 py-3">
             <MessageScrollerContent>
               {chat.messages.length === 0 && (
-                <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-                  <p>
-                    Ask me to do something on this page. You'll see each step happen, and anything that orders, books or deletes waits for
-                    your click.
+                <div data-wa-part="empty" className={cn("flex flex-col gap-3 text-sm text-muted-foreground", classNames.empty)}>
+                  <p data-wa-part="emptyHint" className={classNames.emptyHint}>
+                    {t("empty.hint")}
                   </p>
                   {!unavailable && (
-                    <div className="flex flex-wrap gap-2">
+                    <div data-wa-part="suggestions" className={cn("flex flex-wrap gap-2", classNames.suggestions)}>
                       {chat.suggestions.map((s) => (
-                        <Button key={s} variant="outline" size="sm" onClick={() => chat.sendMessage({ text: s })}>
+                        <Button
+                          key={s}
+                          variant="outline"
+                          size="sm"
+                          data-wa-part="suggestion"
+                          className={classNames.suggestion}
+                          onClick={() => chat.sendMessage({ text: s })}
+                        >
                           {s}
                         </Button>
                       ))}
                     </div>
                   )}
-                  <AdapterCard chat={chat} />
+                  <AdapterCard chat={chat} className={classNames.downloadCard} />
                 </div>
               )}
               {chat.messages.map((m) => {
@@ -249,11 +310,16 @@ export function AgentChatBlock({
                 const restorable = !busy && chat.canRestore(m.id);
                 return (
                   <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={m.role === "user"}>
-                    <Message align={m.role === "user" ? "end" : "start"}>
+                    <Message
+                      align={m.role === "user" ? "end" : "start"}
+                      data-wa-part="message"
+                      data-role={m.role}
+                      className={classNames.message}
+                    >
                       <MessageContent>
                         {m.role === "user" ? (
                           <div className="group/turn flex flex-col items-end gap-1">
-                            <Bubble align="end">
+                            <Bubble align="end" data-wa-part="bubble" className={classNames.bubble}>
                               {/* room for the restore chip's top half, so it only covers padding, never text */}
                               <BubbleContent className={restorable ? "pb-3.5" : undefined}>
                                 {m.parts.map((p) => (p.type === "text" ? p.text : "")).join("")}
@@ -264,16 +330,21 @@ export function AgentChatBlock({
                             {restorable &&
                               (restoreId === m.id ? (
                                 <fieldset
-                                  className="relative -mt-4 me-2.5 flex min-w-0 items-center gap-0.5 rounded-full border-0 bg-background px-0.5 shadow-xs ring-1 ring-border"
-                                  aria-label={`${CONFIRM_RESTORE}?`}
+                                  data-wa-part="restoreActions"
+                                  className={cn(
+                                    "relative -mt-4 me-2.5 flex min-w-0 items-center gap-0.5 rounded-full border-0 bg-background px-0.5 shadow-xs ring-1 ring-border",
+                                    classNames.restoreActions,
+                                  )}
+                                  aria-label={t("restore.confirmQuestion")}
                                 >
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon-xs"
-                                    className="rounded-full text-destructive"
-                                    aria-label={CONFIRM_RESTORE}
-                                    title={CONFIRM_RESTORE}
+                                    data-wa-part="restoreConfirm"
+                                    className={cn("rounded-full text-destructive", classNames.restoreConfirm)}
+                                    aria-label={t("restore.confirm")}
+                                    title={t("restore.confirm")}
                                     onClick={() => {
                                       setRestoreId(null);
                                       restoring.current = true;
@@ -298,9 +369,10 @@ export function AgentChatBlock({
                                     type="button"
                                     variant="ghost"
                                     size="icon-xs"
-                                    className="rounded-full text-muted-foreground"
-                                    aria-label="Cancel"
-                                    title="Cancel"
+                                    data-wa-part="restoreCancel"
+                                    className={cn("rounded-full text-muted-foreground", classNames.restoreCancel)}
+                                    aria-label={t("restore.cancel")}
+                                    title={t("restore.cancel")}
                                     onClick={() => setRestoreId(null)}
                                   >
                                     <XIcon />
@@ -313,9 +385,13 @@ export function AgentChatBlock({
                                   size="icon-xs"
                                   // a chip half over the bubble's bottom edge; with a mouse, only while the message is hovered or the button has
                                   // focus (always on touch)
-                                  className="relative -mt-4 me-2.5 rounded-full bg-background text-muted-foreground shadow-xs ring-1 ring-border transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/turn:opacity-100 focus-visible:opacity-100"
-                                  aria-label={`Restore to before: ${stageLabel(m)}`}
-                                  title="Restore to before this message"
+                                  data-wa-part="restoreAsk"
+                                  className={cn(
+                                    "relative -mt-4 me-2.5 rounded-full bg-background text-muted-foreground shadow-xs ring-1 ring-border transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/turn:opacity-100 focus-visible:opacity-100",
+                                    classNames.restoreAsk,
+                                  )}
+                                  aria-label={t("restore.button", { message: stageLabel(m) })}
+                                  title={t("restore.hint")}
                                   onClick={() => setRestoreId(m.id)}
                                 >
                                   <Undo2Icon />
@@ -330,16 +406,23 @@ export function AgentChatBlock({
                   </MessageScrollerItem>
                 );
               })}
-              {chat.messages.length > 0 && <AdapterCard chat={chat} />}
+              {chat.messages.length > 0 && <AdapterCard chat={chat} className={classNames.downloadCard} />}
               {chat.status === "error" && chat.error && (
-                <Item variant="outline" size="sm" role="alert">
+                <Item
+                  variant="outline"
+                  size="sm"
+                  role="alert"
+                  data-wa-part="error"
+                  data-state={chat.error.code}
+                  className={classNames.error}
+                >
                   <ItemContent>
-                    <ItemDescription>{chat.error.message}</ItemDescription>
+                    <ItemDescription data-wa-part="errorText">{chat.error.text}</ItemDescription>
                   </ItemContent>
                   {chat.error.code !== "chat_disabled" && (
                     <ItemActions>
-                      <Button variant="outline" size="sm" onClick={chat.regenerate}>
-                        Try again
+                      <Button variant="outline" size="sm" data-wa-part="retry" className={classNames.retry} onClick={chat.regenerate}>
+                        {t("retry")}
                       </Button>
                     </ItemActions>
                   )}
@@ -347,17 +430,17 @@ export function AgentChatBlock({
               )}
             </MessageScrollerContent>
           </MessageScrollerViewport>
-          <MessageScrollerButton className="absolute right-3 bottom-3" />
+          <MessageScrollerButton data-wa-part="jumpToLatest" className={cn("absolute end-3 bottom-3", classNames.jumpToLatest)} />
         </MessageScroller>
       </MessageScrollerProvider>
 
       {restoredNote && (
-        <p className="border-t px-3 py-2 text-xs text-muted-foreground" role="status">
-          Restored — edit and send again.
+        <p data-wa-part="restored" className={cn("border-t px-3 py-2 text-xs text-muted-foreground", classNames.restored)} role="status">
+          {t("restore.done")}
         </p>
       )}
 
-      <form onSubmit={submit} className="border-t p-2">
+      <form onSubmit={submit} data-wa-part="composer" className={cn("border-t p-2", classNames.composer)}>
         <InputGroup>
           <InputGroupTextarea
             id={inputId}
@@ -365,24 +448,34 @@ export function AgentChatBlock({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={unavailable ?? "Ask about this page"}
-            aria-label="Message the assistant"
+            placeholder={unavailable ?? t("composer.placeholder")}
+            aria-label={t("composer.label")}
+            data-wa-part="input"
+            className={classNames.input}
             disabled={!!unavailable}
           />
           <InputGroupAddon align="block-end">
             <AgentModelSelector chat={chat} disabled={busy} />
             {busy ? (
-              <InputGroupButton className="ml-auto" variant="default" size="icon-xs" onClick={chat.stop} aria-label="Stop">
+              <InputGroupButton
+                className={cn("ms-auto", classNames.stop)}
+                variant="default"
+                size="icon-xs"
+                onClick={chat.stop}
+                aria-label={t("composer.stop")}
+                data-wa-part="stop"
+              >
                 <SquareIcon />
               </InputGroupButton>
             ) : (
               <InputGroupButton
-                className="ml-auto"
+                className={cn("ms-auto", classNames.send)}
                 variant="default"
                 size="icon-xs"
                 type="submit"
                 disabled={!!unavailable || !text.trim()}
-                aria-label="Send"
+                aria-label={t("composer.send")}
+                data-wa-part="send"
               >
                 <SendIcon />
               </InputGroupButton>
