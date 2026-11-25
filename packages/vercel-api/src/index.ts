@@ -4,17 +4,21 @@
  *   // apps/<app>/api/chat.ts
  *   export const { GET, POST, OPTIONS } = createVercelChatRoute({ app: "playground" });
  *
- * Env is read when the route is created (at the function's cold start), never at import time.
+ * Env is read when the route is created (at the function's cold start), never at import time. Telemetry: see
+ * `createVercelTelemetryRoute` (`api/telemetry.ts`); both routes share one observability layer per instance.
  */
 import { type AllowedTool, type ChatSessionOptions, createChatHandler, type WebAgent } from "@webmcp-agents/chat/server";
 import type { LanguageModel } from "ai";
 import { budgetGuard, composeGuards, originGuard, rateLimitGuard, secretMissingGuard, sessionGuard } from "./guards";
 import { createLimiter, type Env } from "./limiter";
+import { observabilityFor } from "./telemetry";
 
 export type { Guard } from "./guards";
 export { budgetGuard, clientIp, composeGuards, originGuard, rateLimitGuard, secretMissingGuard, sessionGuard } from "./guards";
 export type { Env, Limiter, LimiterOptions, LimitResult } from "./limiter";
 export { createLimiter, createMemoryLimiter, redisCredentials } from "./limiter";
+export { createVercelTelemetryRoute, observabilityFor } from "./telemetry";
+export type { VercelTelemetryRouteOptions } from "./telemetry";
 
 /** Options for `createVercelChatRoute`. */
 export interface VercelChatRouteOptions {
@@ -85,6 +89,8 @@ export function createVercelChatRoute({ app, env = process.env, model, agents, t
         createLimiter({ env, prefix: `${app}:day`, limit: perDay, window: "1 d", failOpen: true }),
       ),
     ),
+    // off unless OTEL_* is set; the handler hands its flush to Vercel's waitUntil once the stream ends
+    observability: observabilityFor(env),
     // after validation: malformed requests never use up a session's requests or the shared budget
     beforeModel: async (req, { session: id }) => (id ? await sessionGuard(sessionLimiter, id) : undefined) ?? (await budget(req)),
   });

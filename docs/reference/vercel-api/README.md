@@ -5,8 +5,9 @@ description: "The examples' /api/chat as Vercel web handlers."
 
 # `@webmcp-agents/vercel-api`
 
-The examples' `/api/chat` as Vercel web handlers. It puts `@webmcp-agents/chat`'s server handler behind an origin
-check, per-IP rate limits and a global daily budget on model calls.
+The examples' `/api/chat` and `/api/telemetry` as Vercel web handlers. It puts `@webmcp-agents/chat`'s server handler
+behind an origin check, per-IP rate limits and a global daily budget on model calls, and the telemetry relay behind the
+same origin rule and its own limit; both share one observability layer per function instance, off unless `OTEL_*` is set.
 
 The package is private (`"private": true`). It is not published to npm. The example apps (`examples/playground`,
 `examples/ecommerce`, `examples/flights`) use it as a workspace dependency.
@@ -40,4 +41,5 @@ Project settings, environment variables, Upstash Redis and the smoke test are in
 |---|---|
 | [`createVercelChatRoute`](./create-vercel-chat-route.md) | The `/api/chat` handlers for a Vercel Function, with every limit as an environment variable. Includes `VercelChatRouteOptions`. |
 | [Guards](./guards.md) | `Guard`, `composeGuards`, `originGuard`, `rateLimitGuard`, `budgetGuard`, `clientIp`: what runs before the model. |
+| [`createVercelTelemetryRoute`](./create-vercel-telemetry-route.md) | The `/api/telemetry` relay for the browser's spans, and `observabilityFor(env)`, the instance's one observability layer. Includes `VercelTelemetryRouteOptions`. |
 | [`createLimiter`](./limiter.md) | Sliding-window counters, on Upstash Redis or in memory. Includes `createMemoryLimiter`, `redisCredentials`, `Env`, `Limiter`, `LimiterOptions`, `LimitResult`. |

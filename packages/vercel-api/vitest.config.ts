@@ -5,5 +5,12 @@ import { defineConfig } from "vitest/config";
 // load from their (possibly stale) dist.
 export default defineConfig({
   ssr: { resolve: { conditions: ["@webmcp-agents/source", ...defaultServerConditions] } },
-  test: { name: "vercel-api", include: ["test/**/*.test.ts"], environment: "node" },
+  test: {
+    name: "vercel-api",
+    include: ["test/**/*.test.ts"],
+    environment: "node",
+    // @ai-sdk/otel brings @opentelemetry/api 1.9.1, whose "module" build has extension-less imports: Vite's SSR loader
+    // picks it (Node itself uses its CJS "main"), so let Vite transform both
+    server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } },
+  },
 });
