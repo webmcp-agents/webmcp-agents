@@ -9,7 +9,7 @@ The zod schema for the POST body of `/api/chat`, and the `LIMITS` it enforces. C
 ## Import
 
 ```ts
-import { chatRequestSchema, LIMITS } from "@webmcp-agents/chat/server";
+import { chatRequestSchema, chatTraceSchema, LIMITS, TRACE_ID, validTraceparent } from "@webmcp-agents/chat/server";
 import type { ChatRequest } from "@webmcp-agents/chat/server";
 ```
 
@@ -31,6 +31,7 @@ A handler of your own that validates the body first and answers with the first i
 | `tools` | `{ name, description, inputSchema }[]` | required | The page's tools: at most 48, with unique names. |
 | `page` | `{ url?: string }` | not set | Where the conversation happens. `url` is at most 2000 characters; only a same-origin path reaches the model. |
 | `agent` | `string` | not set | The agent's id, matching `/^[a-zA-Z0-9_.-]{1,64}$/`, looked up in the handler's registry. An id only: instructions in the body are unknown keys and are stripped. |
+| `trace` | `{ conversation, run, step, parent? }` | not set | Experimental (0.5.0). The run's ids for telemetry, sent by the cloud adapter with every step: see [`trace`](#trace). A 0.4.0 page sends none. |
 
 ### Rules per field
 
@@ -42,6 +43,20 @@ A handler of your own that validates the body first and answers with the first i
 | tool `name` | `/^[a-zA-Z0-9_.-]{1,128}$/` |
 | tool `description` | At most 1024 characters. |
 | tool `inputSchema` | An object, at most 8192 characters as JSON. |
+
+### `trace`
+
+`chatTraceSchema`, the `trace` field. Any invalid value refuses the request (400) before a model call.
+
+| Field | Rule |
+|---|---|
+| `conversation` | `TRACE_ID`: `/^[a-zA-Z0-9_.-]{1,64}$/` (a UUID fits). The same for every turn of one chat. |
+| `run` | `TRACE_ID`. One user turn, or one sub-agent run. |
+| `step` | An integer from 1 to 64: the model step within the run. |
+| `parent` | `TRACE_ID`, optional. For a sub-agent's run, the id of the `delegate_to_*` call that started it. |
+
+The request's `traceparent` header is not part of the body: a valid W3C one (`validTraceparent(header)`,
+`00-<32 hex>-<16 hex>-<2 hex>`, ids not all zero) places the step under the browser's run; anything else is ignored.
 
 ### `LIMITS`
 
@@ -65,6 +80,7 @@ A handler of your own that validates the body first and answers with the first i
 - The body size is checked before parsing, by the handler (413), not by the schema.
 - A tool output keeps `content` and `isError` only: other keys of a result do not reach the server.
 - Only a same-origin path from `page.url` reaches the model, and only for a same-origin browser request.
+- The schema is not strict: a 0.4.0 handler strips the `trace` a 0.5.0 page sends, and serves the request as before.
 
 ## See also
 

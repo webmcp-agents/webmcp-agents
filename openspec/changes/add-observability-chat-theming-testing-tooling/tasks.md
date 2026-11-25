@@ -60,14 +60,14 @@ Gate: `pnpm check && pnpm turbo run check-exports`.
 
 ## 4. Run telemetry in chat (`agent-run-telemetry`, design §6)
 
-- [ ] 4.1 `run-events.ts`; `RunRef` through `runAgent`, `invokeAgent`, sessions, `runDelegate`; the `{ raw }` option; ids from `crypto.randomUUID()`. Verify: event-order tests for a plain run, a delegate, a parked tool and an abort; a throwing listener does not break a run (R-RUN-2)
-- [ ] 4.2 Cloud adapter: the `trace` body field, `traceparent` per step, step timing, first token. Verify: three steps share `conversation` and `run` with `step` 1 to 3; a second turn has a new `run`; a restore keeps `conversation` (R-RUN-1)
-- [ ] 4.3 Local adapter: step events (no usage). Verify: an on-device run delivers the same event sequence with no usage (R-RUN-2)
-- [ ] 4.4 Wire: the schema (`trace`, id pattern, `step` 1 to 64), usage as message metadata, `readParts`, the `step-finish` stream part; settle open question 3. Verify: invalid ids are a 400; a malformed `traceparent` is ignored; usage reaches `step-finish` (R-RUN-1, R-RUN-2)
-- [ ] 4.5 Handler: the `telemetry` option (`recordInputs`, `recordOutputs`, `functionId`, `metadata`, `usageToClient`, `onRefused`), `ChatObservability`, `trace` and `session` in the `prepareAgent` / `beforeModel` contexts, `onRefused` at every early return, `waitUntil(flush)`; settle open question 1. Verify: defaults record ids and no content; `metadata` throwing does not fail the request; every refusal path calls `onRefused` without content (R-RUN-3)
-- [ ] 4.6 Tests (kit): event order (delegate, park, abort), ids on the server, no content by default, 0.4.0 interop both ways, a throwing `onAgentRun` listener, a restore mid-conversation keeping the same `conversation` id. Completes the kit's `runs` fixture and run matchers. Verify: `pnpm --filter @webmcp-agents/chat test` passes (R-RUN-4)
-- [ ] 4.7 **[new]** Reference pages: `on-agent-run.md`, the `telemetry` and `observability` options on `create-chat-handler.md`, `chat-request-schema.md`, `adapter-types.md`; `onAgentRun` marked `@experimental`. Verify: `check-docs.mjs` passes
-- [ ] 4.8 **[new]** Phase gate. Verify: `pnpm check && pnpm turbo run check-exports` passes; commit
+- [x] 4.1 `run-events.ts`; `RunRef` through `runAgent`, `invokeAgent`, sessions, `runDelegate`; the `{ raw }` option; ids from `crypto.randomUUID()`. Verify: event-order tests for a plain run, a delegate, a parked tool and an abort; a throwing listener does not break a run (R-RUN-2)
+- [x] 4.2 Cloud adapter: the `trace` body field, `traceparent` per step, step timing, first token. Verify: three steps share `conversation` and `run` with `step` 1 to 3; a second turn has a new `run`; a restore keeps `conversation` (R-RUN-1)
+- [x] 4.3 Local adapter: step events (no usage). Verify: an on-device run delivers the same event sequence with no usage (R-RUN-2)
+- [x] 4.4 Wire: the schema (`trace`, id pattern, `step` 1 to 64), usage as message metadata, `readParts`, the `step-finish` stream part; settle open question 3. Verify: invalid ids are a 400; a malformed `traceparent` is ignored; usage reaches `step-finish` (R-RUN-1, R-RUN-2)
+- [x] 4.5 Handler: the `telemetry` option (`recordInputs`, `recordOutputs`, `functionId`, `metadata`, `usageToClient`, `onRefused`), `ChatObservability`, `trace` and `session` in the `prepareAgent` / `beforeModel` contexts, `onRefused` at every early return, `waitUntil(flush)`; settle open question 1. Verify: defaults record ids and no content; `metadata` throwing does not fail the request; every refusal path calls `onRefused` without content (R-RUN-3)
+- [x] 4.6 Tests (kit): event order (delegate, park, abort), ids on the server, no content by default, 0.4.0 interop both ways, a throwing `onAgentRun` listener, a restore mid-conversation keeping the same `conversation` id. Completes the kit's `runs` fixture and run matchers. Verify: `pnpm --filter @webmcp-agents/chat test` passes (R-RUN-4)
+- [x] 4.7 **[new]** Reference pages: `on-agent-run.md`, the `telemetry` and `observability` options on `create-chat-handler.md`, `chat-request-schema.md`, `adapter-types.md`; `onAgentRun` marked `@experimental`. Verify: `check-docs.mjs` passes
+- [x] 4.8 **[new]** Phase gate. Verify: `pnpm check && pnpm turbo run check-exports` passes; commit
 
 ## 5. `@webmcp-agents/telemetry` (`telemetry-exporters`, design §7)
 

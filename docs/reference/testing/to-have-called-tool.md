@@ -4,7 +4,7 @@ description: "The run called the tool, with an input containing the given keys w
 
 # `toHaveCalledTool`
 
-Reads a run: the `WebAgentResult` that `agent.invoke` resolved to, a [`mockAdapter`](./mock-adapter.md), or the error `agent.invoke` rejected with. Passes when the run called `tool`; with `input`, with an input that contains those keys (a partial match).
+Reads a run: the `WebAgentResult` that `agent.invoke` resolved to, a [`mockAdapter`](./mock-adapter.md), the [`runs`](./runs.md) fixture's `RunLog`, or the error `agent.invoke` rejected with. Passes when the run called `tool`; with `input`, with an input that contains those keys (a partial match).
 
 ## Import
 
@@ -34,7 +34,7 @@ Nothing: it passes, or fails the test with a message that says what happened.
 
 ## Notes
 
-Negated, a failure prints the call's input. A run the matcher cannot read fails with a sentence saying what it needs. The `runs` fixture's `RunLog` is read too once the chat emits run events (0.5.0).
+Negated, a failure prints the call's input. A run the matcher cannot read fails with a sentence saying what it needs. On a `RunLog` the inputs are the recorded ones: redacted, unless it was recorded with `{ raw: true }`.
 
 ## See also
 

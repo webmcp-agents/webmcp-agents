@@ -39,8 +39,9 @@ What each source can tell:
 | Received | Reads as |
 |---|---|
 | a [`mockAdapter`](./mock-adapter.md) | exactly how its last run ended: it saw the `finish` or `error` part |
+| the [`runs`](./runs.md) fixture | exactly how the last top-level run ended (its `run-finish`), with the error's `code` |
 | the error `agent.invoke` rejected with | `"error"` with the error's `code`, or `"aborted"` for an `AbortError` |
-| a `WebAgentResult` | `"stop"`: `agent.invoke` resolved. A run cut short by `maxSteps` resolves too; to tell them apart, assert on the adapter |
+| a `WebAgentResult` | `"stop"`: `agent.invoke` resolved. A run cut short by `maxSteps` resolves too; to tell them apart, assert on the adapter or on `runs` |
 
 ## See also
 

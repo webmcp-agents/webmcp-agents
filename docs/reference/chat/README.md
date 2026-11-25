@@ -83,7 +83,8 @@ plugins: [react(), webAgentsChatDev({ agents })],
 | [`ChatComponents`](./chat-components.md) | `@webmcp-agents/chat` | Replace a part with your own component; `unstyled`. Includes `PartProps`, `IconName`, `ChatCustomization`. |
 | [Chat error codes](./chat-error-codes.md) | `@webmcp-agents/chat` | Every failure as a code the catalog words. Includes `ChatErrorCode`, `CHAT_ERROR_CODES`, `chatErrorCode`. |
 | [`adapterLabel`](./adapter-label.md) | `@webmcp-agents/chat` | An adapter's name in the page's language. |
-| [`createChatHandler`](./create-chat-handler.md) | `@webmcp-agents/chat/server` | The `/api/chat` endpoint as a web-standard function. Includes `ChatHandlerOptions`, `ChatServerMessages`, `SERVER_MESSAGES`, `DEFAULT_MODEL`, `ReasoningLevel`. |
+| [`createChatHandler`](./create-chat-handler.md) | `@webmcp-agents/chat/server` | The `/api/chat` endpoint as a web-standard function. Includes `ChatHandlerOptions`, `ChatServerMessages`, `SERVER_MESSAGES`, `DEFAULT_MODEL`, `ReasoningLevel`, and the experimental run telemetry: `ChatTelemetryOptions`, `ChatObservability`, `ChatRefusal`, `ChatRequestContext`, `PrepareAgentContext`, `RUNTIME_CONTEXT_KEYS`. |
+| [`onAgentRun`](./on-agent-run.md) | `@webmcp-agents/chat` | Experimental. Every agent run on the page as events: runs, model steps (with token usage), tool calls. Includes `AgentRunEvent`, `AgentRunListener`, `OnAgentRunOptions`, `RunRef`, `StepUsage`. |
 | [`webAgentsChatDev`](./web-agents-chat-dev.md) | `@webmcp-agents/chat/vite` | A Vite plugin that serves `/api/chat` in `vite dev`. Includes `WebAgentsChatDevOptions`. |
 | [`useWebAgent`](./use-web-agent.md) | `@webmcp-agents/chat` | Run an agent from a component with live status and no chat. Includes `WebAgentHandle`, `WebAgentStatus`, `UseWebAgentOptions`. |
 | [`createCloudAdapter`](./create-cloud-adapter.md) | `@webmcp-agents/chat` | The adapter that talks to your `/api/chat`. Includes `CloudAdapterOptions`. |
@@ -92,7 +93,7 @@ plugins: [react(), webAgentsChatDev({ agents })],
 | [`resolveModel`](./resolve-model.md) | `@webmcp-agents/chat/server` | A `"<provider>/<model>"` id as an AI SDK model. Includes `modelAvailability`, `parseModelId`, `providerOptionsFor`, `displayName`, `PROVIDERS`, `ModelUnavailableError`. |
 | [`toToolLoopAgent`](./to-tool-loop-agent.md) | `@webmcp-agents/chat/server` | A `WebAgent` as an AI SDK `ToolLoopAgent`. Includes `toToolLoopAgentSettings`, `toToolSet`. |
 | [`buildSystemPrompt`](./system-prompt.md) | `@webmcp-agents/chat/server` | The system prompt the handler sends, and `DEFAULT_SYSTEM_PROMPT`. |
-| [`chatRequestSchema`](./chat-request-schema.md) | `@webmcp-agents/chat/server` | The zod schema and `LIMITS` for the POST body. Includes `ChatRequest`. |
+| [`chatRequestSchema`](./chat-request-schema.md) | `@webmcp-agents/chat/server` | The zod schema and `LIMITS` for the POST body. Includes `ChatRequest`, `chatTraceSchema`, `TRACE_ID`, `validTraceparent`. |
 | [Adapter types](./adapter-types.md) | `@webmcp-agents/chat` | The contract an adapter implements. Includes `AgentAdapter`, `AdapterStatus`, `AgentRunRequest`, `AgentStreamPart`, `AgentMessage`, `AgentPart`, `ToolDescriptor`, `ToolOutput`, `ToolCallState`. |
 | [`callModelContextTool`](./call-model-context-tool.md) | `@webmcp-agents/chat` | Run one page tool for an agent, with a time limit and error codes. Includes `CallToolOptions`, `TOOL_TIMEOUT_MS`, `NAVIGATED`, `CANCELLED`, `isCancelled`. |
 | [`listToolDescriptors`](./list-tool-descriptors.md) | `@webmcp-agents/chat` | The tools on the page right now, as a model sees them. |
