@@ -3,10 +3,11 @@
  * without importing the API.
  */
 import type { Redactor } from "@webmcp-agents/core/redact";
+import { version } from "../../package.json";
 import type { Attributes, AttributeValue, Sampling, SamplingContext } from "./types";
 
-/** This package's version, on every span's instrumentation scope. Kept in step with package.json by the release. */
-export const VERSION = "0.4.0";
+/** This package's version, on every span's instrumentation scope. Read from package.json, so a release bump keeps it true. */
+export const VERSION: string = version;
 
 /** An OTLP JSON `AnyValue`. */
 type AnyValue =
