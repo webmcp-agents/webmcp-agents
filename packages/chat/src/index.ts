@@ -38,5 +38,7 @@ export type { ChatRestoreSnapshot, ChatRestoreSnapshots } from "./session/restor
 export { snapshotsStorageKey } from "./session/restore-snapshot";
 export { CANCELLED, displayName, isCancelled } from "./shared";
 export { callModelContextTool, listToolDescriptors, NAVIGATED, TOOL_TIMEOUT_MS } from "./tools";
+export { redactToolCall } from "./redact";
+export type { ToolCallView } from "./redact";
 export type { CallToolOptions } from "./tools";
 export type * from "./types";

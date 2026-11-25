@@ -13,6 +13,7 @@ import { STAGE, type Stage, stages, type ToolControls } from "./confirm";
 import { deferRelease } from "./deferred";
 import { loadWebMCPPolyfill, type PolyfillOption, whenModelContext } from "./model-context";
 import { matchPath } from "./path-match";
+import { forLog } from "./redact/slot";
 import { createToolRegistry, type ToolRegistry } from "./registry";
 import { type AgentVisuals, type AgentVisualsOptions, installAgentVisuals } from "./visuals";
 import { toModelContextTool, type WebTool } from "./web-tool";
@@ -281,7 +282,7 @@ export function createWebAgents({
         });
         // A chunk that fails to load (offline, a blocked CDN) is a readable error, not an unhandled rejection; the
         // page itself keeps working, and the tools register if a later load succeeds.
-        loadWebMCPPolyfill().catch((err) => console.error("[web-agents] the WebMCP polyfill could not load:", err));
+        loadWebMCPPolyfill().catch((err) => console.error("[web-agents] the WebMCP polyfill could not load:", forLog(err)));
       }
       ensureVisuals(); // before the first tool registers, so the cursor can hold it
       apply();

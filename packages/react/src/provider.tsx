@@ -29,6 +29,7 @@ import {
   type RegisteredContext,
   type WebToolCatalog,
 } from "@webmcp-agents/core";
+import { configureRedaction, createRedactor, getRedactor, type RedactOptions, type Redactor } from "@webmcp-agents/core/redact";
 import type { DevtoolsOptions } from "@webmcp-agents/devtools";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WebAgentsContext, type WebAgentsContextValue } from "./context";
@@ -106,6 +107,17 @@ export interface WebAgentsProviderProps {
    * Default `true`.
    */
   devtools?: boolean | ProviderDevtoolsOptions;
+  /**
+   * The page's redaction rules (`configureRedaction`), applied before any tool registers: what the devtools log, the
+   * chat's tool card, URLs and console lines leaving the page mask. Options extend or replace the defaults
+   * (`{ keys: (d) => [...d, "loyaltyId"], allowQuery: ["page"] }`), or pass a ready `Redactor`. While the provider is
+   * mounted its rules are the page's; unmounting puts back the ones before it. Read once, on mount. Default: the
+   * library's default rules (passwords, tokens, keys, emails, card numbers), which are on without this prop.
+   *
+   * @example
+   * <WebAgentsProvider tools={tools} redact={{ keys: (d) => [...d, "loyaltyId"], style: "indexed" }}>
+   */
+  redact?: RedactOptions | Redactor;
   children?: ReactNode;
 }
 
@@ -119,8 +131,21 @@ export function WebAgentsProvider({
   context,
   polyfill = "auto",
   devtools = true,
+  redact,
   children,
 }: WebAgentsProviderProps) {
+  // ---------- 0. redaction: the page's rules, in place before any tool registers or logs ----------
+  const [redactor] = useState(() => (redact === undefined || typeof redact === "function" ? redact : createRedactor(redact)));
+  useIsomorphicLayoutEffect(() => {
+    // Without the prop the default redactor is created now, so core's own console lines are redacted too.
+    const before = getRedactor();
+    if (!redactor) return;
+    configureRedaction(redactor);
+    return () => {
+      if (getRedactor() === redactor) configureRedaction(before); // a provider mounted after this one keeps its own
+    };
+  }, [redactor]);
+
   // ---------- 1. context: tools read the latest value when they run ----------
   const contextRef = useRef(context);
   const getContext = useCallback(() => contextRef.current, []);

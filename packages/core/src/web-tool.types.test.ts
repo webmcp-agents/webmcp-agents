@@ -34,4 +34,25 @@ describe("WebTool types", () => {
       },
     });
   });
+
+  it("`sensitive` takes the input's own parameter names, as a list or per side", () => {
+    const inputSchema = z.object({ fullName: z.string(), passport: z.string() });
+    defineWebTool({ id: "x", description: "d", inputSchema, sensitive: ["passport"], execute: () => 1 });
+    const tool = defineWebTool({
+      id: "x",
+      description: "d",
+      inputSchema,
+      sensitive: { input: ["passport"], output: ["bookingReference"], hideFromModel: true },
+      execute: () => 1,
+    });
+    expectTypeOf(tool.sensitive).toExtend<
+      readonly string[] | { input?: readonly string[]; output?: readonly string[]; hideFromModel?: boolean } | undefined
+    >();
+    // @ts-expect-error a parameter the schema doesn't have
+    defineWebTool({ id: "x", description: "d", inputSchema, sensitive: ["pasport"], execute: () => 1 });
+    // @ts-expect-error hideFromModel is a flag
+    defineWebTool({ id: "x", description: "d", inputSchema, sensitive: { hideFromModel: "yes" }, execute: () => 1 });
+    // an untyped (JSON Schema) input takes any name
+    defineWebTool({ id: "x", description: "d", inputSchema: { type: "object" }, sensitive: ["anything"], execute: () => 1 });
+  });
 });

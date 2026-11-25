@@ -34,6 +34,7 @@ export type {
   WebToolConfig,
   WebToolContext,
 } from "./web-tool";
+export type { SensitiveOption } from "./redact/sensitive";
 export { locate } from "./locate";
 export type { FieldTarget, ToolLocator } from "./locate";
 export { createWebAgents, currentAgentVisuals, getRegisteredWebTool, inspectTools, watchPathname } from "./web-agents";

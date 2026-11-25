@@ -35,8 +35,8 @@ pnpm dev                                   # every app with HMR into package sou
 pnpm check                                 # biome ci + konsistent + knip + typecheck + test + build + size (what CI runs)
 pnpm konsistent                            # structural conventions (konsistent.json); `pnpm exec konsistent validate` checks the config
 pnpm knip                                  # unused files, exports and dependencies (knip.json)
-pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.45 KB, whole package ≤ 18.5 KB
-                                           # (the polyfill chunk, loaded on demand, is reported, not counted)
+pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.55 KB, whole package ≤ 18.7 KB,
+                                           # the /redact entry ≤ 2.75 KB (the polyfill chunk, loaded on demand, is reported, not counted)
 pnpm typecheck | pnpm test | pnpm build    # via turbo
 pnpm lint / pnpm format                    # biome
 pnpm turbo run check-exports               # publint + are-the-types-wrong on every package (CI runs it)
@@ -111,6 +111,9 @@ packages/core/          @webmcp-agents/core: visuals (cursor.ts, motion.ts, visu
                         release + call tracking), model-context.ts (loadWebMCPPolyfill, whenModelContext, the queue a tool
                         registered before document.modelContext waits in), polyfill/ (the document.modelContext polyfill +
                         declarative forms, its own chunk; exported as @webmcp-agents/core/polyfill and /polyfill/auto)
+                        redact/ (@webmcp-agents/core/redact, its own entry: createRedactor, getRedactor/configureRedaction
+                        on a globalThis slot, mask, isSensitiveControl (the only part visuals imports), toolSensitivity;
+                        slot.ts `forLog` lets core's console lines use the page's redactor without bundling it)
 packages/react/         @webmcp-agents/react: <WebAgentsProvider> (a wrapper over createWebAgents; installs the devtools in
                         development, `devtools` prop), useWebTool({…}) → { invoke }, useEnableTools, useToolAnswer, JSX attr
                         types. Depends on @webmcp-agents/devtools (a regular dependency)

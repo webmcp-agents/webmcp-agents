@@ -4,6 +4,7 @@
  * receives the same entries.
  */
 import type { YieldReason } from "./user-yield";
+import { forLog } from "./redact/slot";
 import type { FieldControl, FieldValue } from "./write";
 
 export type AgentEvent =
@@ -47,7 +48,7 @@ export function emit(e: AgentEvent): void {
     try {
       listener(e);
     } catch (err) {
-      console.error("[web-agents] agent event listener threw", err);
+      console.error("[web-agents] agent event listener threw", forLog(err));
     }
   }
 }

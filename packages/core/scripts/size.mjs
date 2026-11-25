@@ -14,6 +14,7 @@ import { build } from "vite";
 
 const KB = 1024;
 const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+const redact = fileURLToPath(new URL("../src/redact/index.ts", import.meta.url));
 
 /**
  * Budgets: see "Quality bar" in .agents/plans/00-web-agents-roadmap.md.
@@ -50,17 +51,28 @@ const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
  * Chat restore (2026-11-21): a `fill` event's `from` / `control` (the value a field held, kept out for a password),
  * and `getRegisteredWebTool` and `writeControl` for @webmcp-agents/chat add about 80 B to the whole package
  * (18.48 KB); the visuals stay within 10.45 KB. Whole-package budget raised to 18.5 KB.
+ *
+ * Redaction (2026-11-25, 0.5.0, plan 17 phase 1): `@webmcp-agents/core/redact` is its own entry. Design §8 set it at
+ * 1.5 KB; the feature set it specifies (seven detectors with Luhn, key matching by trailing words, a walker that
+ * survives cycles and throwing getters, JSON inside strings, two strengths of URL redaction, the indexed style, paths,
+ * `custom`, `extend` and `scope`) measures 2.73 KB after trimming, so its budget is 2.75 KB. In the main entry the
+ * cursor masks every sensitive control (`isSensitiveControl`: one `closest()` selector, 62 B) instead of passwords
+ * only, and core's console lines print a caught value through the page's redactor once one exists (`forLog`, a
+ * `globalThis` slot, ~40 B), without bundling the redactor. Savings in the cursor (one cancel error, the confirm
+ * prompt, the touch point, a redundant selector, the cursor's HTML whitespace) paid back 20 B; the visuals measure
+ * 10.53 KB and the whole package 18.63 KB. Budgets raised to 10.55 KB and 18.7 KB (lead session, phase 1 review).
  */
 const CHECKS = [
-  { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.45 * KB },
-  { name: "whole package", exports: "*", budget: 18.5 * KB },
+  { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.55 * KB },
+  { name: "whole package", exports: "*", budget: 18.7 * KB },
+  { name: "redact (@webmcp-agents/core/redact)", exports: "*", from: redact, budget: 2.75 * KB },
 ];
 
-async function size(exports) {
+async function size(exports, from = index) {
   // A real file (not a virtual module): Vite's lib mode resolves the entry from disk.
   const dir = await mkdtemp(join(tmpdir(), "web-agents-size-"));
   const entry = join(dir, "entry.js");
-  await writeFile(entry, `export ${exports} from ${JSON.stringify(index)};`);
+  await writeFile(entry, `export ${exports} from ${JSON.stringify(from)};`);
   try {
     const out = await build({
       configFile: false,
@@ -84,7 +96,7 @@ async function size(exports) {
 
 let failed = false;
 for (const check of CHECKS) {
-  const { bytes, lazy } = await size(check.exports);
+  const { bytes, lazy } = await size(check.exports, check.from);
   const ok = bytes <= check.budget;
   failed ||= !ok;
   console.log(`${ok ? "ok  " : "FAIL"} ${check.name}: ${(bytes / KB).toFixed(2)} KB min+gz, ${bytes} B (budget ${check.budget / KB} KB)`);

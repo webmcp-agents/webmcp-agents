@@ -5,7 +5,7 @@
  * an Item without approve/deny buttons: the click happens on the page, not in the chat, so a script can never confirm
  * on the person's behalf.
  */
-import type { ToolPhase } from "@webmcp-agents/chat";
+import { redactToolCall, type ToolPhase } from "@webmcp-agents/chat";
 import type { UIMessage } from "ai";
 import { CodeBlock, CodeBlockContent } from "@/components/ui/code-block";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -43,8 +43,15 @@ export function AgentTool({ part, phase }: { part: AgentToolPart; phase?: ToolPh
             ? `Cancelled ${words}`
             : `Failed to run ${words}`;
   const status = state === "running" ? "running" : state === "error" ? "error" : state === "cancelled" ? "pending" : undefined;
-  const input = part.input && Object.keys(part.input as object).length ? JSON.stringify(part.input, null, 2) : "";
-  const output = part.state === "output-available" ? outputText(part.output) : part.state === "output-error" ? part.errorText : "";
+  // as the person sees it: the page's redaction rules and the tool's `sensitive` fields applied (the call itself is unchanged)
+  const shown = redactToolCall({
+    name: part.toolName,
+    input: part.input,
+    output: part.state === "output-available" ? part.output : undefined,
+    error: part.state === "output-error" ? part.errorText : undefined,
+  });
+  const input = shown.input && Object.keys(shown.input as object).length ? JSON.stringify(shown.input, null, 2) : "";
+  const output = part.state === "output-available" ? outputText(shown.output) : (shown.error ?? "");
 
   if (state === "parked") {
     return (

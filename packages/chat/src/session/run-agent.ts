@@ -8,7 +8,9 @@
  * a server can import.
  */
 import { onAgentEvent, UI_HOST_ATTR } from "@webmcp-agents/core";
+import { getRedactor } from "@webmcp-agents/core/redact";
 import { getDefaultAdapter } from "../adapter/cloud";
+import { hideFromModel } from "../redact";
 import {
   DELEGATE_PREFIX,
   isDelegateTool,
@@ -129,7 +131,9 @@ export function withPageMoves(messages: AgentMessage[]): AgentMessage[] {
     const before = messages[i - 1];
     if (m.role !== "user" || !m.page || !before?.page || before.page === m.page) return m;
     moved = true;
-    const note = `(Since your last reply the user went from the page ${JSON.stringify(before.page)} to ${JSON.stringify(m.page)} on their own. This message is about the page they are on now; earlier results may no longer apply.)`;
+    // the model reads it: credentials and sensitive parameters go, a search it needs stays (design §8.3 row 6)
+    const url = (page: string): string => getRedactor().url(page, { for: "model" });
+    const note = `(Since your last reply the user went from the page ${JSON.stringify(url(before.page))} to ${JSON.stringify(url(m.page))} on their own. This message is about the page they are on now; earlier results may no longer apply.)`;
     return { ...m, parts: [{ type: "text" as const, text: note }, ...m.parts] };
   });
   return moved ? out : messages;
@@ -245,7 +249,8 @@ export async function runAgent({
       callTool: async (call) => {
         const sub = isDelegateTool(call.name) ? def?.agents.find((a) => a.id === call.name.slice(DELEGATE_PREFIX.length)) : undefined;
         if (sub) return runDelegate(sub, call);
-        const output = await callModelContextTool(call, { signal });
+        // `hideFromModel` fields read as the token in what the model gets and the history keeps (design §8.3 rows 9, 10)
+        const output = hideFromModel(call.name, await callModelContextTool(call, { signal }));
         // The call may have changed the page (a navigation, a form appearing): let its tools settle first.
         await toolsSettled();
         await refresh();

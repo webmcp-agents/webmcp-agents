@@ -34,7 +34,7 @@ One object per event, discriminated by `type`.
 | `type` | Other fields | When |
 |---|---|---|
 | `start` | `tool: string`, `at: number`, `args?: unknown` | A tool run started (the first lifecycle signal seen). `at` is `performance.now()`. `args` is what the agent passed, when known (tools from `defineWebTool` and `useWebTool`; declarative forms only show `fill`s). A call whose input fails its schema still starts and answers with the error, without the cursor moving. |
-| `fill` | `tool: string`, `field: string`, `value: string \| boolean`, `from?: string \| boolean`, `control?: Element` | The agent's value went into a field, once the cursor has typed it. `field` is the parameter's name for a tool (the control's `name` for a declarative form); the value is a boolean for a checkbox, and `"••••"` for a password field. `from` (the value it replaced) and `control` (the live field) let the chat restore put it back; a password field has no `from`, so its previous value never reaches a listener. A custom widget the cursor only visited emits none. |
+| `fill` | `tool: string`, `field: string`, `value: string \| boolean`, `from?: string \| boolean`, `control?: Element` | The agent's value went into a field, once the cursor has typed it. `field` is the parameter's name for a tool (the control's `name` for a declarative form); the value is a boolean for a checkbox, and `"••••"` for a sensitive field: a [sensitive control](./is-sensitive-control.md) (a password, a card or one-time-code `autocomplete`, `data-agent-sensitive`) or a parameter the tool marks [`sensitive`](./define-web-tool.md#options). `from` (the value it replaced) and `control` (the live field) let the chat restore put it back; a sensitive field has no `from`, so its previous value never reaches a listener (and restore leaves it as it is). A custom widget the cursor only visited emits none. |
 | `park` | `tool: string`, `prompt: string` | The tool is waiting for the person: the browser paused on a submit button, a tool is waiting for their click on its control, or the page asked them something (see [`waitingForUser`](./waiting-for-user.md)). `prompt` says what to do. |
 | `result` | `tool: string`, `result: unknown`, `ms: number` | The tool answered the agent. `ms` is measured from the run's start. |
 | `error` | `tool: string`, `error: string`, `ms: number` | The tool failed; `error` is the text the agent got. |
@@ -48,7 +48,8 @@ An unsubscribe function: `() => void`. Call it to stop listening.
 
 ## Notes
 
-- A listener that throws never breaks a tool run: the error is caught and logged with `console.error`.
+- A listener that throws never breaks a tool run: the error is caught and logged with `console.error`, as its message passed through the page's [redactor](./get-redactor.md) once one exists.
+- Not redacted, on purpose: `start` keeps `args` and `result` keeps `result` exactly as the tool got and gave them (the visual layer and existing integrations depend on them). Only a `fill`'s `value` is masked. Treat what a listener receives as raw data, and pass it through [`getRedactor()`](./get-redactor.md) before you log or send it.
 - The `log` option of [`installAgentVisuals`](./install-agent-visuals.md) receives the same entries.
 - Listeners are module-level: subscribing works whether or not the visuals are installed, but most events come from the visual layer. `park` is also emitted by [`waitingForUser`](./waiting-for-user.md) and by confirm-gated tools.
 - There is no replay: a listener sees only events after it subscribed.

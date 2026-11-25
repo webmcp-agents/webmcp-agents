@@ -29,6 +29,7 @@ import { confirmPrompt, type FieldStep, STAGE, type Stage, type Staged, stages }
 import { agentCursor, reduced, wait, type SpotlightOptions } from "./cursor";
 import { type AgentEvent, emit } from "./events";
 import { words } from "./locate";
+import { isSensitiveControl } from "./redact/control";
 import { errorText, isAbortError } from "./result";
 import { type YieldOptions, watchUserInput } from "./user-yield";
 import { type FieldControl, type FieldValue, isCheckbox, isControl, writeControl } from "./write";
@@ -171,9 +172,10 @@ const pausedSubmitOf = (form: HTMLFormElement): Element | null =>
   queryPseudo(form, ":tool-submit-active") ?? form.querySelector("[data-tool-submit-active]");
 
 const submitButtonOf = (form: HTMLFormElement): Element | null =>
-  pausedSubmitOf(form) ?? form.querySelector('[type="submit"]') ?? form.querySelector("button:not([type]), button[type=submit]");
+  pausedSubmitOf(form) ?? form.querySelector('[type="submit"]') ?? form.querySelector("button:not([type])");
 
-const labelOf = (el: Element | null, fallback: string): string => el?.textContent?.trim() || fallback;
+/** The error a cancelled call rejects with, as Chrome's own. */
+const cancelError = (): DOMException => new DOMException("Tool execution cancelled", "AbortError");
 
 const NOOP: AgentVisuals = { setSpotlight() {}, setYieldToUser() {}, destroy() {} };
 
@@ -394,7 +396,7 @@ function start({
       // The browser is pausing for the user: park on the button.
       await go(run, btn);
       if (!isCurrent(toolName, run)) return;
-      const prompt = `Click "${labelOf(btn, "submit")}" to confirm`;
+      const prompt = confirmPrompt(btn, "submit");
       park(run, btn, prompt);
       report({ type: "park", tool: toolName, prompt });
     },
@@ -493,7 +495,7 @@ function start({
       const settled = settle(response);
       if (e.respondWith) e.respondWith(settled);
       else void settled.catch(() => {}); // no one to answer, but the run still settles and finishes
-      const cancelled = (): void => answer(Promise.reject(new DOMException("Tool execution cancelled", "AbortError")));
+      const cancelled = (): void => answer(Promise.reject(cancelError()));
 
       void reach().then((seen) => {
         // Cancelled (or superseded) while the cursor travelled: the page must never see this submit.
@@ -579,11 +581,7 @@ function start({
     const pressed = new Promise<void>((resolve) => (release = resolve));
     const timeout = setTimeout(() => release(), GATE_TIMEOUT_MS * (1 + fields.length));
     const cancelled = new Promise<never>((_, reject) =>
-      ctx?.signal?.addEventListener(
-        "abort",
-        () => reject(ctx.signal.reason ?? new DOMException("Tool execution cancelled", "AbortError")),
-        { once: true },
-      ),
+      ctx?.signal?.addEventListener("abort", () => reject(ctx.signal.reason ?? cancelError()), { once: true }),
     );
 
     void (async () => {
@@ -716,8 +714,9 @@ function start({
         /** The hand is on the field. Without it (another call's now) the value is written in one step, unshown. */
         const seen = await go(run, field);
         if (step.done) continue; // the gate gave up waiting and the tool wrote it itself
-        // A password is typed like any value, but never read out or handed to listeners.
-        const secret = (field as HTMLInputElement).type === "password";
+        // A secret (a password or card field, a parameter the tool marks) is typed like any value, but never read out
+        // or handed to listeners.
+        const secret = step.secret || isSensitiveControl(field);
         const value = secret ? "••••" : to;
         if (seen) {
           agentCursor.highlight(field);
@@ -729,7 +728,7 @@ function start({
           const from = step.from ?? fieldValue(field);
           if (sync) await (seen ? typeInto(field, to, from, !!steps) : writeField(field, to, !!steps));
           if (seen) agentCursor.flash();
-          // no `from` for a password either: the previous one must not reach listeners (restore leaves it as is)
+          // no `from` for a secret either: the previous one must not reach listeners (restore leaves it as is)
           report({ type: "fill", tool: toolName, field: name, value, from: secret ? undefined : from, control: field });
         }
         if (seen) await wait(isControl(field) ? 60 : 300);

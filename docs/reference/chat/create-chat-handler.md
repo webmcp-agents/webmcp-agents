@@ -46,6 +46,7 @@ A handler for the page's agents, a chosen model, sessions, a tool allowlist and 
 | `requireAgent` | `boolean` | `false` | Refuse a `POST` that names no agent (`400`), so every conversation runs with a registered agent's instructions. |
 | `prepareAgent` | `(settings, { agent, request }) => settings` | not set | Tune the AI SDK `ToolLoopAgent` settings built for the request (add `prepareStep`, telemetry, middleware). The settings carry the model, the instructions and the page's tools already applied; return what to use. |
 | `env` | `Record<string, string \| undefined>` | `process.env` (or `{}` without `process`) | Where the provider keys, `AI_GATEWAY_API_KEY`, `WEB_AGENTS_MODEL` and `WEB_AGENTS_SESSION_SECRET` are read. Pass it where the host does not expose `process.env`. |
+| `redact` | `RedactOptions \| Redactor` | the process's redactor (`getRedactor()`) | This handler's redaction rules for everything it logs (model errors, failed requests, Turnstile) and the error text it sends back. Separate from the page's: whatever a page configures, the server follows these. Request bodies are never logged. Without it the handler reads the process's redactor at each log line, so a [`configureRedaction`](../core/configure-redaction.md) on the server applies. |
 
 ### Sessions
 

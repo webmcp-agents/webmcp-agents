@@ -84,6 +84,7 @@ plugins: [react(), webAgentsChatDev({ agents })],
 | [Adapter types](./adapter-types.md) | `@webmcp-agents/chat` | The contract an adapter implements. Includes `AgentAdapter`, `AdapterStatus`, `AgentRunRequest`, `AgentStreamPart`, `AgentMessage`, `AgentPart`, `ToolDescriptor`, `ToolOutput`, `ToolCallState`. |
 | [`callModelContextTool`](./call-model-context-tool.md) | `@webmcp-agents/chat` | Run one page tool for an agent, with a time limit and error codes. Includes `CallToolOptions`, `TOOL_TIMEOUT_MS`, `NAVIGATED`, `CANCELLED`, `isCancelled`. |
 | [`listToolDescriptors`](./list-tool-descriptors.md) | `@webmcp-agents/chat` | The tools on the page right now, as a model sees them. |
+| [`redactToolCall`](./redact-tool-call.md) | `@webmcp-agents/chat` | A tool call as a UI shows it: through the page's redaction rules, the tool's `sensitive` fields masked. Includes `ToolCallView`. |
 | [`sessionReducer`](./session-reducer.md) | `@webmcp-agents/chat` | The session as a pure state machine. Includes `resumable`, `SessionAction`, `SessionState`, `SessionError`. |
 
 ## When a tool fails

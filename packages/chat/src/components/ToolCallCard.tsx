@@ -1,5 +1,6 @@
 import { outputText } from "../adapter/wire";
 import { DELEGATE_PREFIX, isDelegateTool } from "../agent";
+import { redactToolCall } from "../redact";
 import type { AgentMessage, AgentPart } from "../types";
 import { Text } from "./Text";
 
@@ -68,7 +69,10 @@ function NestedRun({ messages }: { messages: AgentMessage[] }) {
 /** `delegate_to_checkout` → "Checkout agent"; the task is the line under it. */
 const delegateLabel = (name: string): string => `${toolLabel(name.slice(DELEGATE_PREFIX.length))} agent`;
 
-export function ToolCallCard({ part }: { part: ToolPart }) {
+export function ToolCallCard({ part: sent }: { part: ToolPart }) {
+  // shown to the person: through the page's redactor, the tool's `sensitive` fields masked (design §8.3 row 3)
+  const shown = redactToolCall({ name: sent.name, input: sent.input, output: sent.output, error: sent.error });
+  const part = { ...sent, input: shown.input, output: shown.output, error: shown.error } as ToolPart;
   const status = STATUS[part.state];
   const delegate = isDelegateTool(part.name);
   const task = delegate && part.input && typeof part.input === "object" ? (part.input as { task?: unknown }).task : undefined;

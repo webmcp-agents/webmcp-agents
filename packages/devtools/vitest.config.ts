@@ -3,6 +3,10 @@ import { playwright } from "@vitest/browser-playwright";
 import { defaultClientConditions, defaultServerConditions } from "vite";
 import { defineConfig } from "vitest/config";
 
+/** Built as a production page: the panel's "Reveal values" must not exist there. */
+const PRODUCTION = "src/store.production.browser.test.ts";
+const browser = () => ({ enabled: true, headless: true, provider: playwright(), instances: [{ browser: "chromium" as const }] });
+
 export default defineConfig({
   plugins: [react()],
   resolve: { conditions: ["@webmcp-agents/source", ...defaultClientConditions], dedupe: ["react", "react-dom"] },
@@ -23,8 +27,14 @@ export default defineConfig({
         test: {
           name: "devtools:browser",
           include: ["src/**/*.browser.test.{ts,tsx}"],
-          browser: { enabled: true, headless: true, provider: playwright(), instances: [{ browser: "chromium" }] },
+          exclude: [PRODUCTION],
+          browser: browser(),
         },
+      },
+      {
+        extends: true,
+        define: { "process.env.NODE_ENV": JSON.stringify("production") },
+        test: { name: "devtools:browser:production", include: [PRODUCTION], browser: browser() },
       },
     ],
   },

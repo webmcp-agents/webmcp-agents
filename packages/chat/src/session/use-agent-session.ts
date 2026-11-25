@@ -9,6 +9,7 @@
  * under the cursor, and its stream is kept nested under the call, so the chat can show it.
  */
 import { getRegisteredWebTool, onAgentEvent, whenModelContext } from "@webmcp-agents/core";
+import { getRedactor } from "@webmcp-agents/core/redact";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { selectTools, type WebAgent } from "../agent";
 import { newId } from "../shared";
@@ -208,7 +209,7 @@ export function useAgentSession(
         apps.current.set(id, snapshots.current.getSnapshot?.());
         saveAppSnapshots(storageKey, apps.current);
       } catch (err) {
-        console.error("[web-agents] getSnapshot threw", err);
+        console.error("[web-agents] getSnapshot threw", getRedactor().error(err));
       }
       dispatch({ type: "send", id, text: trimmed, page });
       void run([...latest.current.messages, userMessage(id, trimmed, page)]);
@@ -269,7 +270,7 @@ export function useAgentSession(
             afterRevert: reverted.length > 0,
           });
         } catch (err) {
-          console.error("[web-agents] applySnapshot threw", err);
+          console.error("[web-agents] applySnapshot threw", getRedactor().error(err));
         }
         return { restoredText: messageText(target), reverted, skipped, snapshotApplied };
       } finally {

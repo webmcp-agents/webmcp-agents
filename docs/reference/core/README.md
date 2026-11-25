@@ -76,4 +76,18 @@ Usually done for you by `createWebAgents`, the registry or the React hooks; reac
 | [`errorResult`](./error-result.md) | Small result helpers: `errorResult`, `errorText`, `isErrorText`, `isAbortError`, `toToolResult`. |
 | [WebMCP types](./webmcp-types.md) | `ModelContext`, `ModelContextTool`, `ModelContextToolInfo`, `ModelContextToolResult`, `ModelContextExecuteOptions`, `ToolEvent`, `JSONSchema`, and the globals. |
 
+## Redaction
+
+`@webmcp-agents/core/redact`, its own entry: it keeps secrets out of what the library shows, logs or exports about a tool call. It is on by default. See [the entry's page](./redact.md) for where it applies, and what it does not do.
+
+| API | Description |
+|---|---|
+| [`@webmcp-agents/core/redact`](./redact.md) | The entry: what is redacted where, and what is left as it is on purpose. |
+| [`createRedactor`](./create-redactor.md) | Build a redactor. Includes `Redactor`, `RedactOptions`, `PatternRule`, `RedactContext`, `RedactKind`, `RedactUrlOptions`, `BuiltInPattern`, `DEFAULT_SENSITIVE_KEYS`. |
+| [`getRedactor`](./get-redactor.md) | The page's (or the process's) redactor, which every library sink uses. |
+| [`configureRedaction`](./configure-redaction.md) | Set the page's (or the process's) rules. |
+| [`mask`](./mask.md) | Mask one value already known to be secret. Includes `RedactionStyle`. |
+| [`isSensitiveControl`](./is-sensitive-control.md) | Whether a control's value must never be shown: passwords, payment fields, `data-agent-sensitive`. |
+| [`toolSensitivity`](./tool-sensitivity.md) | The fields a tool marks as sensitive. Includes `ToolSensitivity`, `SensitiveSource`, `SensitiveOption`. |
+
 The Build pages teach the same APIs in order: [Define a tool](../../build/define-a-tool.mdx) is the first.

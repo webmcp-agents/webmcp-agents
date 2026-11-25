@@ -14,6 +14,7 @@ import { toUIMessages } from "../adapter/wire";
 import { flattenWebAgents, type WebAgent } from "../agent";
 import { notOnPage } from "../shared";
 import type { AgentMessage } from "../types";
+import { createRedactor, getRedactor, type RedactOptions, type Redactor } from "@webmcp-agents/core/redact";
 import { describeModelError } from "./model-error";
 import { modelAvailability, ModelUnavailableError, parseModelId, providerOptionsFor, type ReasoningLevel, resolveModel } from "./models";
 import { DEFAULT_SYSTEM_PROMPT } from "./system-prompt";
@@ -85,6 +86,17 @@ export interface ChatHandlerOptions {
   requireAgent?: boolean;
   /** Where the provider keys, WEB_AGENTS_MODEL and WEB_AGENTS_SESSION_SECRET come from. Default `process.env`. */
   env?: Record<string, string | undefined>;
+  /**
+   * This handler's redaction rules, for everything it logs (model errors, failed requests, Turnstile) and the error
+   * text it sends back: options (`{ keys: (d) => [...d, "tenantSecret"] }`) or a ready `Redactor`. Separate from the
+   * page's: whatever a page configures, the server follows these. Request bodies are never logged. Default: the
+   * process's redactor (`getRedactor()` from `@webmcp-agents/core/redact`, read at each log line), whose default rules
+   * mask passwords, tokens, API keys, emails and card numbers.
+   *
+   * @example
+   * createChatHandler({ agents, redact: { keys: (d) => [...d, "tenantSecret"] } });
+   */
+  redact?: RedactOptions | Redactor;
 }
 
 /** What `beforeModel` gets besides the request. */
@@ -145,7 +157,10 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
       : opts.effort
     : (opts.reasoning ?? "low");
   let warnedUnavailable = false;
-  const sessions = opts.session ? createSessionKeeper(opts.session === true ? {} : opts.session, env) : undefined;
+  // its own rules when given; otherwise the process's, read at each line so a later configureRedaction applies
+  const own = opts.redact === undefined || typeof opts.redact === "function" ? opts.redact : createRedactor(opts.redact);
+  const redactor = (): Redactor => own ?? getRedactor();
+  const sessions = opts.session ? createSessionKeeper(opts.session === true ? {} : opts.session, env, own) : undefined;
   const allowlist = opts.tools ? buildAllowlist(opts.tools, registry.values()) : undefined;
 
   /** The default model's availability (an instance is always available). */
@@ -185,7 +200,7 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
     if (!available.enabled) {
       if (!warnedUnavailable) {
         warnedUnavailable = true;
-        console.warn(`[web-agents/chat] chat is disabled: ${available.message}`);
+        console.warn(`[web-agents/chat] chat is disabled: ${redactor().text(available.message)}`);
       }
       return json({ error: "chat_disabled", message: available.message }, 503);
     }
@@ -231,7 +246,9 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
         providerOptions: provider === "custom" ? undefined : providerOptionsFor(provider, level, parseModelId(id).id),
       });
       if (opts.prepareAgent) settings = opts.prepareAgent(settings, { agent, request: req });
-      const loop = new ToolLoopAgent<never, ToolSet>(settings);
+      // The AI SDK's default `onError` prints the raw error (a provider's message can echo a key): the stream's
+      // `onError` below logs it, redacted. An app that sets its own through `prepareAgent` keeps it.
+      const loop = new ToolLoopAgent<never, ToolSet>({ onError: () => {}, ...settings });
       const streamed = await createAgentUIStreamResponse({
         agent: loop,
         uiMessages: toUIMessages(messages as AgentMessage[]),
@@ -241,7 +258,7 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
           // A bad tool call goes back to the model as that call's error: say exactly what was wrong.
           if (NoSuchToolError.isInstance(err)) return notOnPage(err.toolName);
           if (InvalidToolInputError.isInstance(err)) return `Error [invalid_input]: Invalid input for "${err.toolName}": ${err.message}`;
-          const { message, log } = describeModelError(err);
+          const { message, log } = describeModelError(err, undefined, redactor());
           console.error(`[web-agents/chat] model error: ${log}`);
           return message;
         },
@@ -249,10 +266,11 @@ export function createChatHandler(opts: ChatHandlerOptions = {}): (req: Request)
       return withCookie(streamed, renewal);
     } catch (err) {
       if (err instanceof ModelUnavailableError) {
-        console.error(`[web-agents/chat] ${err.message}`);
+        console.error(`[web-agents/chat] ${redactor().error(err)}`);
         return json({ error: "chat_disabled", message: err.message }, 503);
       }
-      console.error("[web-agents/chat] request failed:", err);
+      // the message only, redacted: never the request (its body holds the conversation) nor a provider's echo of a key
+      console.error(`[web-agents/chat] request failed: ${redactor().error(err)}`);
       return json({ error: "server_error", message: "The assistant had a problem answering. Try again." }, 500);
     }
   };

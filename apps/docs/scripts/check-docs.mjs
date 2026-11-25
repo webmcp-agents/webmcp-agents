@@ -89,6 +89,8 @@ const RETIRED_SELF_DESCRIBING = /declarative|earlier|legacy|deprecated/i;
 const OPTION_TYPES = [
   { type: "WebToolConfig", file: "packages/core/src/web-tool.ts", page: "reference/core/define-web-tool.md" },
   { type: "ToModelContextToolOptions", file: "packages/core/src/web-tool.ts", page: "reference/core/to-model-context-tool.md" },
+  { type: "RedactOptions", file: "packages/core/src/redact/redactor.ts", page: "reference/core/create-redactor.md" },
+  { type: "ToolCallView", file: "packages/chat/src/redact.ts", page: "reference/chat/redact-tool-call.md" },
   { type: "WebAgentsOptions", file: "packages/core/src/web-agents.ts", page: "reference/core/create-web-agents.md" },
   { type: "AgentVisualsOptions", file: "packages/core/src/visuals.ts", page: "reference/core/install-agent-visuals.md" },
   { type: "ToolLocator", file: "packages/core/src/locate.ts", page: "reference/core/locate.md" },

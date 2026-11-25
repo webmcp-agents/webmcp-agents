@@ -8,6 +8,7 @@
  * recorded, not later), so each request repeats the last one's prefix: the
  * model's signed reasoning stays valid and the prompt cache keeps hitting.
  */
+import { getRedactor } from "@webmcp-agents/core/redact";
 import { displayName, LIMITS, newId } from "../shared";
 import type { AdapterStatus, AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart } from "../types";
 import { outputText, readParts, toolOutputForModel } from "./wire";
@@ -188,7 +189,8 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
           const body = JSON.stringify({
             messages: forServer(window(history)),
             tools: req.tools, // read fresh: the page's tools change between steps
-            page: typeof location === "undefined" ? undefined : { url: location.href },
+            // the model reads it: credentials, hash and sensitive parameters dropped (design §8.3 row 6)
+            page: typeof location === "undefined" ? undefined : { url: getRedactor().url(location.href, { for: "model" }) },
             agent: req.agent?.id, // only the id: the server holds the instructions
           });
           const post = () => doFetch(api, { method: "POST", headers: headers(), signal, body });
@@ -200,7 +202,7 @@ export function createCloudAdapter(opts: CloudAdapterOptions = {}): AgentAdapter
               extra = (await opts.sessionHeaders?.()) ?? {};
             } catch (err) {
               if (signal.aborted) return yield aborted;
-              console.warn("[web-agents/chat] couldn't get the session headers:", err);
+              console.warn("[web-agents/chat] couldn't get the session headers:", getRedactor().error(err));
             }
             await doFetch(api, { headers: { ...headers(), ...extra }, signal });
             res = await post();
