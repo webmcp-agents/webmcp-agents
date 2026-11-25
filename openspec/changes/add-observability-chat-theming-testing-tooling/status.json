@@ -1,5 +1,5 @@
 {
-  "now": "Phase 2 running: testing kit (@webmcp-agents/testing) and test migration",
+  "now": "Phase 3 running: chat customization (theme, messages, slots, RTL)",
   "waiting": "",
   "phases": {
     "0": {
@@ -17,13 +17,16 @@
       "commit": "a4fd2cd, 5d0d3de"
     },
     "2": {
-      "state": "running",
+      "state": "done",
       "model": "Opus 5.5 / medium",
-      "session": "phase-2-testing-kit"
+      "session": "phase-2-testing-kit",
+      "gate": "pass (lead)",
+      "commit": "d8a7fb7..4584c9d"
     },
     "3": {
-      "state": "queued",
-      "model": "Opus 5.5 / medium"
+      "state": "running",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-3-chat"
     },
     "4": {
       "state": "queued",
