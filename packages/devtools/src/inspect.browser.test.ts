@@ -1,7 +1,7 @@
 import { createWebAgents, defineWebTool, registerWebTool, type WebTool } from "@webmcp-agents/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDevtoolsStore, type DevtoolsStore, type ToolView } from "./store";
-import { byText, cleanupFixtures, devtoolsRoot, fixture, modelContext, uniqueName, until } from "./test-utils";
+import { byText, cleanupFixtures, uiRoot, fixture, modelContext, uniqueName, until } from "@webmcp-agents/testing";
 import { installWebAgentsDevtools } from "./vanilla";
 
 const qtySchema = { type: "object", properties: { qty: { type: "number" } } } as const;
@@ -221,9 +221,9 @@ describe("devtools panel: the resolved control", () => {
     const dispose = installWebAgentsDevtools({ eventClient: false });
     try {
       await until(() => !!document.querySelector("[data-web-agents-ui]")?.shadowRoot?.querySelector(".launcher"), 3000, "launcher");
-      (devtoolsRoot().querySelector(".launcher") as HTMLElement).click();
-      await until(() => !!byText(devtoolsRoot(), ".disclosure", tool.id), 3000, "row");
-      const row = byText(devtoolsRoot(), ".disclosure", tool.id)!.closest(".tool")!;
+      (uiRoot("devtools").querySelector(".launcher") as HTMLElement).click();
+      await until(() => !!byText(uiRoot("devtools"), ".disclosure", tool.id), 3000, "row");
+      const row = byText(uiRoot("devtools"), ".disclosure", tool.id)!.closest(".tool")!;
       const resolved = row.querySelector(".resolved")!;
       expect(resolved.textContent).toContain("Controlbutton · Add to basket");
       expect(resolved.textContent).toContain("quantity → spinbutton · Quantity");

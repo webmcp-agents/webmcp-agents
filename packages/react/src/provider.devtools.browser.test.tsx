@@ -9,7 +9,7 @@ import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { useWebAgents, type WebAgentsVisuals } from "./context";
 import { WebAgentsProvider } from "./provider";
-import { modelContext, sleep, until } from "./test-utils";
+import { modelContext, sleep, until } from "@webmcp-agents/testing";
 
 const QUIET = { spotlight: false, yieldToUser: false } as const;
 const hosts = (): NodeListOf<Element> => document.querySelectorAll('[data-web-agents-ui="devtools"]');

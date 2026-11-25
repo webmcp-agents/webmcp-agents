@@ -4,7 +4,7 @@ import { defineWebAgent } from "../src/agent";
 import { DEFAULT_SYSTEM_PROMPT } from "../src/server/system-prompt";
 import { toToolLoopAgent, toToolLoopAgentSettings, toToolSet } from "../src/server/web-agent";
 import type { ToolDescriptor } from "../src/types";
-import { scriptedModel } from "./mock-model";
+import { mockModel } from "@webmcp-agents/testing/server";
 
 const t = (name: string): ToolDescriptor => ({
   name,
@@ -26,7 +26,7 @@ describe("toToolSet", () => {
 });
 
 describe("toToolLoopAgentSettings", () => {
-  const model = scriptedModel([{ text: "ok" }]);
+  const model = mockModel([{ text: "ok" }]);
 
   it("assembles the instructions: base, page path, the agent's lines, the delegation note", () => {
     const s = toToolLoopAgentSettings(shopper, { model, tools: page, path: "/cart" });
@@ -62,7 +62,7 @@ describe("toToolLoopAgentSettings", () => {
   });
 
   it("toToolLoopAgent returns an AI SDK ToolLoopAgent that streams with the model", async () => {
-    const loop = toToolLoopAgent(shopper, { model: scriptedModel([{ text: "Bonjour" }]), tools: page });
+    const loop = toToolLoopAgent(shopper, { model: mockModel([{ text: "Bonjour" }]), tools: page });
     expect(loop).toBeInstanceOf(ToolLoopAgent);
     const result = await loop.stream({ prompt: "hi" });
     expect(await result.text).toBe("Bonjour");

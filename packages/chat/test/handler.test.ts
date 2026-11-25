@@ -5,7 +5,7 @@ import { _resetModelCache } from "../src/server/models";
 import { DEFAULT_SYSTEM_PROMPT } from "../src/server/system-prompt";
 import { LIMITS } from "../src/shared";
 import type { AgentMessage } from "../src/types";
-import { scriptedModel } from "./mock-model";
+import { mockModel } from "@webmcp-agents/testing/server";
 
 const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "Add a mug" }] };
 const tool = {
@@ -30,7 +30,7 @@ describe("createChatHandler", () => {
     expect(await on.json()).toEqual({ enabled: true, model: "claude-sonnet-5-5", provider: "anthropic", agents: [] });
     const openai = await createChatHandler({ env: { WEB_AGENTS_MODEL: "openai/gpt-5.5" } })(new Request("http://localhost/api/chat"));
     expect(await openai.json()).toMatchObject({ enabled: false, model: "openai/gpt-5.5", provider: "openai" });
-    const instance = await createChatHandler({ model: scriptedModel([{ text: "hi" }]), env: {} })(new Request("http://localhost/api/chat"));
+    const instance = await createChatHandler({ model: mockModel([{ text: "hi" }]), env: {} })(new Request("http://localhost/api/chat"));
     expect((await instance.json()).enabled).toBe(true);
   });
 
@@ -55,14 +55,14 @@ describe("createChatHandler", () => {
     ["duplicate tool names", { tools: [tool, tool] }],
     ["no messages", { messages: [] }],
   ])("POST rejects %s with 400", async (_, patch) => {
-    const handler = createChatHandler({ model: scriptedModel([{ text: "hi" }]) });
+    const handler = createChatHandler({ model: mockModel([{ text: "hi" }]) });
     const res = await handler(post({ messages: [user], tools: [tool], ...patch }));
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("bad_request");
   });
 
   it("rejects oversized bodies (counted in bytes, also when chunked), non-JSON and other content types", async () => {
-    const handler = createChatHandler({ model: scriptedModel([{ text: "hi" }]) });
+    const handler = createChatHandler({ model: mockModel([{ text: "hi" }]) });
     expect((await handler(post("x".repeat(LIMITS.bodyBytes + 1)))).status).toBe(413);
     const emoji = "😀".repeat(LIMITS.bodyBytes / 4 + 1); // under the limit in UTF-16 units, over it in bytes
     expect((await handler(post(emoji))).status).toBe(413);
@@ -83,7 +83,7 @@ describe("createChatHandler", () => {
   });
 
   it("refuses cross-site browser requests (CSRF), allows same-origin and Origin-less ones", async () => {
-    const handler = createChatHandler({ model: scriptedModel([{ text: "hi" }]) });
+    const handler = createChatHandler({ model: mockModel([{ text: "hi" }]) });
     const body = { messages: [user], tools: [] };
     expect((await handler(post(body, { origin: "https://evil.example" }))).status).toBe(403);
     expect((await handler(post(body, { origin: "http://localhost" }))).status).toBe(200);
@@ -91,12 +91,12 @@ describe("createChatHandler", () => {
   });
 
   it("guard short-circuits", async () => {
-    const handler = createChatHandler({ model: scriptedModel([{ text: "hi" }]), guard: () => new Response(null, { status: 429 }) });
+    const handler = createChatHandler({ model: mockModel([{ text: "hi" }]), guard: () => new Response(null, { status: 429 }) });
     expect((await handler(post({ messages: [user], tools: [] }))).status).toBe(429);
   });
 
   it("streams a UI message stream; the model gets the system prompt, clean schemas, the output cap and no tool executes", async () => {
-    const model = scriptedModel([{ text: "Done." }]);
+    const model = mockModel([{ text: "Done." }]);
     const res = await createChatHandler({ model })(
       post({ messages: [user], tools: [tool], page: { title: "Shop", url: "http://localhost/cart" } }, { origin: "http://localhost" }),
     );
@@ -115,7 +115,7 @@ describe("createChatHandler", () => {
   });
 
   it("drops a page URL from another origin", async () => {
-    const model = scriptedModel([{ text: "ok" }]);
+    const model = mockModel([{ text: "ok" }]);
     const res = await createChatHandler({ model })(
       post({ messages: [user], tools: [], page: { url: "https://evil.example/x" } }, { origin: "http://localhost" }),
     );
@@ -138,7 +138,7 @@ describe("createChatHandler", () => {
         },
       ],
     });
-    const model = scriptedModel([{ text: "Summary" }]);
+    const model = mockModel([{ text: "Summary" }]);
     await (await createChatHandler({ model, maxSteps: 2 })(post({ messages: [user, step(1), step(2)], tools: [tool] }))).text();
     expect(model.doStreamCalls[0]!.tools ?? []).toHaveLength(0);
   });
@@ -146,7 +146,7 @@ describe("createChatHandler", () => {
   it("beforeModel runs only for valid requests, and can refuse", async () => {
     const seen: string[] = [];
     const handler = createChatHandler({
-      model: scriptedModel([{ text: "ok" }]),
+      model: mockModel([{ text: "ok" }]),
       beforeModel: () => {
         seen.push("called");
         return seen.length > 1 ? new Response(null, { status: 503 }) : undefined;
@@ -180,14 +180,14 @@ describe("createChatHandler", () => {
     ];
 
     it("GET lists the registered agents, sub-agents included", async () => {
-      const res = await createChatHandler({ model: scriptedModel([{ text: "hi" }]), agents: [shopper] })(
+      const res = await createChatHandler({ model: mockModel([{ text: "hi" }]), agents: [shopper] })(
         new Request("http://localhost/api/chat"),
       );
       expect((await res.json()).agents).toEqual(["shopper", "checkout"]);
     });
 
     it("puts the agent's instructions (from the registry) and the delegation note in the system prompt, and filters tools", async () => {
-      const model = scriptedModel([{ text: "ok" }]);
+      const model = mockModel([{ text: "ok" }]);
       const res = await createChatHandler({ model, agents: [shopper] })(post({ messages: [user], tools: toolsOnPage, agent: "shopper" }));
       expect(res.status).toBe(200);
       await res.text();
@@ -203,7 +203,7 @@ describe("createChatHandler", () => {
     });
 
     it("a sub-agent resolves by id with its own tools, instructions and step budget", async () => {
-      const model = scriptedModel([{ text: "ok" }]);
+      const model = mockModel([{ text: "ok" }]);
       const handler = createChatHandler({ model, agents: [shopper], maxSteps: 8 });
       await (await handler(post({ messages: [user], tools: toolsOnPage, agent: "checkout" }))).text();
       const call = model.doStreamCalls[0]!;
@@ -223,20 +223,19 @@ describe("createChatHandler", () => {
     });
 
     it("refuses an unknown agent, or an agent that isn't a plain id", async () => {
-      const handler = createChatHandler({ model: scriptedModel([{ text: "ok" }]), agents: [shopper] });
+      const handler = createChatHandler({ model: mockModel([{ text: "ok" }]), agents: [shopper] });
       const unknown = await handler(post({ messages: [user], tools: [], agent: "nope" }));
       expect(unknown.status).toBe(400);
       expect((await unknown.json()).message).toContain('Unknown agent "nope"');
       expect((await handler(post({ messages: [user], tools: [], agent: { id: "shopper", instructions: ["evil"] } }))).status).toBe(400);
       // no registry at all: naming an agent is still a 400, never a silent fallback
       expect(
-        (await createChatHandler({ model: scriptedModel([{ text: "ok" }]) })(post({ messages: [user], tools: [], agent: "shopper" })))
-          .status,
+        (await createChatHandler({ model: mockModel([{ text: "ok" }]) })(post({ messages: [user], tools: [], agent: "shopper" }))).status,
       ).toBe(400);
     });
 
     it("prepareAgent can tune the ToolLoopAgent the handler builds", async () => {
-      const model = scriptedModel([{ text: "ok" }]);
+      const model = mockModel([{ text: "ok" }]);
       const seen: string[] = [];
       const handler = createChatHandler({
         model,
@@ -252,13 +251,13 @@ describe("createChatHandler", () => {
     });
 
     it("a per-agent model id is resolved with the provider's key", async () => {
-      const createOpenAI = vi.fn(() => () => scriptedModel([{ text: "from openai" }]));
+      const createOpenAI = vi.fn(() => () => mockModel([{ text: "from openai" }]));
       vi.doMock("@ai-sdk/openai", () => ({ createOpenAI }));
       const fast = defineWebAgent({ id: "fast", instructions: "f", model: "openai/gpt-5.5-mini" });
       const handler = createChatHandler({
         env: { OPENAI_API_KEY: "k", ANTHROPIC_API_KEY: "a" },
         agents: [fast],
-        model: scriptedModel([{ text: "default" }]),
+        model: mockModel([{ text: "default" }]),
       });
       const res = await handler(post({ messages: [user], tools: [], agent: "fast" }));
       expect(res.status).toBe(200);

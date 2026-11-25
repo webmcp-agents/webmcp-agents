@@ -7,7 +7,7 @@ import { configureRedaction } from "@webmcp-agents/core/redact";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { toAgentInvokeCode } from "./copy-as-code";
 import { createDevtoolsStore, type DevtoolsStore } from "./store";
-import { cleanupFixtures, fixture, modelContext, uniqueName } from "./test-utils";
+import { cleanupFixtures, fixture, modelContext, uniqueName } from "@webmcp-agents/testing";
 
 const PASSPORT = "A1234567";
 const EMAIL = "sara@example.com";

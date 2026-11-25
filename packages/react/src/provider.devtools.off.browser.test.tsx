@@ -7,7 +7,7 @@ import { StrictMode } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { WebAgentsProvider } from "./provider";
-import { modelContext, sleep } from "./test-utils";
+import { modelContext, sleep } from "@webmcp-agents/testing";
 
 describe("<WebAgentsProvider devtools> outside development", () => {
   beforeAll(() => modelContext());

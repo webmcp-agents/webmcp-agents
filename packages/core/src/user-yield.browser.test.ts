@@ -1,6 +1,16 @@
 import { userEvent } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanupFixtures, cursorVisible, fixture, modelContext, recordEvents, resultText, toolForm, uniqueName, until } from "./test-utils";
+import {
+  cleanupFixtures,
+  cursorVisible,
+  fixture,
+  modelContext,
+  recordEvents,
+  resultText,
+  toolForm,
+  uniqueName,
+  until,
+} from "@webmcp-agents/testing";
 import { UI_HOST_ATTR } from "./user-yield";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
 

@@ -5,7 +5,7 @@ import { render } from "vitest-browser-react";
 import { useWebAgents } from "./context";
 import { WebAgentsProvider, type WebAgentsProviderProps } from "./provider";
 import { EnableTools } from "./use-enable-tools";
-import { countChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "./test-utils";
+import { countToolChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "@webmcp-agents/testing";
 
 const tool = (id: string, execute: WebTool["execute"] = async () => `${id} ran`): WebTool =>
   defineWebTool({ id, description: "test tool", execute });
@@ -39,7 +39,7 @@ describe("<WebAgentsProvider>", () => {
   it("registers global tools exactly once under StrictMode", async () => {
     const a = uniqueName("p_a");
     const cat = [tool(a)];
-    const changes = countChanges();
+    const changes = countToolChanges();
     const screen = await render(<App tools={cat} global={[a]} />);
     await sleep(20);
     changes.stop();

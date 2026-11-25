@@ -9,7 +9,7 @@ import { z } from "zod";
 // @ts-expect-error a stylesheet has no types here; Vite loads it, and the ring's box is what one test measures
 import "./cursor.css";
 import { agentCursor, wait } from "./cursor";
-import { cleanupFixtures, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "./test-utils";
+import { cleanupFixtures, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "@webmcp-agents/testing";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
 import { defineWebTool, registerWebTool, type WebTool, type WebToolConfig } from "./web-tool";
 

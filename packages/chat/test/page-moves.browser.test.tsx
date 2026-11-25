@@ -2,33 +2,19 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { AgentChat } from "../src/components/AgentChat";
-import type { AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart } from "../src/types";
-import { modelContext, until } from "./browser-utils";
+import type { AgentMessage, AgentRunRequest } from "../src/types";
+import { modelContext, until } from "@webmcp-agents/testing";
+import { mockAdapter } from "@webmcp-agents/testing/chat";
 
 const KEY = "page-moves-test";
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
 const textarea = () => host().querySelector<HTMLTextAreaElement>("textarea")!;
 const stored = (): AgentMessage[] => JSON.parse(sessionStorage.getItem(KEY) ?? "[]") as AgentMessage[];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const firstText = (req: AgentRunRequest | undefined): string => {
+const firstText = (req: Pick<AgentRunRequest, "messages"> | undefined): string => {
   const part = req?.messages.at(-1)?.parts[0];
   return part?.type === "text" ? part.text : "";
 };
-
-function fakeAdapter(
-  script: (req: AgentRunRequest, n: number) => AsyncGenerator<AgentStreamPart>,
-): AgentAdapter & { requests: AgentRunRequest[] } {
-  const adapter: AgentAdapter & { requests: AgentRunRequest[] } = {
-    id: "fake",
-    label: "Fake",
-    requests: [],
-    run(req) {
-      adapter.requests.push(req);
-      return script(req, adapter.requests.length);
-    },
-  };
-  return adapter;
-}
 
 describe("useAgentSession: page moves between turns", () => {
   const start = location.pathname + location.search;
@@ -39,7 +25,7 @@ describe("useAgentSession: page moves between turns", () => {
   });
 
   it("tells the model when the person changed the page (query included) between turns", async () => {
-    const adapter = fakeAdapter(async function* (_req, n) {
+    const adapter = mockAdapter(async function* (_req, { run: n }) {
       yield { type: "message-start", messageId: `a${n}` };
       yield { type: "text-delta", messageId: `a${n}`, delta: "ok" };
       yield { type: "finish", reason: "stop" };
@@ -67,7 +53,7 @@ describe("useAgentSession: page moves between turns", () => {
     const released = new Promise<void>((r) => {
       release = r;
     });
-    const adapter = fakeAdapter(async function* (req, n) {
+    const adapter = mockAdapter(async function* (req, { run: n }) {
       yield { type: "message-start", messageId: `a${n}` };
       yield { type: "text-delta", messageId: `a${n}`, delta: n === 1 ? "first" : "second" };
       // run 1 ignores Stop until released; run 2 streams until it is stopped

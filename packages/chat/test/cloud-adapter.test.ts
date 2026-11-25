@@ -3,7 +3,7 @@ import { createCloudAdapter } from "../src/adapter/cloud";
 import { defineWebAgent, type WebAgent } from "../src/agent";
 import { createChatHandler } from "../src/server/handler";
 import type { AgentMessage, AgentRunRequest, AgentStreamPart, ToolDescriptor } from "../src/types";
-import { scriptedModel, type Step } from "./mock-model";
+import { mockModel, type Step } from "@webmcp-agents/testing/server";
 
 const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "Add two mugs" }] };
 const tools: ToolDescriptor[] = [
@@ -12,7 +12,7 @@ const tools: ToolDescriptor[] = [
 
 /** The adapter wired to the real handler, through an in-memory fetch. */
 function setup(steps: Step[], opts: { maxSteps?: number; agents?: WebAgent[] } = {}) {
-  const model = scriptedModel(steps);
+  const model = mockModel(steps);
   const handler = createChatHandler({ model, maxSteps: opts.maxSteps, agents: opts.agents });
   const bodies: { messages: AgentMessage[]; tools: ToolDescriptor[] }[] = [];
   const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -167,7 +167,7 @@ describe("createCloudAdapter", () => {
     const shopper = defineWebAgent({ id: "shopper", instructions: ["Sells mugs.", "Open first."], agents: [checkout] });
 
     it("sends only the agent's id, never its instructions, and drops nested runs from the history", async () => {
-      const model = scriptedModel([{ text: "ok" }]);
+      const model = mockModel([{ text: "ok" }]);
       const handler = createChatHandler({ model, agents: [shopper] });
       const bodies: Record<string, unknown>[] = [];
       const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {

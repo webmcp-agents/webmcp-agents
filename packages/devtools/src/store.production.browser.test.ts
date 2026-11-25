@@ -4,7 +4,7 @@
 import { defineWebTool, registerWebTool } from "@webmcp-agents/core";
 import { afterEach, expect, it } from "vitest";
 import { createDevtoolsStore } from "./store";
-import { modelContext, uniqueName } from "./test-utils";
+import { modelContext, uniqueName } from "@webmcp-agents/testing";
 
 const offs: Array<() => void> = [];
 afterEach(() => {

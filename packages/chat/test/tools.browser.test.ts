@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { toolErrorCode, waitingForUser } from "@webmcp-agents/core";
 import { callModelContextTool, listToolDescriptors, NAVIGATED } from "../src/tools";
-import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "./browser-utils";
+import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "@webmcp-agents/testing";
 
 describe("page tools for an agent", () => {
   let mc: ModelContext;

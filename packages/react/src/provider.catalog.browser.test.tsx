@@ -9,7 +9,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { useWebAgents } from "./context";
 import { WebAgentsProvider, type WebAgentsProviderProps } from "./provider";
-import { countChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "./test-utils";
+import { countToolChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "@webmcp-agents/testing";
 import { EnableTools } from "./use-enable-tools";
 import { useEnabledTools } from "./use-enabled-tools";
 
@@ -62,7 +62,7 @@ describe("<WebAgentsProvider tools availableTools>", () => {
 
   it("registers every tool of an object catalog, exactly once under StrictMode", async () => {
     const tools = { getCart: tool(uniqueName("c_cart")), listOrders: tool(uniqueName("c_orders")) };
-    const changes = countChanges();
+    const changes = countToolChanges();
     const screen = await render(
       <App tools={tools}>
         <Enabled />
@@ -116,7 +116,7 @@ describe("<WebAgentsProvider tools availableTools>", () => {
     await has(tools.getCart.id);
     expect(await toolNames()).not.toContain(tools.listOrders.id);
 
-    const changes = countChanges();
+    const changes = countToolChanges();
     await screen.getByRole("button").click(); // signed in
     await has(tools.listOrders.id);
     expect(changes.count()).toBe(1); // only the new tool registered
@@ -191,7 +191,7 @@ describe("<WebAgentsProvider tools availableTools>", () => {
     const id = uniqueName("c_changed");
     const screen = await render(<App tools={{ kept, changed: tool(id) }} />);
     await has(id);
-    const changes = countChanges();
+    const changes = countToolChanges();
     await screen.rerender(<App tools={{ kept, changed: tool(id, { description: "a new description" }) }} />);
     await sleep(30);
     changes.stop();

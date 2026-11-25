@@ -4,7 +4,7 @@ import { userEvent } from "vitest/browser";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { WebAgentsProvider } from "./provider";
-import { countChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "./test-utils";
+import { countToolChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "@webmcp-agents/testing";
 import { useWebTool } from "./use-web-tool";
 
 function Counter({ id, description = "Read the counter", enabled = true }: { id: string; description?: string; enabled?: boolean }) {
@@ -66,7 +66,7 @@ describe("useWebTool", () => {
 
   it("always runs the latest render's execute, without re-registering", async () => {
     const id = uniqueName("w_count");
-    const changes = countChanges();
+    const changes = countToolChanges();
     const screen = await render(
       <StrictMode>
         <Counter id={id} />
@@ -87,7 +87,7 @@ describe("useWebTool", () => {
   it("re-registers exactly once when the description changes", async () => {
     const id = uniqueName("w_desc");
     const screen = await render(<Counter id={id} />);
-    const changes = countChanges();
+    const changes = countToolChanges();
     await screen.rerender(<Counter id={id} description="Read the counter value" />);
     await sleep(20);
     changes.stop();

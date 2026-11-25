@@ -3,7 +3,7 @@ import { render } from "vitest-browser-react";
 import "../src/chat.css";
 import { AgentChat } from "../src/components/AgentChat";
 import type { AgentAdapter } from "../src/types";
-import { until } from "./browser-utils";
+import { until } from "@webmcp-agents/testing";
 
 const adapter: AgentAdapter = { id: "fake", label: "Fake", async *run() {} };
 const launcher = () => document.querySelector<HTMLElement>(".wa-chat__launcher");

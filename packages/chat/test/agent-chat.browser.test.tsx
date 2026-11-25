@@ -8,25 +8,13 @@ import { MessageList } from "../src/components/MessageList";
 import { ToolCallCard } from "../src/components/ToolCallCard";
 import { act } from "react";
 import { flushSync } from "react-dom";
-import type { AdapterStatus, AgentAdapter, AgentRunRequest, AgentStreamPart } from "../src/types";
-import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "./browser-utils";
+import type { AdapterStatus, AgentAdapter } from "../src/types";
+import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "@webmcp-agents/testing";
+import { mockAdapter } from "@webmcp-agents/testing/chat";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
 const q = <T extends Element = HTMLElement>(sel: string) => host().querySelector<T>(sel);
-
-/** A scripted adapter: each run plays `script(req)`. */
-function fakeAdapter(script: (req: AgentRunRequest) => AsyncGenerator<AgentStreamPart>): AgentAdapter & { lastSignal?: AbortSignal } {
-  const adapter: AgentAdapter & { lastSignal?: AbortSignal } = {
-    id: "fake",
-    label: "Fake",
-    run(req) {
-      adapter.lastSignal = req.signal;
-      return script(req);
-    },
-  };
-  return adapter;
-}
 
 describe("<AgentChat>", () => {
   beforeAll(() => modelContext());
@@ -40,7 +28,7 @@ describe("<AgentChat>", () => {
     // delay let a slow CI runner's `userEvent.type` round trip outlast it).
     let seen!: () => void;
     const typingSeen = new Promise<void>((r) => (seen = r));
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       await typingSeen;
       yield { type: "message-start", messageId: "a1" };
       yield { type: "text-delta", messageId: "a1", delta: "Hello " };
@@ -124,7 +112,7 @@ describe("<AgentChat>", () => {
   });
 
   it("comes back open after a page load when it was open, and closed when it was closed", async () => {
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       yield { type: "finish", reason: "stop" };
     });
     const key = uniqueName("chat");
@@ -144,7 +132,7 @@ describe("<AgentChat>", () => {
     const name = uniqueName("confirm_echo");
     const form = echoForm(name, { autosubmit: false });
     await sleep(20);
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name, input: { word: "yes" } };
       const output = await req.callTool({ id: "c1", name, input: { word: "yes" } });
@@ -165,7 +153,7 @@ describe("<AgentChat>", () => {
   });
 
   it("Stop aborts the run and cancels the open card", async () => {
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: "slow", input: {} };
       await new Promise((r) => req.signal.addEventListener("abort", r));
@@ -182,7 +170,7 @@ describe("<AgentChat>", () => {
 
   it("Stop pressed before the run starts never starts it", async () => {
     let started = false;
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       started = true;
       yield { type: "finish", reason: "stop" };
     });
@@ -213,7 +201,7 @@ describe("<AgentChat>", () => {
 
   it("errors offer a retry that runs again", async () => {
     let runs = 0;
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       runs++;
       if (runs === 1) {
         yield { type: "error", error: "You're sending messages too fast. Try again in a minute.", code: "rate_limited" };
@@ -235,7 +223,7 @@ describe("<AgentChat>", () => {
 
   it("switches adapters (persisted) and walks a download: consent → progress → cancel → ready", async () => {
     localStorage.removeItem("web-agents:chat:adapter");
-    const cloud = fakeAdapter(async function* () {
+    const cloud = mockAdapter(async function* () {
       yield { type: "finish", reason: "stop" };
     });
     let status: AdapterStatus = { state: "needs-download", bytes: 1_440_000_000, note: "Already on this device." };
@@ -311,7 +299,7 @@ describe("<AgentChat>", () => {
         },
       }),
     );
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: id, input: {} };
       const output = await req.callTool({ id: "c1", name: id, input: {} });
@@ -363,7 +351,7 @@ describe("<AgentChat>", () => {
         },
       }),
     );
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: id, input: {} };
       const output = await req.callTool({ id: "c1", name: id, input: {} });
@@ -395,7 +383,7 @@ describe("<AgentChat>", () => {
         execute: () => "ok",
       }),
     );
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: id, input: {} };
       const output = await req.callTool({ id: "c1", name: id, input: {} });
@@ -418,7 +406,7 @@ describe("<AgentChat>", () => {
     const gate = new Promise<void>((r) => {
       release = r;
     });
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "text-delta", messageId: "a1", delta: "Working on it" };
       await gate;
@@ -454,7 +442,7 @@ describe("<AgentChat>", () => {
       defineWebTool({ id, description: "Deletes everything.", destructive: true, execute: () => "deleted" }),
     );
     let runs = 0;
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       const n = ++runs;
       yield { type: "message-start", messageId: `a${n}` };
       if (n === 1) {
@@ -480,7 +468,7 @@ describe("<AgentChat>", () => {
 
   it("Restore keeps a half-written draft, and a message sent mid-restore stays in the composer", async () => {
     let release!: () => void;
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "text-delta", messageId: "a1", delta: "Done." };
       yield { type: "finish", reason: "stop" };
@@ -517,7 +505,7 @@ describe("<AgentChat>", () => {
     localStorage.removeItem("web-agents:chat:width");
     const root = document.documentElement;
     try {
-      const adapter = fakeAdapter(async function* () {
+      const adapter = mockAdapter(async function* () {
         yield { type: "finish", reason: "stop" };
       });
       const screen = await render(<AgentChat adapter={adapter} storageKey={false} />);

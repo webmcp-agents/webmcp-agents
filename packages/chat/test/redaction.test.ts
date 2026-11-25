@@ -11,7 +11,7 @@ import { createChatHandler } from "../src/server/handler";
 import { describeModelError } from "../src/server/model-error";
 import { withPageMoves } from "../src/session/run-agent";
 import type { AgentMessage } from "../src/types";
-import { scriptedModel } from "./mock-model";
+import { mockModel } from "@webmcp-agents/testing/server";
 
 const KEY = "sk-abcdefghijklmnopqrstuvwx";
 const CARD = "4242 4242 4242 4242";
@@ -51,7 +51,7 @@ describe("URLs the model reads", () => {
 
   it("the step request's page URL loses credentials, hash and sensitive parameters, and keeps the rest", async () => {
     const bodies: Array<{ page?: { url: string } }> = [];
-    const handler = createChatHandler({ model: scriptedModel([{ text: "ok" }]) });
+    const handler = createChatHandler({ model: mockModel([{ text: "ok" }]) });
     const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") bodies.push(JSON.parse(String(init.body)));
       return handler(new Request(new URL(String(url), "http://shop.test"), init));
@@ -88,7 +88,7 @@ describe("server logs", () => {
   it("a failed request is logged with its redacted error, never its body", async () => {
     const printed = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = createChatHandler({
-      model: scriptedModel([{ text: "ok" }]),
+      model: mockModel([{ text: "ok" }]),
       prepareAgent: () => {
         throw new Error(`settings failed for sara@example.com with ${KEY}`);
       },
@@ -116,7 +116,7 @@ describe("server logs", () => {
     configureRedaction({ token: "#PAGE#" });
     const printed = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = createChatHandler({
-      model: scriptedModel([{ text: "ok" }]),
+      model: mockModel([{ text: "ok" }]),
       redact: { token: "#SERVER#" },
       prepareAgent: () => {
         throw new Error(`for sara@example.com`);
@@ -131,7 +131,7 @@ describe("server logs", () => {
   it("without its own rules, the handler follows the process's, configured later", async () => {
     const printed = vi.spyOn(console, "error").mockImplementation(() => {});
     const handler = createChatHandler({
-      model: scriptedModel([{ text: "ok" }]),
+      model: mockModel([{ text: "ok" }]),
       prepareAgent: () => {
         throw new Error("tenant T-77 failed");
       },

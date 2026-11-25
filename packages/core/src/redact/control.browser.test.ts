@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { agentCursor } from "../cursor";
-import { cleanupFixtures, fixture, modelContext, recordEvents, toolForm, uniqueName, until } from "../test-utils";
+import { cleanupFixtures, fixture, modelContext, recordEvents, toolForm, uniqueName, until } from "@webmcp-agents/testing";
 import { type AgentVisuals, installAgentVisuals } from "../visuals";
 import { defineWebTool, registerWebTool, type WebTool } from "../web-tool";
 import { isSensitiveControl, mask } from "./index";

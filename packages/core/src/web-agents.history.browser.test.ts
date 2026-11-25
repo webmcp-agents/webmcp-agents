@@ -3,7 +3,7 @@
  * `replaceState` are patched while someone watches, and put back after. Chromium has the API, so it is hidden here.
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { modelContext, uniqueName, until } from "./test-utils";
+import { modelContext, uniqueName, until } from "@webmcp-agents/testing";
 import { createWebAgents, watchPathname } from "./web-agents";
 import { defineWebTool } from "./web-tool";
 

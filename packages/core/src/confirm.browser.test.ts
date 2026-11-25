@@ -1,7 +1,7 @@
 import { userEvent } from "vitest/browser";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConfirmationUnavailableError, waitForConfirmation } from "./confirm";
-import { cleanupFixtures, fixture, recordEvents } from "./test-utils";
+import { cleanupFixtures, fixture, recordEvents } from "@webmcp-agents/testing";
 import { UI_HOST_ATTR } from "./user-yield";
 
 const timeout = (ms: number) => new Promise<"timeout">((r) => setTimeout(() => r("timeout"), ms));

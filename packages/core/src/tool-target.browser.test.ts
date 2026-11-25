@@ -2,10 +2,12 @@
  * A tool with nothing added to the markup: the cursor finds its control by name, types the call's values into the
  * fields it finds, runs `fill`, then clicks (or parks for the person's click).
  */
+// `cdp().send` is typed by the Playwright provider
+import type {} from "@vitest/browser-playwright";
 import { cdp, userEvent } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { cleanupFixtures, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "./test-utils";
+import { cleanupFixtures, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "@webmcp-agents/testing";
 import { toolErrorCode, WebToolError } from "./result";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
 import { defineWebTool, OPEN_TARGET_MS, registerWebTool, type WebTool, type WebToolConfig } from "./web-tool";

@@ -6,7 +6,7 @@ import { createChatHandler } from "../src/server/handler";
 import { createSessionKeeper } from "../src/server/session";
 import { turnstileVerify } from "../src/server/turnstile";
 import type { AgentMessage, AgentStreamPart, ToolDescriptor } from "../src/types";
-import { scriptedModel } from "./mock-model";
+import { mockModel } from "@webmcp-agents/testing/server";
 
 const SECRET = "s".repeat(32);
 const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "hi" }] };
@@ -28,7 +28,7 @@ afterEach(() => {
 
 describe("chat sessions", () => {
   const handler = (extra: Parameters<typeof createChatHandler>[0] = {}) =>
-    createChatHandler({ model: scriptedModel([{ text: "hello" }]), session: { secret: SECRET }, ...extra });
+    createChatHandler({ model: mockModel([{ text: "hello" }]), session: { secret: SECRET }, ...extra });
 
   it("GET starts a session in an httpOnly, SameSite=Strict cookie scoped to the endpoint", async () => {
     const res = await handler()(get());
@@ -54,7 +54,7 @@ describe("chat sessions", () => {
     const cookie = cookieOf(await h(get()))!;
     const forged = `${cookie.slice(0, -3)}abc`;
     expect((await h(post({ messages: [user], tools: [] }, forged))).status).toBe(401);
-    const other = cookieOf(await createChatHandler({ model: scriptedModel([]), session: { secret: "o".repeat(32) } })(get()))!;
+    const other = cookieOf(await createChatHandler({ model: mockModel([]), session: { secret: "o".repeat(32) } })(get()))!;
     expect((await h(post({ messages: [user], tools: [] }, other))).status).toBe(401);
     // a malformed body with no session: 401, not 400 (nothing is parsed for strangers)
     expect((await h(new Request(URL_, { method: "POST", headers: { "content-type": "application/json" }, body: "{" }))).status).toBe(401);
@@ -98,8 +98,8 @@ describe("chat sessions", () => {
   it("a short secret is a definition error; WEB_AGENTS_SESSION_SECRET is read from env", async () => {
     expect(() => createChatHandler({ session: { secret: "short" } })).toThrow(/at least 32/);
     expect(() => createChatHandler({ session: true, env: { WEB_AGENTS_SESSION_SECRET: "short" } })).toThrow(/at least 32/);
-    const a = createChatHandler({ model: scriptedModel([{ text: "x" }]), session: true, env: { WEB_AGENTS_SESSION_SECRET: SECRET } });
-    const b = createChatHandler({ model: scriptedModel([{ text: "x" }]), session: true, env: { WEB_AGENTS_SESSION_SECRET: SECRET } });
+    const a = createChatHandler({ model: mockModel([{ text: "x" }]), session: true, env: { WEB_AGENTS_SESSION_SECRET: SECRET } });
+    const b = createChatHandler({ model: mockModel([{ text: "x" }]), session: true, env: { WEB_AGENTS_SESSION_SECRET: SECRET } });
     // two instances, one secret: a cookie from one works on the other (serverless)
     expect((await b(post({ messages: [user], tools: [] }, cookieOf(await a(get()))))).status).toBe(200);
   });
@@ -130,7 +130,7 @@ describe("tool allowlist", () => {
   const getCart = defineWebTool({ id: "get_cart", description: "Read the cart.", execute: () => "[]" });
 
   it("drops unlisted tools, pins defineWebTool tools to the server's descriptor, keeps the page's for ids", async () => {
-    const model = scriptedModel([{ text: "ok" }]);
+    const model = mockModel([{ text: "ok" }]);
     const h = createChatHandler({ model, tools: [getCart, "checkout"] });
     await (await h(post({ messages: [user], tools: page }))).text();
     const tools = model.doStreamCalls[0]!.tools ?? [];
@@ -144,14 +144,14 @@ describe("tool allowlist", () => {
   it("the ids a registered agent lists are allowed; delegate tools still come from the registry", async () => {
     const checkout = defineWebAgent({ id: "checkout", instructions: "Check out.", tools: ["checkout"] });
     const shopper = defineWebAgent({ id: "shopper", instructions: "Shop.", agents: [checkout] });
-    const model = scriptedModel([{ text: "ok" }]);
+    const model = mockModel([{ text: "ok" }]);
     const h = createChatHandler({ model, tools: [getCart], agents: [shopper] });
     await (await h(post({ messages: [user], tools: page, agent: "shopper" }))).text();
     expect((model.doStreamCalls[0]!.tools ?? []).map((t) => t.name)).toEqual(["get_cart", "checkout", "delegate_to_checkout"]);
   });
 
   it("a chat without tools still works (the model just talks), with the site-scope line in the prompt", async () => {
-    const model = scriptedModel([{ text: "I can help with this shop." }]);
+    const model = mockModel([{ text: "I can help with this shop." }]);
     const res = await createChatHandler({ model, tools: [getCart] })(post({ messages: [user], tools: [] }));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('"delta":"shop."');
@@ -160,14 +160,14 @@ describe("tool allowlist", () => {
   });
 
   it("a call to a dropped tool answers as unavailable, it never runs", async () => {
-    const model = scriptedModel([{ calls: [{ id: "c1", name: "injected", input: {} }] }]);
+    const model = mockModel([{ calls: [{ id: "c1", name: "injected", input: {} }] }]);
     const res = await createChatHandler({ model, tools: [getCart] })(post({ messages: [user], tools: page }));
     expect(await res.text()).toContain("unavailable");
   });
 
   it("requireAgent refuses a POST naming no agent", async () => {
     const shopper = defineWebAgent({ id: "shopper", instructions: "Shop." });
-    const h = createChatHandler({ model: scriptedModel([{ text: "ok" }]), agents: [shopper], requireAgent: true });
+    const h = createChatHandler({ model: mockModel([{ text: "ok" }]), agents: [shopper], requireAgent: true });
     const res = await h(post({ messages: [user], tools: [] }));
     expect(res.status).toBe(400);
     expect((await res.json()).message).toMatch(/Name an agent/);
@@ -201,16 +201,14 @@ describe("createCloudAdapter with sessions", () => {
   };
 
   it("a run before any GET starts the session itself and retries once", async () => {
-    const { fetch } = browser(createChatHandler({ model: scriptedModel([{ text: "hi there" }]), session: { secret: SECRET } }));
+    const { fetch } = browser(createChatHandler({ model: mockModel([{ text: "hi there" }]), session: { secret: SECRET } }));
     const parts = await run(createCloudAdapter({ fetch }));
     expect(parts.at(-1)).toEqual({ type: "finish", reason: "stop" });
     expect(fetch.mock.calls.map(([, init]) => init?.method ?? "GET")).toEqual(["POST", "GET", "POST"]);
   });
 
   it("no session to be had (verify refused): a readable error, no loop", async () => {
-    const { fetch } = browser(
-      createChatHandler({ model: scriptedModel([{ text: "x" }]), session: { secret: SECRET, verify: () => false } }),
-    );
+    const { fetch } = browser(createChatHandler({ model: mockModel([{ text: "x" }]), session: { secret: SECRET, verify: () => false } }));
     const parts = await run(createCloudAdapter({ fetch }));
     expect(parts.at(-1)).toEqual({ type: "error", error: "Couldn't start a chat session. Reload the page and try again." });
     expect(fetch).toHaveBeenCalledTimes(3);
@@ -260,7 +258,7 @@ describe("Turnstile", () => {
 
   it("gates new sessions: only a GET with a valid token gets the cookie; a live session needs no new token", async () => {
     const fetch = siteverify({ good: { success: true } });
-    const h = createChatHandler({ model: scriptedModel([{ text: "ok" }]), session: { secret: SECRET, turnstile: { secret: "s", fetch } } });
+    const h = createChatHandler({ model: mockModel([{ text: "ok" }]), session: { secret: SECRET, turnstile: { secret: "s", fetch } } });
     expect((await h(get())).headers.get("set-cookie")).toBeNull();
     expect((await h(withToken("bad"))).headers.get("set-cookie")).toBeNull();
     const cookie = cookieOf(await h(withToken("good")))!;
@@ -276,7 +274,7 @@ describe("Turnstile", () => {
   it("the adapter asks for sessionHeaders only when the server wants a session, and sends them on that GET", async () => {
     const verifyFetch = siteverify({ solved: { success: true } });
     const h = createChatHandler({
-      model: scriptedModel([{ text: "hi" }]),
+      model: mockModel([{ text: "hi" }]),
       session: { secret: SECRET, turnstile: { secret: "s", fetch: verifyFetch } },
     });
     let jar: string | undefined;
@@ -309,7 +307,7 @@ describe("Turnstile", () => {
   it("a failing challenge reads as a session error", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const h = createChatHandler({
-      model: scriptedModel([{ text: "x" }]),
+      model: mockModel([{ text: "x" }]),
       session: { secret: SECRET, turnstile: { secret: "s", fetch: siteverify({}) } },
     });
     const adapter = createCloudAdapter({

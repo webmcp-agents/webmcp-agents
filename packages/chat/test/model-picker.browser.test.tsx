@@ -4,7 +4,7 @@ import { render } from "vitest-browser-react";
 import "../src/chat.css";
 import { AgentChat } from "../src/components/AgentChat";
 import type { AdapterStatus, AgentAdapter, ModelChoice } from "../src/types";
-import { cleanupFixtures, modelContext, until } from "./browser-utils";
+import { cleanupFixtures, modelContext, until } from "@webmcp-agents/testing";
 
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
 const q = <T extends Element = HTMLElement>(sel: string) => host().querySelector<T>(sel);

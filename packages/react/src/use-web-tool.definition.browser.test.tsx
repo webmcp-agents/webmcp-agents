@@ -7,7 +7,7 @@ import { afterEach, beforeAll, describe, expect, expectTypeOf, it, vi } from "vi
 import { render } from "vitest-browser-react";
 import { z } from "zod";
 import { WebAgentsProvider } from "./provider";
-import { countChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "./test-utils";
+import { countToolChanges, modelContext, resultText, sleep, toolNames, uniqueName, until } from "@webmcp-agents/testing";
 import { useWebTool } from "./use-web-tool";
 
 const QUIET = { linger: 50, yieldToUser: false } as const;
@@ -146,7 +146,7 @@ describe("useWebTool(definition)", () => {
 
   it("registers once under StrictMode and always runs the latest render's execute", async () => {
     const id = uniqueName("d_count");
-    const changes = countChanges();
+    const changes = countToolChanges();
     const screen = await render(
       <StrictMode>
         <Counter id={id} />

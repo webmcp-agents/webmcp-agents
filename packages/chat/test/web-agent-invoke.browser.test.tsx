@@ -7,17 +7,14 @@ import { defineWebAgent, type WebAgent } from "../src/agent";
 import { AgentChat } from "../src/components/AgentChat";
 import { createChatHandler } from "../src/server/handler";
 import { useWebAgent, type WebAgentHandle } from "../src/session/use-web-agent";
-import type { AgentAdapter, AgentMessage, AgentRunRequest, AgentStreamPart, ToolDescriptor } from "../src/types";
-import { cleanupFixtures, fixture, modelContext, uniqueName, until } from "./browser-utils";
-import { scriptedModel, type Step } from "./mock-model";
-
-function fakeAdapter(script: (req: AgentRunRequest) => AsyncGenerator<AgentStreamPart>): AgentAdapter {
-  return { id: "fake", label: "Fake", run: script };
-}
+import type { AgentAdapter, AgentMessage, ToolDescriptor } from "../src/types";
+import { cleanupFixtures, fixture, modelContext, uniqueName, until } from "@webmcp-agents/testing";
+import { mockAdapter } from "@webmcp-agents/testing/chat";
+import { mockModel, type Step } from "@webmcp-agents/testing/server";
 
 /** `globalThis.fetch` answered by the real chat handler on a scripted model: what the default cloud adapter POSTs to. */
 function serveChat(steps: Step[], agents: WebAgent[] = []) {
-  const handler = createChatHandler({ model: scriptedModel(steps), agents });
+  const handler = createChatHandler({ model: mockModel(steps), agents });
   const bodies: { messages: AgentMessage[]; tools: ToolDescriptor[] }[] = [];
   const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
     if (init?.method === "POST") bodies.push(JSON.parse(String(init.body)));
@@ -89,7 +86,7 @@ describe("agent.invoke", () => {
     const { tool, off } = addTool();
     const helper = defineWebAgent({ id: "helper_invoke", instructions: "h", tools: [tool.id] });
     const parent = defineWebAgent({ id: "parent_invoke", instructions: "p", agents: [helper] });
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       if (req.agent?.id === helper.id) {
         yield { type: "message-start", messageId: "n1" };
         yield { type: "tool-call", messageId: "n1", id: "c2", name: tool.id, input: { qty: 1 } };
@@ -139,7 +136,7 @@ describe("agent.invoke", () => {
     });
     const off = registerWebTool(slow);
     const agent = defineWebAgent({ id: "waiter", instructions: "w" });
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: slow.id, input: {} };
       const out = await req.callTool({ id: "c1", name: slow.id, input: {} });
@@ -160,7 +157,7 @@ describe("agent.invoke", () => {
 
   it("a failed run rejects with the adapter's message and code; an empty message is refused", async () => {
     const agent = defineWebAgent({ id: "failer", instructions: "f" });
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       yield { type: "error", error: "Too fast.", code: "rate_limited" };
     });
     await expect(agent.invoke("hi", { adapter })).rejects.toMatchObject({ message: "Too fast.", code: "rate_limited" });
@@ -180,7 +177,7 @@ describe("useWebAgent", () => {
     fixture(`<button type="button">Pay now</button>`);
     const { tool, runs, off } = addTool({ title: "Pay now", requireConfirmation: true });
     const agent = defineWebAgent({ id: "payer", instructions: "Pay.", tools: [tool] });
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: tool.id, input: { qty: 1 } };
       yield { type: "tool-result", id: "c1", output: await req.callTool({ id: "c1", name: tool.id, input: { qty: 1 } }) };
@@ -223,7 +220,7 @@ describe("useWebAgent", () => {
 
   it("stop() cancels the run: status idle, the open step cancelled, invoke resolves undefined", async () => {
     const agent = defineWebAgent({ id: "stopper", instructions: "s" });
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       yield { type: "message-start", messageId: "a1" };
       yield { type: "tool-call", messageId: "a1", id: "c1", name: "nothing_here", input: {} };
       await new Promise<void>((resolve) => req.signal.addEventListener("abort", () => resolve(), { once: true }));
@@ -243,7 +240,7 @@ describe("useWebAgent", () => {
   it("a failed run sets status error and error; the next invoke clears it", async () => {
     const agent = defineWebAgent({ id: "flaky", instructions: "f" });
     let fail = true;
-    const adapter = fakeAdapter(async function* () {
+    const adapter = mockAdapter(async function* () {
       if (fail) {
         yield { type: "error", error: "Couldn't reach the assistant.", code: "network" };
         return;

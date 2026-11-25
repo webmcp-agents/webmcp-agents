@@ -1,7 +1,7 @@
 import { defineWebTool, registerWebTool, writeControl } from "@webmcp-agents/core";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { RestoreJournal, reverseToolCalls } from "../src/session/restore-journal";
-import { cleanupFixtures, fixture, modelContext, uniqueName } from "./browser-utils";
+import { cleanupFixtures, fixture, modelContext, uniqueName } from "@webmcp-agents/testing";
 
 describe("reverseToolCalls", () => {
   const handles: Array<() => void> = [];

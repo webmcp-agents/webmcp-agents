@@ -1,10 +1,10 @@
 import { type AgentVisuals, installAgentVisuals } from "@webmcp-agents/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
-import { byText, cleanupFixtures, devtoolsRoot, modelContext, toolForm, uniqueName, until } from "../test-utils";
+import { byText, cleanupFixtures, uiRoot, modelContext, toolForm, uniqueName, until } from "@webmcp-agents/testing";
 import { installWebAgentsDevtools } from "../vanilla";
 
-const $ = <T extends Element = HTMLElement>(selector: string) => devtoolsRoot().querySelector<T>(selector);
+const $ = <T extends Element = HTMLElement>(selector: string) => uiRoot("devtools").querySelector<T>(selector);
 const cursorVisible = () => !!document.querySelector(".agent-cursor.is-visible");
 
 describe("devtools panel", () => {
@@ -32,23 +32,25 @@ describe("devtools panel", () => {
 
   async function openTool(tool = name): Promise<HTMLElement> {
     await userEvent.click($(".launcher") as HTMLElement);
-    await until(() => !!byText(devtoolsRoot(), ".disclosure", tool), 3000, "tool row");
-    await userEvent.click(byText(devtoolsRoot(), ".disclosure", tool) as HTMLElement);
+    await until(() => !!byText(uiRoot("devtools"), ".disclosure", tool), 3000, "tool row");
+    await userEvent.click(byText(uiRoot("devtools"), ".disclosure", tool) as HTMLElement);
     return $(".runner") as HTMLElement;
   }
 
   it("opens from the launcher with focus on the active tab", async () => {
     await userEvent.click($(".launcher") as HTMLElement);
     expect($('[role="dialog"]')).not.toBeNull();
-    expect(devtoolsRoot().activeElement?.getAttribute("role")).toBe("tab");
-    expect(devtoolsRoot().activeElement?.getAttribute("aria-selected")).toBe("true");
+    expect(uiRoot("devtools").activeElement?.getAttribute("role")).toBe("tab");
+    expect(uiRoot("devtools").activeElement?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("filters tools by search", async () => {
     await userEvent.click($(".launcher") as HTMLElement);
-    await until(() => devtoolsRoot().querySelectorAll(".tool").length >= 2, 3000, "rows");
+    await until(() => uiRoot("devtools").querySelectorAll(".tool").length >= 2, 3000, "rows");
     await userEvent.fill($('input[type="search"]') as HTMLElement, "apply_promo");
-    expect([...devtoolsRoot().querySelectorAll(".tool code")].map((c) => c.textContent)).toEqual([expect.stringMatching(/^apply_promo_x/)]);
+    expect([...uiRoot("devtools").querySelectorAll(".tool code")].map((c) => c.textContent)).toEqual([
+      expect.stringMatching(/^apply_promo_x/),
+    ]);
   });
 
   it("runs a tool from the generated form and shows it on the timeline", async () => {
@@ -59,25 +61,33 @@ describe("devtools panel", () => {
     await userEvent.fill(qty, "3");
     await userEvent.click(byText(runner, "button", "Run") as HTMLElement);
     await until(() => !!byText(runner, ".result-text", "Added 3"), 8000, "result");
-    expect(byText(devtoolsRoot(), '[role="tab"]', "Timeline")?.querySelector(".count")?.textContent).toBe("1");
+    expect(byText(uiRoot("devtools"), '[role="tab"]', "Timeline")?.querySelector(".count")?.textContent).toBe("1");
   });
 
   it("runs a tool from its row without opening it, repeating the last arguments", async () => {
     await userEvent.click($(".launcher") as HTMLElement);
-    await until(() => !!devtoolsRoot().querySelector(`[aria-label="Run ${name}"]`), 3000, "row run button");
+    await until(() => !!uiRoot("devtools").querySelector(`[aria-label="Run ${name}"]`), 3000, "row run button");
     await userEvent.click($(`[aria-label="Run ${name}"]`) as HTMLElement); // defaults: qty 1
-    await until(() => byText(devtoolsRoot(), '[role="tab"]', "Timeline")?.querySelector(".count")?.textContent === "1", 8000, "first run");
+    await until(
+      () => byText(uiRoot("devtools"), '[role="tab"]', "Timeline")?.querySelector(".count")?.textContent === "1",
+      8000,
+      "first run",
+    );
     expect($(".runner")).toBeNull();
 
     // a run from the opened form becomes the row's arguments
-    await userEvent.click(byText(devtoolsRoot(), ".disclosure", name) as HTMLElement); // the panel is already open
+    await userEvent.click(byText(uiRoot("devtools"), ".disclosure", name) as HTMLElement); // the panel is already open
     const runner = $(".runner") as HTMLElement;
     await userEvent.fill(runner.querySelector('input[type="number"]') as HTMLElement, "4");
     await userEvent.click(byText(runner, "button", "Run") as HTMLElement);
     await until(() => !!byText(runner, ".result-text", "Added 4"), 8000, "form run");
     await until(() => ($(`[aria-label="Run ${name}"]`) as HTMLButtonElement | null)?.disabled === false, 8000, "row button enabled");
     await userEvent.click($(`[aria-label="Run ${name}"]`) as HTMLElement);
-    await until(() => byText(devtoolsRoot(), '[role="tab"]', "Timeline")?.querySelector(".count")?.textContent === "3", 8000, "third run");
+    await until(
+      () => byText(uiRoot("devtools"), '[role="tab"]', "Timeline")?.querySelector(".count")?.textContent === "3",
+      8000,
+      "third run",
+    );
     await until(() => !!byText(runner, ".result-text", "Added 4"), 8000, "repeated args");
   });
 
@@ -87,7 +97,7 @@ describe("devtools panel", () => {
     const json = runner.querySelector("textarea") as HTMLTextAreaElement;
     await userEvent.fill(json, "{");
     expect(json.getAttribute("aria-invalid")).toBe("true");
-    expect(devtoolsRoot().getElementById(json.getAttribute("aria-describedby") ?? "")?.textContent).toMatch(/Not valid JSON/);
+    expect(uiRoot("devtools").getElementById(json.getAttribute("aria-describedby") ?? "")?.textContent).toMatch(/Not valid JSON/);
     expect((byText(runner, "button", "Run") as HTMLButtonElement).disabled).toBe(true);
     await userEvent.fill(json, '{"qty": 2}');
     expect(json.hasAttribute("aria-invalid")).toBe(false);
@@ -111,7 +121,7 @@ describe("devtools panel", () => {
     await until(() => !!byText(runner, ".status", "Waiting for you"), 8000, "parked");
     expect(cursorVisible()).toBe(true);
     await userEvent.hover($(".brand") as HTMLElement);
-    await userEvent.hover(byText(devtoolsRoot(), '[role="tab"]', "Settings") as HTMLElement);
+    await userEvent.hover(byText(uiRoot("devtools"), '[role="tab"]', "Settings") as HTMLElement);
     await new Promise((r) => setTimeout(r, 150));
     expect(cursorVisible()).toBe(true);
     await userEvent.click(byText(runner, "button", "Cancel") as HTMLElement);
@@ -120,12 +130,12 @@ describe("devtools panel", () => {
   it("supports the tabs keyboard pattern and Escape", async () => {
     await userEvent.click($(".launcher") as HTMLElement);
     await userEvent.keyboard("{ArrowRight}");
-    expect(devtoolsRoot().activeElement?.textContent).toContain("Timeline");
-    expect(byText(devtoolsRoot(), '[role="tab"]', "Timeline")?.getAttribute("aria-selected")).toBe("true");
+    expect(uiRoot("devtools").activeElement?.textContent).toContain("Timeline");
+    expect(byText(uiRoot("devtools"), '[role="tab"]', "Timeline")?.getAttribute("aria-selected")).toBe("true");
     await userEvent.keyboard("{End}");
-    expect(devtoolsRoot().activeElement?.textContent).toContain("Settings");
+    expect(uiRoot("devtools").activeElement?.textContent).toContain("Settings");
     await userEvent.keyboard("{Escape}");
     expect($('[role="dialog"]')).toBeNull();
-    expect(devtoolsRoot().activeElement).toBe($(".launcher"));
+    expect(uiRoot("devtools").activeElement).toBe($(".launcher"));
   });
 });

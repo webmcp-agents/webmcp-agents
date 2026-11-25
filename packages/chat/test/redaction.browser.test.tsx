@@ -11,8 +11,9 @@ import { render } from "vitest-browser-react";
 import "../src/chat.css";
 import { AgentChat } from "../src/components/AgentChat";
 import { bindRestoreJournal, RestoreJournal, reverseToolCalls } from "../src/session/restore-journal";
-import type { AgentAdapter, AgentRunRequest, AgentStreamPart } from "../src/types";
-import { cleanupFixtures, fixture, modelContext, uniqueName, until } from "./browser-utils";
+import type { AgentRunRequest, AgentStreamPart } from "../src/types";
+import { cleanupFixtures, fixture, modelContext, uniqueName, until } from "@webmcp-agents/testing";
+import { mockAdapter } from "@webmcp-agents/testing/chat";
 
 const PASSPORT = "A1234567";
 const REFERENCE = "BR-777";
@@ -20,20 +21,6 @@ const EMAIL = "sara@example.com";
 const CARD = "4242 4242 4242 4242";
 
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
-
-function fakeAdapter(script: (req: AgentRunRequest) => AsyncGenerator<AgentStreamPart>): AgentAdapter & { requests: AgentRunRequest[] } {
-  const adapter: AgentAdapter & { requests: AgentRunRequest[] } = {
-    id: "fake",
-    label: "Fake",
-    requests: [],
-    run(req) {
-      // a copy: the session goes on appending to the array it passed
-      adapter.requests.push({ ...req, messages: structuredClone(req.messages) });
-      return script(req);
-    },
-  };
-  return adapter;
-}
 
 describe("the chat's redaction", () => {
   const offs: Array<() => void> = [];
@@ -80,7 +67,7 @@ describe("the chat's redaction", () => {
 
   it("the card masks marked fields and detected values; the person's own message is shown as typed", async () => {
     const id = bookingTool();
-    const adapter = fakeAdapter(script(id, { passport: PASSPORT }));
+    const adapter = mockAdapter(script(id, { passport: PASSPORT }));
     await render(<AgentChat adapter={adapter} defaultOpen storageKey={false} />);
     await userEvent.type(host().querySelector("textarea")!, `my card is ${CARD}, book it{Enter}`);
     await until(() => host().querySelector(".wa-chat__tool")?.getAttribute("data-status") === "done", 4000, "card done");
@@ -93,7 +80,7 @@ describe("the chat's redaction", () => {
   it("hideFromModel: the next request and the stored history hold the token; other fields reach the model", async () => {
     const id = bookingTool();
     const storageKey = uniqueName("redaction-chat");
-    const adapter = fakeAdapter(script(id, { passport: PASSPORT }));
+    const adapter = mockAdapter(script(id, { passport: PASSPORT }));
     await render(<AgentChat adapter={adapter} defaultOpen storageKey={storageKey} />);
     await userEvent.type(host().querySelector("textarea")!, "book it{Enter}");
     await until(() => adapter.requests.length === 1 && host().textContent!.includes("Booked."), 4000, "first run");
@@ -112,7 +99,7 @@ describe("the chat's redaction", () => {
   it("the page's configured keys reach the card (one configuration, every sink)", async () => {
     configureRedaction({ keys: (d) => [...d, "loyaltyId"] });
     const id = bookingTool();
-    const adapter = fakeAdapter(script(id, { loyaltyId: "L-99" }));
+    const adapter = mockAdapter(script(id, { loyaltyId: "L-99" }));
     await render(<AgentChat adapter={adapter} defaultOpen storageKey={false} />);
     await userEvent.type(host().querySelector("textarea")!, "book{Enter}");
     await until(() => host().querySelector(".wa-chat__tool")?.getAttribute("data-status") === "done", 4000, "card done");

@@ -1,6 +1,16 @@
 import { userEvent } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanupFixtures, cursorVisible, fixture, modelContext, recordEvents, resultText, toolForm, uniqueName, until } from "./test-utils";
+import {
+  cleanupFixtures,
+  cursorVisible,
+  fixture,
+  modelContext,
+  recordEvents,
+  resultText,
+  toolForm,
+  uniqueName,
+  until,
+} from "@webmcp-agents/testing";
 import { onAgentEvent } from "./events";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
 import { CONFIRM, TARGET } from "./confirm";
@@ -73,7 +83,7 @@ describe("installAgentVisuals", () => {
 
   it("parks on the submit button of a confirm form until the user clicks it", async () => {
     const name = uniqueName("t_confirm");
-    const form = toolForm(name, { autosubmit: false, fields: "", answer: "placed" });
+    const form = toolForm(name, { autosubmit: false, fields: "", submit: "Go", answer: "placed" });
     await tick();
 
     const pending = modelContext().executeTool(name, {});
@@ -103,6 +113,7 @@ describe("installAgentVisuals", () => {
 
     const res = await modelContext().executeTool(name, {});
     off();
+    modelContext().unregisterTool?.(name);
 
     expect(resultText(res)).toContain("cleared");
     // execute ran between start and result: it was held until the cursor pressed the button.
@@ -129,6 +140,7 @@ describe("installAgentVisuals", () => {
     modelContext().registerTool({ name, description: "test", execute: () => "done" });
     const started = performance.now();
     const res = await modelContext().executeTool(name, {});
+    modelContext().unregisterTool?.(name);
     expect(resultText(res)).toContain("done");
     expect(performance.now() - started).toBeLessThan(100);
     expect(rec.types()).toEqual(["start", "result"]);

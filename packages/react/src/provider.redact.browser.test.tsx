@@ -8,7 +8,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { z } from "zod";
 import { WebAgentsProvider } from "./provider";
-import { modelContext, sleep, uniqueName, until } from "./test-utils";
+import { modelContext, sleep, uniqueName, until } from "@webmcp-agents/testing";
 import { useWebTool } from "./use-web-tool";
 
 describe("<WebAgentsProvider redact>", () => {

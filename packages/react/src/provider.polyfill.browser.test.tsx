@@ -1,25 +1,19 @@
 /**
  * A browser without WebMCP (Playwright's Chromium), as in Firefox or Safari: the provider loads the polyfill itself.
- * Nothing here imports it (test-utils does, so this file doesn't use them). The tests share one page and run in order.
+ * Nothing here installs it: this file runs in a project whose only setup is the kit's matchers. The tests share one
+ * page and run in order.
  */
 import { defineWebTool } from "@webmcp-agents/core";
 import { StrictMode } from "react";
 import { renderToString } from "react-dom/server.browser";
+import { sleep, until } from "@webmcp-agents/testing";
 import { describe, expect, it } from "vitest";
 import { render } from "vitest-browser-react";
 import { WebAgentsProvider } from "./provider";
 import { useWebTool } from "./use-web-tool";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Read without installing anything: this page has no WebMCP until the provider loads the polyfill. */
 const names = async (): Promise<string[]> => ((await document.modelContext?.getTools()) ?? []).map((t) => t.name);
-
-async function until(check: () => boolean | Promise<boolean>, label: string, timeout = 3000): Promise<void> {
-  const started = performance.now();
-  while (!(await check())) {
-    if (performance.now() - started > timeout) throw new Error(`Timed out waiting for ${label}`);
-    await sleep(10);
-  }
-}
 
 const catalog = { listed: defineWebTool({ id: "catalog_tool", description: "test tool", readOnly: true, execute: () => "ok" }) };
 
