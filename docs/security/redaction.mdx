@@ -1,0 +1,113 @@
+---
+title: Redaction
+description: "Keep passwords, card numbers, passports and the fields you mark out of what the library shows, logs and exports about a tool call: where it applies, how to mark data, and what it does not protect against."
+related:
+  - /security
+  - /observability/privacy
+  - /testing/privacy-and-telemetry
+---
+
+An agent's tool calls carry what the person typed: a passport number, a card, a one-time code. The library shows those
+calls on the page, logs them, and can export them to an observability backend. Redaction keeps the secret parts out
+of all of those places. It is on by default, with one set of rules for the page and one for the server, and most apps
+only mark the few fields that are theirs.
+
+## Where it applies
+
+Every place the library writes data about a call passes it through the redactor. You do not call it yourself.
+
+| Where | What is redacted |
+|---|---|
+| The cursor: its `fill` event, its live region and what it reads aloud | A sensitive field's value is `"••••"`, and its previous value is withheld, so a chat restore leaves that field alone. The field itself gets the real value. |
+| The devtools: the call log, the fields typed, results, "copy as code" | Everything, when it is recorded. "Reveal values" shows the originals, in development builds only. |
+| The chat's tool card, and the registry's `agent-tool` block | The call's input, output and error. |
+| [`onAgentRun`](/reference/chat/on-agent-run) listeners | Tool inputs, outputs and a parked call's prompt, unless the listener asks for `raw`. |
+| Telemetry spans, in the browser, on the server and in the relay | Every attribute, always, as the last step, even with `recordInputs` or `recordOutputs` on. |
+| URLs that leave the page | Logs and telemetry: every query value. The model: only values that look secret (see [two strengths](#two-strengths)). |
+| Console lines that print an error | The error's message only, redacted. |
+| Server logs, model errors and refusals | Redacted with the server's rules. Request bodies are never logged. |
+
+## Mark what is sensitive
+
+There are three ways, and they add up. A password field, a card number, a token, an email and a field named like
+`apiKey`, `password`, `token`, `ssn`, `cvv`, `passport` or `pin` are covered without any of them.
+
+**On the tool.** `sensitive` names the input parameters and the result fields that are secret for this tool. A plain
+list (`sensitive: ["passport"]`) applies to both sides.
+
+<include meta='title="tools/fill-traveler.ts" {15-17}'>/_examples/security/fill-traveler.ts</include>
+
+**In the schema.** A property with `x-sensitive: true`, or `format: "password"`, is sensitive wherever the tool's
+schema goes:
+
+<include meta='title="tools/payment-input.ts"'>/_examples/security/schema.ts</include>
+
+**On the page.** The control itself. `data-agent-sensitive` marks any field; a password field and an `autocomplete`
+such as `cc-number`, `cc-csc`, `current-password` or `one-time-code` are detected on their own:
+
+<include meta='title="components/payment-fields.tsx"'>/_examples/security/payment-fields.tsx</include>
+
+## Rules for the whole page and the server
+
+Add field names, value patterns or exact paths once, for every tool. The rules extend the defaults; they do not replace
+them unless you pass a list instead of a function.
+
+With React, pass them to the provider, so they are in place before any tool registers:
+
+<include meta='title="providers.tsx"'>/_examples/security/page-rules.tsx</include>
+
+Without React, call `configureRedaction` once, before tools run:
+
+<include meta='title="redaction.ts"'>/_examples/security/page-rules.ts</include>
+
+The server keeps its own rules, for what the chat handler logs and reports:
+
+<include meta='title="api/chat.ts"'>/_examples/security/server-rules.ts</include>
+
+Every option (`keys`, `allowKeys`, `patterns`, `paths`, `allowQuery`, `style`, `custom`…) is on
+[`createRedactor`](/reference/core/create-redactor). `style: "indexed"` replaces each distinct value with a stable
+token (`[EMAIL_1]`, `[CARD_1]`) per run, so a trace stays readable without the values.
+
+## Two strengths
+
+Telemetry, logs and span attributes get the strict rules: a URL keeps its origin and path, and every query value is
+replaced unless you list its name in `allowQuery`.
+
+The model gets a lighter version, because it needs the page's state to work. The two URLs it reads (the page it is on,
+and the note sent when the person changed pages) lose credentials, the hash, and only the parameters that are
+sensitive by name or look like a secret. So `?from=CAI&to=LHR` still reaches the model, and `?token=abc` does not.
+
+## Keep a result from the model
+
+By default the model receives tool inputs and results unchanged: it usually needs the data it asked for. When a result
+holds something the person should see and the model should not, add `hideFromModel`:
+
+<include meta='title="tools/show-gift-code.ts" {10-11}'>/_examples/security/hide-from-model.ts</include>
+
+The page and the person get the code. The model, and the conversation the chat stores for the next turn, get
+`"[REDACTED]"`.
+
+## What is not redacted, on purpose
+
+- **What the model receives**, unless a tool sets `hideFromModel`. See above.
+- **[`onAgentEvent`](/reference/core/on-agent-event) listeners** get `args` and `result` exactly as before 0.5.0: the
+  cursor and existing integrations depend on them. Only a `fill` event's value is masked.
+- **The person's own message** in the chat is never altered. What they typed is theirs.
+- **The stored conversation** (`sessionStorage`, for restore) keeps tool results as the model saw them. It never leaves
+  the browser, and fields hidden with `hideFromModel` are stored as the token.
+
+## What redaction is not
+
+Redaction reduces accidental leakage: a card number in a log line, a passport in a trace, a token in a screenshot of
+the devtools. It is not a security boundary. A hostile script running on the same page can read the form fields
+directly, and a model that was given a value can repeat it in its own words, where no pattern will catch it. Keep
+secrets from the model with `hideFromModel` or by not giving them to a tool, and protect the page itself with the
+usual means (a content security policy, no untrusted scripts).
+
+Values the redactor cannot walk come back empty: a `Map`, a `Set` or a class instance is returned as its own
+enumerable fields, which is usually `{}`. Convert them to plain objects or arrays if you need them in a span or a log.
+
+## Test it
+
+[Test privacy and telemetry](/testing/privacy-and-telemetry) shows one test that checks every sink at once: events,
+run events, spans and the console.

@@ -4,5 +4,5 @@ import { defineMeta } from "blume";
 export default defineMeta({
   title: "Security",
   order: 4,
-  pages: ["index", "sessions", "tool-allowlist", "turnstile", "limits"],
+  pages: ["index", "sessions", "tool-allowlist", "turnstile", "limits", "redaction"],
 });

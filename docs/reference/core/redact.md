@@ -63,6 +63,7 @@ Not redacted, on purpose:
 
 ## See also
 
+- [Redaction](../../security/redaction.mdx), the guide
 - [`defineWebTool`](./define-web-tool.md#options), the `sensitive` option
 - [`<WebAgentsProvider redact>`](../react/web-agents-provider.md#props)
 - [`createChatHandler`](../chat/create-chat-handler.md#options), the server's own rules

@@ -1,0 +1,6 @@
+{
+  // The redaction page's code (docs/security/redaction.mdx).
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node"], "jsx": "react-jsx" },
+  "include": ["."]
+}
