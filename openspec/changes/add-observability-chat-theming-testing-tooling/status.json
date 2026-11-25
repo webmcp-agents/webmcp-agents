@@ -1,5 +1,5 @@
 {
-  "now": "Phase 6b running: examples, roadmap, CLAUDE.md, changeset",
+  "now": "All phases done and verified by the lead; syncing specs, archiving, opening the PR",
   "waiting": "",
   "phases": {
     "0": {
@@ -45,17 +45,18 @@
       "commit": "ae1da9c..acab5bb"
     },
     "6": {
-      "state": "running",
-      "model": "Opus 5.5 (docs, done) + Sonnet 5.5 (examples) / medium",
-      "session": "phase-6b-examples",
-      "gate": "6a pass (lead)",
-      "commit": "6a: aa37fa6..d4acc03"
+      "state": "done",
+      "model": "Opus 5.5 (docs) + Sonnet 5.5 (examples) / medium",
+      "session": "phase-6a-docs, phase-6b-examples",
+      "gate": "pass (lead): check, check-exports, e2e",
+      "commit": "aa37fa6..2ce5d67"
     }
   },
   "decisions": [
     "redact entry budget 1.5 -> 2.75 KB (full feature set kept)",
     "core budgets: visuals 10.45 -> 10.55 KB, whole 18.5 -> 18.6 KB (sensitive-control check in the cursor)",
     "events.ts listener-error log stays unredacted (not tool data)",
-    "backends without credentials (LangSmith, LangWatch, Langfuse, Sentry, Instana) ship as unverified recipes; local Collector verified over json, protobuf and grpc"
+    "backends without credentials (LangSmith, LangWatch, Langfuse, Sentry, Instana) ship as unverified recipes; local Collector verified over json, protobuf and grpc",
+    "ecommerce: Arabic toggle moved out of the footer bottom row (the devtools launcher covered it)"
   ]
 }

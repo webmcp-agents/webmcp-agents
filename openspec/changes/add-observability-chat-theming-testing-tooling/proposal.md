@@ -138,15 +138,15 @@ never in a runtime package).
 
 ## Acceptance
 
-- [ ] With nothing configured: behavior identical to 0.4.0 (chat restore included) except masking of sensitive fields in events, devtools and the tool card; `core` main-entry sizes unchanged. (Revision 3 adds to "except": secrets removed from URLs and logs, and the step-limit message; see What Changes)
-- [ ] No hard-coded string in the chat; no raw value in `chat.css`; a JSON file alone rebrands and translates it
-- [ ] `observability: defineObservability()` + two standard env lines exports to LangSmith; changing only env switches backend
-- [ ] A vendor's `SpanExporter` or `SpanProcessor` instance works unmodified; an app's global provider is used and never replaced
-- [ ] One turn is one trace with browser and server spans; no credential in the browser
-- [ ] The cross-sink leak test passes: canary values appear in no sink
-- [ ] The repo's own tests run on `@webmcp-agents/testing`; no private helper copies remain
-- [ ] Every docs snippet under `docs/testing/`, `docs/observability/` and `docs/security/redaction` compiles; testing ones execute
-- [ ] `pnpm knip` and `pnpm konsistent` are clean and part of `pnpm check`
+- [x] With nothing configured: behavior identical to 0.4.0 (chat restore included) except masking of sensitive fields in events, devtools and the tool card; `core` main-entry sizes unchanged. (Revision 3 adds to "except": secrets removed from URLs and logs, and the step-limit message; see What Changes)
+- [x] No hard-coded string in the chat; no raw value in `chat.css`; a JSON file alone rebrands and translates it
+- [ ] `observability: defineObservability()` + two standard env lines exports to LangSmith; changing only env switches backend — **partly verified:** the env-only path was run against a local OpenTelemetry Collector over `http/json`, `http/protobuf` and `grpc` (`verification/backends.md`); LangSmith itself was not run (no credential), and its recipe sets `http/protobuf` because its docs do not confirm OTLP JSON
+- [x] A vendor's `SpanExporter` or `SpanProcessor` instance works unmodified; an app's global provider is used and never replaced
+- [x] One turn is one trace with browser and server spans; no credential in the browser
+- [x] The cross-sink leak test passes: canary values appear in no sink
+- [x] The repo's own tests run on `@webmcp-agents/testing`; no private helper copies remain
+- [x] Every docs snippet under `docs/testing/`, `docs/observability/` and `docs/security/redaction` compiles; testing ones execute
+- [x] `pnpm knip` and `pnpm konsistent` are clean and part of `pnpm check`
 
 ## Recommendations (not in scope unless marked accepted)
 

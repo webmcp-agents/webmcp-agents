@@ -19,6 +19,18 @@ export function Footer() {
           <p className="text-sm text-muted-foreground">
             Everyday goods, built to stay. Every action on this site is a tool an agent can call.
           </p>
+          {/* The assistant's language: Arabic switches the chat to right-to-left. Up here, not in the bottom row:
+              the chat and devtools launchers sit in the page's bottom corners and would cover it. */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="self-start"
+            lang={toggleLabel === "English" ? "en" : "ar"}
+            aria-label={toggleName}
+            onClick={toggle}
+          >
+            {toggleLabel}
+          </Button>
         </div>
 
         {COLUMNS.map((c) => (
@@ -47,10 +59,6 @@ export function Footer() {
           </a>
           .
         </p>
-        {/* the assistant's language: Arabic switches the chat to right-to-left */}
-        <Button variant="outline" size="sm" lang={toggleLabel === "English" ? "en" : "ar"} aria-label={toggleName} onClick={toggle}>
-          {toggleLabel}
-        </Button>
       </div>
     </footer>
   );
