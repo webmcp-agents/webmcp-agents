@@ -1,0 +1,14 @@
+/* Level 1: variables only. Set them anywhere above the chat. */
+:root {
+  --wa-chat-color-accent: oklch(0.62 0.19 255);
+  --wa-chat-color-user-bubble: var(--wa-chat-color-accent);
+  --wa-chat-radius-panel: 20px;
+  --wa-chat-radius-bubble: 14px;
+  --wa-chat-font-family: "Inter", system-ui, sans-serif;
+  --wa-chat-size-width: 420px;
+}
+
+/* One part, in one state: every element has data-wa-part. */
+[data-wa-part="toolCard"][data-state="awaiting-confirmation"] {
+  border-style: dashed;
+}

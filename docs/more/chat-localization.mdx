@@ -1,0 +1,63 @@
+---
+title: Translate the chat
+description: "Change every word of <AgentChat>, ship it in Arabic or Spanish, or your own language: placeholders, plurals, functions, right-to-left layout and the server's own text."
+related:
+  - /more/chat-theming
+  - /build/add-the-chat
+  - /testing/test-the-chat
+---
+
+Every string the chat shows or announces, every `aria-label` and every placeholder comes from one catalog,
+`ChatMessages`. Pass the parts you want to change as `messages`, and the rest stays in English. Pass `locale` for the
+language's plurals, number formats and writing direction.
+
+## Change a few words
+
+`messages` takes any subset of the catalog. A string can hold `{placeholders}` and ICU-style plurals; a function is
+there for what a template cannot say:
+
+<include meta='title="messages.ts"'>/_examples/chat/messages.ts</include>
+
+Pass it to the chat as `messages={messages}`. `defineChatMessages` only adds types, so your editor completes every
+key; plain JSON works as well (see [Theme the chat](/more/chat-theming#level-2-a-theme-object-or-json)). The full list
+of keys, with the English text, is on [`ChatMessages`](/reference/chat/chat-messages#every-key).
+
+## Ship a language
+
+Two catalogs ship with the package, each in its own entry so a page loads only the one it uses:
+`@webmcp-agents/chat/locales/ar` (Arabic) and `@webmcp-agents/chat/locales/es` (Spanish).
+
+<include meta='title="chat.tsx"'>/_examples/chat/arabic.tsx</include>
+
+`locale` and `messages` are separate on purpose. The catalog is the words. `locale` is a BCP 47 tag (`"ar"`, `"ar-EG"`,
+`"es-MX"`) that drives `Intl`: plural rules (Arabic has six forms), digits, byte sizes and percentages. A locale with
+no catalog formats numbers in that locale and keeps the English words. Without `locale`, the chat reads
+`<html lang>`, then falls back to English.
+
+For another language, copy the English catalog from [`ChatMessages`](/reference/chat/chat-messages#every-key),
+translate it, and keep every `{placeholder}`. Write it with `satisfies ChatMessages`: a key the chat adds in a later
+version is then a type error until you translate it.
+
+## Right to left
+
+The direction comes from the locale: Arabic, Hebrew, Persian and Urdu render right to left, and so does a page whose
+`<html dir>` is `rtl`. Pass `dir` to force one. The whole chat mirrors, because its stylesheet uses logical properties
+only: the launcher sits in the bottom-left corner, the panel opens from the left, and a docked panel makes room on the
+left side of the page.
+
+If you restyle the chat, use logical properties too (`inset-inline-end`, `padding-inline-start`, `margin-block`), or
+your rule will point the wrong way in a right-to-left chat.
+
+## What the server says
+
+Most failures reach the page as codes (`rate_limited`, `network`, `session`…), and the chat shows the catalog's text
+for each, under `errors`. So an old server and a new page still show the person's language.
+
+The handler also writes a few sentences the model reads (a tool budget note, "this tool is not on the page"). Pass
+`messages` to [`createChatHandler`](/reference/chat/create-chat-handler) to translate those; it takes the same
+string-or-function values.
+
+## Test it
+
+[Test the chat UI](/testing/test-the-chat) renders the chat in Arabic, checks that it mirrors, and fails if any text on
+screen is not from the catalog.

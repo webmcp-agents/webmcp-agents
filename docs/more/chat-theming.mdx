@@ -1,0 +1,125 @@
+---
+title: Theme the chat
+description: "Restyle <AgentChat> without a fork: CSS variables, a theme object or JSON, or your own component for one part. Light and dark, unstyled, and every token with its default."
+related:
+  - /build/style-the-cursor-and-chat
+  - /more/chat-localization
+  - /testing/test-the-chat
+---
+
+Every visual value of `<AgentChat>` is a `--wa-chat-*` CSS variable, and every element it renders carries a
+`data-wa-part` attribute. That gives you three levels of control, from one line of CSS to your own component, with no
+fork and no `!important`. Start at the first level and go further only when it is not enough.
+
+[Style the cursor and the chat](/build/style-the-cursor-and-chat) covers the common case (your brand color, in light
+and dark). This page is the rest.
+
+## Level 1: CSS variables
+
+Set the variables anywhere above the chat; `:root` works. The chat reads each one at its root and falls back to its
+default, so the value you set wins without any specificity games.
+
+<include meta='title="chat.css"'>/_examples/chat/theme.css</include>
+
+To style one element, select its part, and its state where it has one (`data-state`, `data-role`, `data-open`,
+`data-busy`). The parts are listed on [Chat parts](/reference/chat/chat-parts).
+
+A variable set here applies in light and in dark. To give dark its own value, use the condition the chat uses for
+dark (`prefers-color-scheme: dark`, or `data-theme="dark"` on the chat or an ancestor), or use a theme object with
+`light` and `dark` (next section), which writes that condition for you.
+
+## Level 2: a theme object, or JSON
+
+`theme` takes the same variables as data: each key is one variable (`color.accentInk` is
+`--wa-chat-color-accent-ink`). Pass one theme, or one per scheme:
+
+<include meta='title="theme.ts"'>/_examples/chat/theme.ts</include>
+
+<include meta='title="chat.tsx"'>/_examples/chat/chat.tsx</include>
+
+`classNames` adds your classes to a part, and `styles` sets inline styles on it: the way to use Tailwind or your own
+design system on single elements.
+
+Because a theme is plain data, it can come from a JSON file or a CMS, with the words and the locale beside it:
+
+<include meta='title="chat-config.json"'>/_examples/chat/chat-config.json</include>
+
+<include meta='title="chat.tsx"'>/_examples/chat/from-json.tsx</include>
+
+A key that is not a token is ignored, and a value containing `;`, `{`, `}` or `!` is dropped, so a theme from outside
+your code cannot inject other CSS.
+
+### Light, dark and your own switch
+
+By default the chat follows the system setting, and `data-theme="dark"` on any ancestor forces dark (so a site whose
+theme switch writes `data-theme` on `<html>` needs nothing). `colorScheme` forces one scheme from React:
+
+<include meta='title="chat.tsx"'>/_examples/chat/color-scheme.tsx</include>
+
+`"light"` and `"dark"` always win, over the system and over an ancestor. `"auto"` is the default.
+
+### A page without React
+
+`themeToCssVars` turns a theme into the variables, for a server render that should not flash or a page that mounts
+the chat some other way:
+
+<include meta='title="theme.ts"'>/_examples/chat/no-react.ts</include>
+
+## Level 3: replace a part
+
+`components` takes your own component for any of the replaceable parts: `Launcher`, `Header`, `Message`, `Text`,
+`ToolCard`, `Reasoning`, `Suggestions`, `Composer`, `DownloadCard`, `ModelPicker`, `Empty`, `Error`, `Icon` and
+`Restore`. Each receives `partProps` (spread them on your root element to keep the part's attribute, classes and
+styles), the merged `messages`, the translate function `t`, and the part's own data.
+
+<include meta='title="chat.tsx"'>/_examples/chat/tool-card.tsx</include>
+
+Define the component outside the one that renders the chat, so React does not see a new component on every render.
+Every prop is on [`ChatComponents`](/reference/chat/chat-components).
+
+### No library CSS at all
+
+`unstyled` renders the same markup with no class and no variable: only the `data-wa-part` attributes and your own
+classes. Do not import `@webmcp-agents/chat/chat.css` then.
+
+<include meta='title="chat.tsx"'>/_examples/chat/unstyled.tsx</include>
+
+## Every token
+
+The table is generated from `chat.css`. "Follows" means the token takes another token's value unless you set it. In
+dark, where the browser supports relative colors, the accent is a light tint of the cursor's `--agent` color instead
+of the value shown.
+
+<include>/_partials/chat-tokens.mdx</include>
+
+## Keep it readable
+
+Check the pairs you change against each other, in light and in dark. WCAG 2.2 asks for:
+
+| Pair | Minimum contrast |
+|---|---|
+| `color-fg` on `color-bg`, `color-assistant-bubble-ink` on `color-assistant-bubble` | 4.5:1 |
+| `color-accent-ink` on `color-accent`, `color-user-bubble-ink` on `color-user-bubble` | 4.5:1 |
+| `color-muted` on `color-bg` (timestamps, hints) | 4.5:1 |
+| `color-danger` on `color-error-bg` (error messages) | 4.5:1 |
+| `color-focus-ring` against `color-bg` and against the control it surrounds | 3:1 |
+| `color-line` and `color-input-line` against `color-bg` (borders that show a control's edge) | 3:1 |
+
+Text of 18.66px bold or 24px and larger needs 3:1. The defaults meet these. A brand color is often too light for white
+text: pick `color-accent-ink` for it rather than assuming white, and check the dark scheme separately, since a theme
+value you set without `light` and `dark` applies to both.
+
+## The 0.4.0 names still work
+
+The eighteen variables of 0.4.0 (`--wa-chat-accent`, `--wa-chat-bg`, `--wa-chat-radius`, `--wa-chat-font`…) are still
+declared on `.wa-chat`, with the same dark rules, and each one is the default of its new token (the "0.4.0 name"
+column). A page that set them keeps the look it had. Two differences when you move to the new names:
+
+- A new token set on `:root` applies in both schemes. A 0.4.0 name set on `.wa-chat` applies in light only, because
+  the chat's dark rules redefine it.
+- `--wa-chat-radius` still draws only the panel. The bubble, card and control radii follow `--wa-chat-radius-panel`.
+
+## Test it
+
+[Test the chat UI](/testing/test-the-chat) renders the chat with your props and checks that no string is left outside
+the catalog.
