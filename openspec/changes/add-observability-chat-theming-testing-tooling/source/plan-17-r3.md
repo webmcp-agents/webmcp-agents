@@ -44,6 +44,7 @@ The plan was written against v0.3.0. The repo is at v0.4.0 (published; chat rest
 | 21 | phases 3 ∥ 4; stacked PRs | both phases edit `adapter/cloud.ts`, `session/run-agent.ts`, `server/handler.ts`; you asked for one PR | 3 then 4; one PR, commits per phase (§10, §14) |
 | 22 | sink 6 redacts every query value of `page.url` and the page-move note, both read by the model | rule 9 and §11 say the model keeps what it needs; Skyline keeps its search in the URL | two strengths of URL redaction: strict for telemetry and logs, sensitive-only for the model (§8.3 row 6). **Needs your sign-off** |
 | 23 | the kit's `runs`, `spans`, `./telemetry`, `toHaveSpan`, `toHaveNoHardcodedText`, `renderChat` are phase 2 | they need `onAgentRun` (phase 4), the telemetry package (5) and the customization props (3) | phase 2 ships their shells and types; tasks 3.9, 4.6 and 5.5 complete them (§10) |
+| 24 | redact entry ≤ 1.5 KB; core budgets fixed at 10.45 / 18.5 KB | measured in phase 1: the full §8.1 feature set is 2.74 KB, and the sensitive-control check the cursor needs (sink 1) costs 62 B where 3 B were free | redact ≤ 2.75 KB; visuals ≤ 10.55 KB, whole ≤ 18.6 KB (decided 2026-11-25, noted in `size.mjs`). Core's own console lines are not redacted (they print no tool data): a deliberate exception to sink 7 |
 
 ---
 
@@ -99,7 +100,7 @@ openspec/changes/add-observability-chat-theming-testing-tooling/
 3. **No vendor types in this repo.** The public surface accepts only OpenTelemetry-standard things: an OTLP target (endpoint, protocol, headers), any `SpanExporter`, any `SpanProcessor`, any `TracerProvider`, and the standard `OTEL_*` env vars. A backend is a docs recipe, never a code path or a union member.
 4. **The library never mutates global telemetry state.** It never calls `registerTelemetry` and never registers a global tracer provider. The handler passes its AI SDK integration per call (`telemetry.integrations`). It *reads* an app's global provider when one exists.
 5. **Dependency direction:** `telemetry → chat, core`; `testing → core` (+ `chat`, `telemetry` as optional peers). `chat` never imports `telemetry`: it defines a small structural `ChatObservability` interface that `telemetry` implements. Only `packages/telemetry` may import `@opentelemetry/*` and `@ai-sdk/otel` (Biome `noRestrictedImports`).
-6. **Nothing lands in `core`'s main entry.** Its size budget (visuals ≤ 10.45 KB, whole ≤ 18.5 KB **[R3]**) must not move. `core/redact` is a separate entry and chunk.
+6. **Nothing lands in `core`'s main entry.** Its size budget (visuals ≤ 10.55 KB, whole ≤ 18.6 KB **[R3]**) must not move. `core/redact` is a separate entry and chunk.
 7. **English stays the built-in default.** Other locales are separate entries, so they tree-shake.
 8. **Attribute names live in one file** (`packages/telemetry/src/semconv.ts`). The GenAI conventions are still in Development status.
 9. **Redaction is on by default and runs last.** Every sink (events to listeners excepted, see §8) passes data through the page's redactor after any user processor, so nothing a processor adds escapes it.
@@ -1382,7 +1383,7 @@ relay: wrong content type, oversize body, foreign scope name, cross-site origin,
 One utility, one configuration per page and per server, applied at every place data leaves a tool call. Today the only
 masking in the repo is `visuals.ts` replacing a password field's value with `"••••"` in the `fill` event.
 
-### 8.1 API (`@webmcp-agents/core/redact`, its own entry and chunk; no dependency; ≤ 1.5 KB min+gz)
+### 8.1 API (`@webmcp-agents/core/redact`, its own entry and chunk; no dependency; ≤ 2.75 KB min+gz)
 
 ```ts
 export type RedactionStyle =

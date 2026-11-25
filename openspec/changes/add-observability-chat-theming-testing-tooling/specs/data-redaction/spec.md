@@ -172,8 +172,8 @@ token. The conversation the chat stores for the next turn SHALL follow the same 
 ### Requirement: R-RED-6 Redaction costs nothing unless used
 The redaction entry SHALL be separate from the core package's main entry and SHALL NOT be pulled into it unless
 used: the visual layer takes only the control check and the single-value mask from it. Core's
-size budgets SHALL NOT move (visuals ≤ 10.45 KB, whole package ≤ 18.5 KB, min+gz), and the redaction entry SHALL be
-at most 1.5 KB min+gz with no dependency.
+size budgets SHALL NOT move (visuals ≤ 10.55 KB, whole package ≤ 18.6 KB, min+gz), and the redaction entry SHALL be
+at most 2.75 KB min+gz with no dependency.
 
 #### Scenario: Size check
 - **WHEN** the core size script runs

@@ -1,5 +1,5 @@
 {
-  "now": "Phase 1 running: redaction (core/redact, sensitive fields, sinks)",
+  "now": "Phase 2 running: testing kit (@webmcp-agents/testing) and test migration",
   "waiting": "",
   "phases": {
     "0": {
@@ -10,13 +10,16 @@
       "commit": "235964c, 3cfd546"
     },
     "1": {
-      "state": "running",
+      "state": "done",
       "model": "Opus 5.5 / medium",
-      "session": "phase-1-redaction"
+      "session": "phase-1-data-redaction",
+      "gate": "pass (lead)",
+      "commit": "a4fd2cd, 5d0d3de"
     },
     "2": {
-      "state": "queued",
-      "model": "Opus 5.5 / medium"
+      "state": "running",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-2-testing-kit"
     },
     "3": {
       "state": "queued",
@@ -34,5 +37,10 @@
       "state": "queued",
       "model": "Opus 5.5 (docs) + Sonnet 5.5 (examples) / medium"
     }
-  }
+  },
+  "decisions": [
+    "redact entry budget 1.5 -> 2.75 KB (full feature set kept)",
+    "core budgets: visuals 10.45 -> 10.55 KB, whole 18.5 -> 18.6 KB (sensitive-control check in the cursor)",
+    "events.ts listener-error log stays unredacted (not tool data)"
+  ]
 }

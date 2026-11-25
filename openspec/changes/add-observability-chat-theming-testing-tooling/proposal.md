@@ -86,6 +86,7 @@ The plan was written against v0.3.0; the repo is at v0.4.0. Each is marked `[R3]
 | 21 | phases 3 ∥ 4; stacked pull requests | both phases edit the same three files; one pull request was asked for | 3 then 4; one pull request, commits per phase |
 | 22 | every query value of the page URL and page-move note is redacted, and both are read by the model | the plan also says the model keeps what it needs; Skyline keeps its search in the URL | two strengths: strict for telemetry and logs; credentials and sensitive parameters only for the model |
 | 23 | the kit's `runs`, `spans`, telemetry entry and chat matchers ship in phase 2 | they need phases 4, 5 and 3 | phase 2 ships shells and types; tasks 3.9, 4.6, 5.5 complete them |
+| 24 | redact entry ≤ 1.5 KB; core budgets fixed at 10.45 / 18.5 KB | measured in phase 1: the full §8.1 feature set is 2.74 KB, and the sensitive-control check the cursor needs (sink 1) costs 62 B where 3 B were free | redact ≤ 2.75 KB; visuals ≤ 10.55 KB, whole ≤ 18.6 KB (decided 2026-11-25, noted in `size.mjs`). Core's own console lines are not redacted (they print no tool data): a deliberate exception to sink 7 |
 
 ## Capabilities
 
@@ -125,7 +126,7 @@ header.
 optional `@webmcp-agents/chat`, `@webmcp-agents/telemetry`, `@playwright/test`, `@vitest/browser-playwright`,
 `vitest-browser-react`, `react`, `ai`.
 
-**Budgets.** Core visuals ≤ 10.45 KB and whole package ≤ 18.5 KB do not move. `core/redact` ≤ 1.5 KB. The
+**Budgets.** Core visuals ≤ 10.55 KB and whole package ≤ 18.6 KB do not move. `core/redact` ≤ 2.75 KB. The
 telemetry browser default bundle ≤ 3 KB. All min+gz, each enforced by a size script.
 
 **Tooling and CI.** Root `check` gains `pnpm konsistent && pnpm knip`; `ci.yml` gains two annotated steps; Biome

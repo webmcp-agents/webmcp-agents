@@ -16,7 +16,7 @@ See `proposal.md` (Why) for motivation. What shapes the approach:
   the browser between steps. A turn is therefore many POSTs, and a trace has to be stitched from ids the browser sends.
 - **Dependency direction is fixed** (react → devtools → core; chat → core). New packages sit above:
   `telemetry → chat, core`, `testing → core` with `chat` and `telemetry` as optional peers.
-- **Core has a size budget** that must not move: visuals ≤ 10.45 KB, whole package ≤ 18.5 KB min+gz
+- **Core has a size budget** that must not move: visuals ≤ 10.55 KB, whole package ≤ 18.6 KB min+gz
   (`packages/core/scripts/size.mjs`). Anything new in core is its own entry and chunk.
 - **Only `packages/chat/src/server/**` may import a provider SDK** (Biome `noRestrictedImports`). The same
   mechanism will fence `@opentelemetry/*` and `@ai-sdk/otel` into `packages/telemetry`, and keep
@@ -57,7 +57,7 @@ See `proposal.md` (Why) for motivation. What shapes the approach:
 3. **No vendor types in this repo.** The public surface accepts only OpenTelemetry-standard things: an OTLP target (endpoint, protocol, headers), any `SpanExporter`, any `SpanProcessor`, any `TracerProvider`, and the standard `OTEL_*` env vars. A backend is a docs recipe, never a code path or a union member.
 4. **The library never mutates global telemetry state.** It never calls `registerTelemetry` and never registers a global tracer provider. The handler passes its AI SDK integration per call (`telemetry.integrations`). It *reads* an app's global provider when one exists.
 5. **Dependency direction:** `telemetry → chat, core`; `testing → core` (+ `chat`, `telemetry` as optional peers). `chat` never imports `telemetry`: it defines a small structural `ChatObservability` interface that `telemetry` implements. Only `packages/telemetry` may import `@opentelemetry/*` and `@ai-sdk/otel` (Biome `noRestrictedImports`).
-6. **Nothing lands in `core`'s main entry.** Its size budget (visuals ≤ 10.45 KB, whole ≤ 18.5 KB **[R3]**) must not move. `core/redact` is a separate entry and chunk.
+6. **Nothing lands in `core`'s main entry.** Its size budget (visuals ≤ 10.55 KB, whole ≤ 18.6 KB **[R3]**) must not move. `core/redact` is a separate entry and chunk.
 7. **English stays the built-in default.** Other locales are separate entries, so they tree-shake.
 8. **Attribute names live in one file** (`packages/telemetry/src/semconv.ts`). The GenAI conventions are still in Development status.
 9. **Redaction is on by default and runs last.** Every sink (events to listeners excepted, see §8) passes data through the page's redactor after any user processor, so nothing a processor adds escapes it.
@@ -1330,7 +1330,7 @@ relay: wrong content type, oversize body, foreign scope name, cross-site origin,
 One utility, one configuration per page and per server, applied at every place data leaves a tool call. Today the only
 masking in the repo is `visuals.ts` replacing a password field's value with `"••••"` in the `fill` event.
 
-#### 8.1 API (`@webmcp-agents/core/redact`, its own entry and chunk; no dependency; ≤ 1.5 KB min+gz)
+#### 8.1 API (`@webmcp-agents/core/redact`, its own entry and chunk; no dependency; ≤ 2.75 KB min+gz)
 
 ```ts
 export type RedactionStyle =
