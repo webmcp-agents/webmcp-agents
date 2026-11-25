@@ -1,4 +1,6 @@
+import { Button } from "@webmcp-agents/examples-ui/components/button";
 import { Separator } from "@webmcp-agents/examples-ui/components/separator";
+import { useChatLocale } from "../hooks/use-chat-locale";
 
 const COLUMNS = [
   { title: "Shop", links: ["New in", "Best sellers", "Gift cards"] },
@@ -7,6 +9,8 @@ const COLUMNS = [
 ];
 
 export function Footer() {
+  const { toggleLabel, toggleName, toggle } = useChatLocale();
+
   return (
     <footer className="mt-24 border-t bg-muted/40">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[2fr_1fr_1fr_1fr]">
@@ -35,13 +39,19 @@ export function Footer() {
 
       <Separator />
 
-      <p className="mx-auto max-w-7xl px-4 py-6 text-xs text-muted-foreground sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-muted-foreground sm:px-6">
+      <p>
         Demo store. Nothing here ships. Product photos from{" "}
         <a href="https://unsplash.com/?utm_source=web-agents&utm_medium=referral" className="underline underline-offset-4">
           Unsplash
         </a>
         .
       </p>
+      {/* the assistant's language: Arabic switches the chat to right-to-left */}
+      <Button variant="outline" size="sm" lang={toggleLabel === "English" ? "en" : "ar"} aria-label={toggleName} onClick={toggle}>
+        {toggleLabel}
+      </Button>
+      </div>
     </footer>
   );
 }

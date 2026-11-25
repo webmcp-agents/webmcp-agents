@@ -3,6 +3,9 @@
  * order is placed only by the person's own click on "Place order · $…" (`requireConfirmation`; the cursor finds the
  * button by the tool's title, which its text starts with). One schema checks the agent's call and the person's submit.
  *
+ * `cardNumber` is secret: `sensitive` masks it in the cursor's `fill` event, the devtools log and the chat's tool card, while
+ * the form still gets the real value. The demo takes no payment, so the order never stores it.
+ *
  * Order of an agent's call: the input is checked → the cursor types each field (the ones named like the parameters)
  * and picks the country → `fill` puts every value in the form's state → the cursor parks on Place order → the person
  * clicks → `placeOrder` runs and the page moves to the order.
@@ -39,6 +42,10 @@ const schema = z.object({
   postcode: z.string().min(1).describe("Postal or ZIP code"),
   country: z.enum(COUNTRIES).default("United States").describe("Country, as listed; default United States"),
   note: z.string().optional().describe("Optional delivery note"),
+  cardNumber: z
+    .string()
+    .optional()
+    .describe("Payment card number, only if the user gave one in this chat, e.g. 4242 4242 4242 4242. Never invent it"),
 });
 
 export type CheckoutInput = z.input<typeof schema>;
@@ -60,10 +67,19 @@ export interface Checkout {
 export function useCheckout({ onPlaced }: CheckoutOptions): Checkout {
   const form = useForm<CheckoutInput>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", name: "", address: "", city: "", postcode: "", country: "United States", note: "" },
+    defaultValues: {
+      email: "",
+      name: "",
+      address: "",
+      city: "",
+      postcode: "",
+      country: "United States",
+      note: "",
+      cardNumber: "",
+    },
   });
 
-  const placeOrder = (input: CheckoutInput) => {
+  const placeOrder = ({ cardNumber: _card, ...input }: CheckoutInput) => {
     let order: Order;
     try {
       order = cart.placeOrder({ ...input, country: input.country ?? "United States", note: input.note || undefined });
@@ -82,6 +98,8 @@ export function useCheckout({ onPlaced }: CheckoutOptions): Checkout {
     description:
       "Place the order for everything in the cart, shipped to the user's address. Only on the checkout page (go_to_page checkout first). Ask the user for an email or address you don't have; never invent them. The user confirms on the page (Place order).",
     inputSchema: schema,
+    // masked wherever the library shows or logs the call; the form field below gets the real number
+    sensitive: ["cardNumber"],
     requireConfirmation: true,
 
     // every value in the form's state too, before the person confirms

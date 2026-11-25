@@ -74,6 +74,19 @@ export function CheckoutForm({ total, onPlaced }: CheckoutFormProps) {
           />
         </fieldset>
 
+        <fieldset className="flex flex-col gap-5">
+          <legend className="mb-5 font-serif text-2xl tracking-tight">Payment</legend>
+          <TextField
+            form={form}
+            name="cardNumber"
+            label="Card number (optional)"
+            autoComplete="cc-number"
+            inputMode="numeric"
+            placeholder="4242 4242 4242 4242"
+            required={false}
+          />
+        </fieldset>
+
         <div className="flex flex-col gap-3">
           <Button type="submit" size="lg" className="h-12 w-full text-base">
             Place order · <span className="tabular-nums">{money(total)}</span>
