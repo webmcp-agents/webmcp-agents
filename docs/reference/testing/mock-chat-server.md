@@ -43,6 +43,11 @@ A `MockChatServer`: `fetch`, `requests` (method, url, headers as the server saw 
 
 Needs `@webmcp-agents/chat` and `ai`, loaded on the first request.
 
+### Types
+
+- `MockChatServerRequest`: a request the server received.
+- `CannedResponse`: a canned answer for `respondOnce`.
+
 ## See also
 
 - [`mockModel`](./mock-model.md)

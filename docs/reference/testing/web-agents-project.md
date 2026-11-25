@@ -40,6 +40,11 @@ A `TestProjectInlineConfiguration` for `test.projects`.
 
 The browser project needs `@vitest/browser-playwright` (and `playwright install chromium` once): without it, it fails with a sentence naming the package. It serves `@webmcp-agents/testing` unbundled (its entries load optional peers with a top-level await).
 
+### Types
+
+- `WebAgentsProjectKind`: `"unit"` (`*.test.*` in Node) or `"browser"` (`*.browser.test.*` in Chromium).
+- `MotionSetting`: `"reduced"` (the default: the cursor snaps) or `"full"` (the page's own setting).
+
 ## See also
 
 - [`setup`](./setup.md)

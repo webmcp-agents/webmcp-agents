@@ -52,6 +52,11 @@ The option bags of `toolForm(name, options)`, `echoForm(name, options)` and `unt
 | `resultText(result)` | A result's text. |
 | `cursorVisible()`, `uiRoot(name)`, `byText(root, selector, text)`, `deepText(node?)` | Whether the cursor shows; a library UI's shadow root; an element by text; all text, shadow roots included. |
 
+### Also exported
+
+- `FIXTURE_CLASS`: `"test-fixture"`, the class every `fixture` root carries, so the cleanup finds them.
+- `MockToolImpl`: what a mocked tool's implementation gets (`input`, `{ signal }`) and may return (a string, a value, or an MCP result).
+
 ## See also
 
 - [`test`](./test.md)

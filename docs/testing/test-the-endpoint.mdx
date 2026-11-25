@@ -1,0 +1,35 @@
+---
+title: Test /api/chat
+description: "Call your chat route handler in Node with a scripted model: sessions, the tool allowlist, cross-site requests and guards, with no provider key."
+sidebar:
+  label: Test /api/chat
+related:
+  - /build/add-the-chat
+  - /security
+---
+
+`createChatHandler` returns a plain `(Request) => Promise<Response>` function, so you can call it in a Node test like
+any function. `mockModel` stands in for the model, so no key is needed and nothing leaves the machine. Test the
+locks you turned on: they are what keep your key from being used as a free model.
+
+## A complete example
+
+<include meta='title="chat.test.ts"'>/_examples/testing/endpoint.test.ts</include>
+
+`chatRequest(body, options?)` builds a request the way the page sends it (same origin by default; pass `origin` to
+play another site). `withSession(handler)` gets a chat session first and adds it to every request it sends.
+`readChatStream` reads the streamed answer into parts. `model.calls` records what the model was sent, here the tools
+left after the allowlist.
+
+## What to cover
+
+- **Sessions**: a request without one is `401` ([Sessions](/security/sessions)).
+- **Cross-site requests**: `403` ([Secure the chat](/security)).
+- **The tool allowlist**: a tool the page did not register is never offered
+  ([Tool allowlist](/security/tool-allowlist)).
+- **Guards and limits**: your `guard` answers its own `Response` ([Limits](/security/limits)).
+
+## See also
+
+- [`mockModel`](/reference/testing/mock-model), [`chatRequest`, `readChatStream`, `withSession`](/reference/testing/server-requests)
+- [`createChatHandler`](/reference/chat/create-chat-handler)

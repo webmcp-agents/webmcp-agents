@@ -48,6 +48,13 @@ Each step streams like the cloud adapter's: `step-start`, `message-start`, its r
 `step-finish` (with usage), and only then are the calls run (`tool-result`). So [run events](../chat/on-agent-run.md)
 from a mock run come in the same order as from a real one.
 
+### Types
+
+- `MockScript`: steps played in order across runs, or a function called for every model step with the request and a `MockTurn` (which run, which step).
+- `MockStepResult`: what that function returns: a step, several, `undefined` (nothing more to say), or a whole stream of parts.
+- `StepCall`, `StepError`, `TextOptions`: one tool call of a step, a failure reported instead of a turn, and the options of `text` (`chunks`, `delayMs`, `usage`).
+- `MockRequest`: a request as the adapter received it (`adapter.requests`): the messages copied at that moment, the tools as offered.
+
 ## See also
 
 - [`toHaveCalledTools`](./to-have-called-tools.md)

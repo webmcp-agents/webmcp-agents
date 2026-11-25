@@ -5,7 +5,7 @@
   "type": "module",
   "description": "The code the docs show (docs/_examples/**), type-checked against the packages; the testing examples (testing/) also run.",
   "scripts": {
-    "typecheck": "tsc -p vite && tsc -p nextjs && tsc -p tanstack-start && tsc -p astro && tsc -p no-framework && tsc -p testing",
+    "typecheck": "tsc -p vite && tsc -p nextjs && tsc -p tanstack-start && tsc -p astro && tsc -p no-framework && tsc -p testing && tsc -p observability && tsc -p security && tsc -p chat",
     "test": "vitest run --config testing/vitest.config.ts"
   },
   "devDependencies": {
@@ -23,6 +23,7 @@
     "@webmcp-agents/devtools": "workspace:*",
     "@webmcp-agents/local-agent": "workspace:*",
     "@webmcp-agents/react": "workspace:*",
+    "@webmcp-agents/telemetry": "workspace:*",
     "@webmcp-agents/testing": "workspace:*",
     "@webmcp-agents/tools": "workspace:*",
     "@webmcp-agents/vercel-api": "workspace:*",

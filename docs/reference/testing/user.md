@@ -38,6 +38,10 @@ A `FakeUser`.
 
 Browser mode only: in Node the fixture fails with a sentence saying so.
 
+### `UserTarget`
+
+What `click` and `type` take: an `Element`, or anything with an `element()` method (a `vitest/browser` locator).
+
 ## See also
 
 - [`toHaveParked`](./to-have-parked.md)

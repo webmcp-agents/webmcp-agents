@@ -32,6 +32,10 @@ A `MockModel`: the model, with `calls`.
 
 It takes the same steps as [`mockAdapter`](./mock-adapter.md). `mockModel([])` is a model that must never be called: a call fails with a sentence. The `./server` entry needs `ai`: importing it without `ai` fails with a sentence naming it.
 
+### `MockModelCall`
+
+What the model was sent on one call (`model.calls`): the tools it was offered and the prompt. `StepCall` and `StepError` are the same as [`mockAdapter`](./mock-adapter.md)'s.
+
 ## See also
 
 - [`chatRequest`](./server-requests.md)

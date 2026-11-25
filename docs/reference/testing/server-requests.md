@@ -37,6 +37,13 @@ expect(parts).toContainEqual(
 
 `chatRequest`: a `Request`. `readChatStream`: the parts (`text-delta`, `reasoning`, `tool-call`, `error`, `finish`, else `other`), each with its raw chunk; it rejects with a sentence for a non-stream answer. `withSession`: a `send(req)` that carries the cookie.
 
+### Also exported
+
+- `CHAT_URL`: `"http://localhost/api/chat"`, the default URL of a `chatRequest`.
+- `ChatRequestBody`: what `chatRequest` puts in the body.
+- `ChatStreamPart`: one part of the answer, as `readChatStream` returns it.
+- `ChatHandler`: `(req: Request) => Response | Promise<Response>`, what `withSession` wraps.
+
 ## See also
 
 - [`mockModel`](./mock-model.md)

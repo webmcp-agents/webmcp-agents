@@ -43,6 +43,10 @@ What each source can tell:
 | the error `agent.invoke` rejected with | `"error"` with the error's `code`, or `"aborted"` for an `AbortError` |
 | a `WebAgentResult` | `"stop"`: `agent.invoke` resolved. A run cut short by `maxSteps` resolves too; to tell them apart, assert on the adapter or on `runs` |
 
+### `FinishReason`
+
+`"stop" | "max-steps" | "aborted" | "error"`.
+
 ## See also
 
 - [`toHaveAnswered`](./to-have-answered.md)

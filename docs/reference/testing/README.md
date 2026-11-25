@@ -22,7 +22,7 @@ pnpm add -D @webmcp-agents/testing vitest @vitest/browser-playwright
 | `@webmcp-agents/testing` | any test | [`test`](./test.md), [`callTool`](./call-tool.md), [`mockTool`](./mock-tool.md), [the page helpers](./helpers.md), `expect`, `vi` |
 | `@webmcp-agents/testing/vitest` | the config | [`webAgentsProject`](./web-agents-project.md) |
 | `@webmcp-agents/testing/setup` | `setupFiles` | [the browser setup](./setup.md): polyfill, reduced motion, deterministic ids, cleanup and leak checks |
-| `@webmcp-agents/testing/matchers` | `setupFiles` | the matchers alone (a page that must stay without WebMCP) |
+| `@webmcp-agents/testing/matchers` | `setupFiles` | the matchers alone (a page that must stay without WebMCP); `webAgentsMatchers` (every matcher, for your own `expect.extend`) and the `WebAgentsMatchers` type |
 | `@webmcp-agents/testing/chat` | agents, the chat | [`mockAdapter`](./mock-adapter.md), [`mockChatServer`](./mock-chat-server.md), [`renderChat`](./render-chat.md) |
 | `@webmcp-agents/testing/server` | `/api/chat` | [`mockModel`](./mock-model.md), [`chatRequest`, `readChatStream`, `withSession`](./server-requests.md) |
 | `@webmcp-agents/testing/telemetry` | spans | [`memoryExporter`, `spanTree`](./telemetry.md) |
@@ -60,3 +60,7 @@ pnpm add -D @webmcp-agents/testing vitest @vitest/browser-playwright
 | [`toContainSensitive`](./to-contain-sensitive.md) | A secret is in this sink (use it negated). |
 | [`toHaveSpan`](./to-have-span.md), [`toBeOneTrace`](./to-be-one-trace.md) | A span by name and attributes; one trace with one root. |
 | [`toHaveNoHardcodedText`](./to-have-no-hardcoded-text.md) | The rendered chat shows no string outside its catalog. |
+
+## See also
+
+- [Test what you build](../../testing/index.mdx): the guide, one page per layer

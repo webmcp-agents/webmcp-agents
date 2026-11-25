@@ -34,6 +34,10 @@ test("…", async ({ mount }) => {});
 
 A React element needs `react-dom`: without it, `mount(<JSX>)` fails with a sentence naming it. HTML needs nothing. Browser mode only.
 
+### `Mountable`
+
+What `mount` accepts: an HTML string, or a React element.
+
 ## See also
 
 - [`fixture`](./helpers.md)

@@ -38,6 +38,11 @@ The `EventLog`'s members. [`recordEvents()`](./helpers.md) returns the same shap
 
 An `EventLog`.
 
+### Also exported
+
+- `AgentEventOf<K>`: the `AgentEvent` of one type (`AgentEventOf<"fill">`).
+- `isEventLog(value)`: true for a log made by `recordEvents` (the `events` fixture is one).
+
 ## See also
 
 - [`onAgentEvent`](../core/on-agent-event.md)

@@ -1,0 +1,35 @@
+---
+title: Test the chat UI
+description: "Render <AgentChat> with a scripted adapter, your messages, theme or locale, and check that every string on screen comes from the catalog."
+sidebar:
+  label: Test the chat UI
+related:
+  - /build/add-the-chat
+  - /more/chat-theming
+  - /more/chat-localization
+---
+
+`renderChat` renders `<AgentChat>`, open, with an adapter you choose and any of its props. Use it to check what your
+customizations do: your words, a theme, a replaced part, Arabic with right-to-left layout.
+
+## A complete example
+
+<include meta='title="chat.browser.test.tsx"'>/_examples/testing/chat.browser.test.tsx</include>
+
+`chat.part("input")` finds an element by its `data-wa-part`, the same names you style. `chat.host` is the chat's
+root, `chat.panel` its panel.
+
+## No string outside the catalog
+
+With `sentinel: true`, every catalog string is replaced by its key (`⟦composer.send⟧`). Any other text left on screen,
+in an `aria-label`, a placeholder or a title, was written somewhere the catalog does not reach.
+`toHaveNoHardcodedText` fails with each such string and where it is. List what is allowed: the person's message and
+the model's answer.
+
+Run it after you replace a part with your own component: it is how you find the label you forgot to translate.
+
+## See also
+
+- [`renderChat`](/reference/testing/render-chat),
+  [`toHaveNoHardcodedText`](/reference/testing/to-have-no-hardcoded-text)
+- [Theme the chat](/more/chat-theming), [Translate the chat](/more/chat-localization)

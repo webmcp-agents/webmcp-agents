@@ -34,6 +34,10 @@ A Vitest `TestAPI` with the fixtures typed (`WebAgentsFixtures`). The entry also
 
 Fixtures must be destructured in the test's first parameter (`async ({ tools }) => …`): that is how Vitest knows which to set up.
 
+### Vitest's own functions
+
+The entry re-exports `expect`, `vi`, `describe`, `beforeAll`, `beforeEach`, `afterAll` and `afterEach` from Vitest, so a test file imports everything from one place.
+
 ## See also
 
 - [`webAgentsProject`](./web-agents-project.md)

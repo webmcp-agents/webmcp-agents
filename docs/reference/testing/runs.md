@@ -54,6 +54,10 @@ What the run matchers read from a `RunLog`:
 
 Under `@webmcp-agents/testing/setup` run and conversation ids are deterministic (`run-1`, `conversation-1`).
 
+### What a mock adapter remembers
+
+`RunRecord` is what a `mockAdapter` keeps of its runs, which the run matchers also read: `calls` (each a `RecordedCall`: `name`, `input`, and the sub-agent `agent` that made it), `answers` (the text of each run), `finishes` (each a `RecordedFinish`: `reason`, and `code` and `error` for a failure) and `offered` (the tool names offered on each model step).
+
 ## See also
 
 - [`onAgentRun`](../chat/on-agent-run.md)

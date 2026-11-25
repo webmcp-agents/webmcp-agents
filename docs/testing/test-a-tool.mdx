@@ -1,0 +1,41 @@
+---
+title: Test a tool
+description: "Run a tool's schema and execute in Node, the way an agent would, and check the answer it reads: no page, no browser."
+related:
+  - /build/define-a-tool
+  - /testing/test-a-tool-on-the-page
+---
+
+A tool is a function with a schema. Most of what can go wrong in it (a wrong total, a missing item, a bad input
+accepted) shows up without a page, so test it in Node first: it is fast, and a failure points at the tool, not at the
+page around it.
+
+## A complete example
+
+The tool, defined with `defineWebTool`:
+
+<include meta='title="tools/add-to-cart.ts"'>/_examples/testing/app/add-to-cart.ts</include>
+
+Its test:
+
+<include meta='title="add-to-cart.test.ts"'>/_examples/testing/tool.test.ts</include>
+
+`callTool` validates the input against the schema, runs `execute`, and answers what the agent would read. A schema
+error comes back as an `invalid_input` result and a `WebToolError` keeps its code, the way an agent receives them.
+
+## What to check
+
+- **The text the agent reads.** `toBeToolResult` takes a string, a regular expression, or nothing (it only checks the
+  call succeeded).
+- **Failures, by code.** `toBeToolError("invalid_input")` for a schema error, `"cancelled"`, `"unavailable"` or your
+  own code from [`toolError`](/reference/core/tool-error). The code is what an agent can act on, so it is worth a test.
+- **Structured data.** A tool that returns an object answers `structuredContent` too:
+  [`toHaveStructuredContent`](/reference/testing/to-have-structured-content) checks a part of it.
+
+A tool defined inside a component with `useWebTool` needs its page: test it as on the next page.
+
+## See also
+
+- [`callTool`](/reference/testing/call-tool), [`toBeToolResult`](/reference/testing/to-be-tool-result),
+  [`toBeToolError`](/reference/testing/to-be-tool-error)
+- [Errors](/concepts/errors), the codes a tool answers

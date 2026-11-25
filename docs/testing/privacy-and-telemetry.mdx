@@ -1,0 +1,45 @@
+---
+title: Test privacy and telemetry
+description: "One test that checks a secret reaches no sink (events, run events, spans, the console), and one that checks a run is one trace with the spans you expect."
+sidebar:
+  label: Privacy and telemetry
+related:
+  - /security/redaction
+  - /observability
+---
+
+Redaction only helps if it covers every place data goes. Rather than check each place in its own test, collect them
+all and check the secret appears in none: the cursor's events, the run events, the spans, and the console.
+
+## A complete example
+
+A form whose tool marks the passport as sensitive:
+
+<include meta='title="components/traveler-form.tsx"'>/_examples/testing/app/traveler-form.tsx</include>
+
+The test:
+
+<include meta='title="privacy.browser.test.tsx"'>/_examples/testing/privacy.browser.test.tsx</include>
+
+`toContainSensitive` reads any value: an event log, a run log, spans, a `vi.spyOn` of the console, or a plain
+object. Use it negated. A failure names the sink and the path where the value was found, and prints nothing else
+of the sink's content.
+
+`runs` and `spans` need `@webmcp-agents/chat` and `@webmcp-agents/telemetry` installed; both are experimental in 0.5.0.
+`spans.flush()` waits for the spans still buffered, so call it before you read them.
+
+## The shape of a trace
+
+The `spans` fixture observes every run of the test into memory, so you can check the span tree directly:
+
+<include meta='title="spans.browser.test.tsx"'>/_examples/testing/spans.browser.test.tsx</include>
+
+`toHaveSpan(name, attributes?)` finds a span by name (or a pattern) with at least these attributes. `toBeOneTrace`
+checks every span shares one trace id under one root. To include the server's `chat` spans, give a
+[`memoryExporter()`](/reference/testing/telemetry) to `defineObservability({ exporters })` too, and pass both arrays.
+
+## See also
+
+- [Redaction](/security/redaction), [Observability](/observability)
+- [`toContainSensitive`](/reference/testing/to-contain-sensitive), [`spans`](/reference/testing/spans),
+  [`toHaveSpan`](/reference/testing/to-have-span), [`toBeOneTrace`](/reference/testing/to-be-one-trace)

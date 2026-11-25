@@ -46,4 +46,6 @@ test("gives up when the person moves on", async ({
   // A trusted click away from the control.
   await user.moveOn();
   expect(await call).toBeToolError("cancelled");
+  // The cursor got out of the way of the person's pointer.
+  expect(events).toHaveYielded("pointer");
 });

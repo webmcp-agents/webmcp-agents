@@ -15,9 +15,11 @@ const traveler = defineWebAgent({
 });
 const passport = "A1234567";
 
-test("the passport is masked where the page shows it", async ({
+test("a passport number leaves the page nowhere", async ({
   tools,
   events,
+  runs,
+  spans,
   mount,
 }) => {
   const logs = vi.spyOn(console, "error");
@@ -36,10 +38,16 @@ test("the passport is masked where the page shows it", async ({
   await traveler.invoke(`Book for Sara, passport ${passport}`, {
     adapter,
   });
+  await spans.flush();
 
-  // Typed into the field, shown as "••••" in the cursor's events.
+  // Typed into the field, "••••" in the cursor's events.
   expect(events).toHaveFilled("passport");
-  for (const sink of [events.of("fill"), logs]) {
+  // The run events and the spans carry the tool call, redacted.
+  expect(runs).toHaveCalledTools(["fill_traveler"]);
+  expect(spans).toHaveSpan("execute_tool fill_traveler");
+
+  const sinks = [events.of("fill"), runs, spans, logs];
+  for (const sink of sinks) {
     expect(sink).not.toContainSensitive([passport]);
   }
 });

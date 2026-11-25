@@ -1,0 +1,59 @@
+---
+title: Test what you build
+description: "Test tools, confirmations, agents, the chat and /api/chat with Vitest and @webmcp-agents/testing: no model, no key, no hand-written setup."
+sidebar:
+  label: Overview
+related:
+  - /testing/test-a-tool
+  - /testing/end-to-end
+  - /reference/testing
+---
+
+`@webmcp-agents/testing` is a Vitest kit for everything this library builds. It runs a tool in Node, runs it on a real
+page with the cursor and a confirmation, runs an agent with a scripted stand-in for the model, and calls your
+`/api/chat` route with no provider key. Its matchers say what happened in words, and its setup cleans up after every
+test.
+
+## Which test answers which question
+
+| You want to know | Test | Runs in | Page |
+|---|---|---|---|
+| Does the tool do the right thing with this input? | The tool alone | Node | [Test a tool](/testing/test-a-tool) |
+| Does the cursor type into the right fields and press the right button? | The tool on the page | Chromium | [Test a tool on the page](/testing/test-a-tool-on-the-page) |
+| Does it wait for the person, and stop when they move on? | A confirmation | Chromium | [Confirmations and yielding](/testing/confirmations) |
+| Does the agent call the right tools, in order? | The agent, with a scripted model | Chromium | [Test an agent](/testing/test-an-agent) |
+| Does the chat show my words, my theme, in Arabic? | The chat UI | Chromium | [Test the chat UI](/testing/test-the-chat) |
+| Is `/api/chat` locked down? | The route handler | Node | [Test /api/chat](/testing/test-the-endpoint) |
+| Does a secret stay out of logs, events and traces? | Every sink at once | Chromium | [Test privacy and telemetry](/testing/privacy-and-telemetry) |
+| Does the real app work, end to end? | The running app | Playwright | [End to end](/testing/end-to-end) |
+
+Start with the first row and add the others as your app grows. Most apps need the first three and the endpoint.
+
+## Install
+
+```package-install
+npm i -D @webmcp-agents/testing vitest @vitest/browser-playwright
+```
+
+## Configure
+
+Two projects, one line each:
+
+<include meta='title="vitest.config.ts"'>/_examples/testing/vitest.config.ts</include>
+
+Files named `*.test.ts` run in Node. Files named `*.browser.test.tsx` run in Chromium, through Playwright. Install
+the browser once with `npx playwright install chromium`.
+
+In the browser project, nothing needs setting up or cleaning up by hand: the polyfill is installed (so
+`document.modelContext` exists), motion is reduced (the cursor snaps instead of gliding), ids are deterministic, and
+every fixture, mounted component and tool is removed after each test. A test that leaves a tool call running, or a
+tool registered, fails with the tool's name: that is usually a missing `await`.
+
+## Write a test
+
+Import `test` and `expect` from the kit, not from Vitest. `test` brings the fixtures (`tools`, `events`, `user`,
+`mount`, `runs`, `spans`), which you take by destructuring, and `expect` knows the matchers:
+
+<include meta='title="tool.test.ts"'>/_examples/testing/tool.test.ts</include>
+
+Every example in this section is a real test in this repository, run on every change.

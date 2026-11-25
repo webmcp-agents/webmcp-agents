@@ -53,6 +53,12 @@ const [run] = spanTree([...browser.spans, ...server.spans]);
 
 `memoryExporter`: a `MemoryExporter` (`spans`, `reset`, `export`, `forceFlush`, `shutdown`). `spanTree`: `SpanNode[]` (`{ span, children }`), roots first, each level in start order; a root is a span whose parent is not among them.
 
+### Also exported
+
+- `readSpans(value)`: spans from a memory exporter, an array (span records, `ReadableSpan`s or recorded spans), an OpenTelemetry `InMemorySpanExporter`, or span trees, as `RecordedSpan[]`; `undefined` for anything else. The span matchers use it.
+- `recordSpan(value)`: one span of either side as a `RecordedSpan`.
+- `isMemoryExporter(value)`, `MEMORY_EXPORTER`: tell a memory exporter from any other object.
+
 ## See also
 
 - [The `spans` fixture](./spans.md)
