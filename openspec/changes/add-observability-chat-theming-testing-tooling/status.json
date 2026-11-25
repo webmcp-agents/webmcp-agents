@@ -1,5 +1,5 @@
 {
-  "now": "Phase 6a running: docs (observability, redaction, testing, theming, reference)",
+  "now": "Phase 6b running: examples, roadmap, CLAUDE.md, changeset",
   "waiting": "",
   "phases": {
     "0": {
@@ -46,8 +46,10 @@
     },
     "6": {
       "state": "running",
-      "model": "Opus 5.5 (docs) + Sonnet 5.5 (examples) / medium",
-      "session": "phase-6a-docs"
+      "model": "Opus 5.5 (docs, done) + Sonnet 5.5 (examples) / medium",
+      "session": "phase-6b-examples",
+      "gate": "6a pass (lead)",
+      "commit": "6a: aa37fa6..d4acc03"
     }
   },
   "decisions": [
