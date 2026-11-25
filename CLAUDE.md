@@ -32,7 +32,9 @@ compete with the user (the cursor yields the moment they interact). Roadmap and 
 pnpm install
 pnpm dev                                   # every app with HMR into package source: playground :5173, ecommerce :5174, flights :5175,
                                            # nextjs :5176, the website (landing + docs) :4321
-pnpm check                                 # biome ci + typecheck + test + build + size (what CI runs)
+pnpm check                                 # biome ci + konsistent + knip + typecheck + test + build + size (what CI runs)
+pnpm konsistent                            # structural conventions (konsistent.json); `pnpm exec konsistent validate` checks the config
+pnpm knip                                  # unused files, exports and dependencies (knip.json)
 pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.45 KB, whole package ≤ 18.5 KB
                                            # (the polyfill chunk, loaded on demand, is reported, not counted)
 pnpm typecheck | pnpm test | pnpm build    # via turbo
@@ -373,3 +375,12 @@ mid-run (the cursor must vanish and the tool still complete).
   `##` headings in `<div class="install-steps">` instead. A code block's title does not survive inside `<Steps>`;
   `<include>` of a code file does work inside `<View>` and in `.md` pages. Old docs routes redirect
   (`redirects` in `blume.config.ts`, mirrored in `apps/docs/vercel.json`).
+- `pnpm konsistent` checks file layout, not style (`konsistent.json`): every `packages/*` has package.json, README.md, tsconfig.json,
+  tsdown.config.ts, vitest.config.ts and src/index.ts; every example has `webmcp-agents/tools/index.ts` (the Next.js one also
+  `agents.ts`); every registry block has `<block>.tsx`; a `packages/chat/src/locales/<locale>.ts` and a
+  `packages/testing/src/matchers/<name>.ts` must export the camelCase of its file name; a package without
+  `docs/reference/<pkg>/README.md` is a warning. Fix a finding by adding the file or export, never by loosening the rule.
+  `${x.toCamelCase()}` and a `haveFiles` path with `../` both work. `pnpm knip` fails on an unused file, export or dependency
+  (`knip.json` lists each workspace's entries): delete the dead code or dependency, or add a real entry (a file the tool cannot
+  see being loaded); never add an ignore for a finding. Deprecated alias exports kept for compatibility are the one `ignoreIssues`
+  (`duplicates`) exception. Registry blocks' dependencies live in `registry/registry.json`, so `knip.json` ignores them.

@@ -3,7 +3,7 @@
   "changelog": [
     "@changesets/changelog-github",
     {
-      "repo": "mustafaskyer/web-agents"
+      "repo": "webmcp-agents/webmcp-agents"
     }
   ],
   "commit": false,

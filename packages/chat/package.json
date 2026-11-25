@@ -109,9 +109,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mustafaskyer/web-agents.git",
+    "url": "git+https://github.com/webmcp-agents/webmcp-agents.git",
     "directory": "packages/chat"
   },
+  "homepage": "https://webmcp-agents.dev",
   "publishConfig": {
     "access": "public"
   }

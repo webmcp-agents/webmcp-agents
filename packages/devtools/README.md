@@ -42,5 +42,5 @@ Either way the Settings switches drive the started provider's (or `createWebAgen
 
 ## Docs
 
-- [Debug with devtools](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/devtools.mdx)
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/devtools/README.md)
+- [Debug with devtools](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/devtools.mdx)
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/devtools/README.md)

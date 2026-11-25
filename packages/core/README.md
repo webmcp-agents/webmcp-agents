@@ -72,9 +72,9 @@ is loaded on demand and not counted.
 
 ## Docs
 
-- [How it works](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/how-it-works.mdx): why tools never know the cursor exists
-- [The agent cursor](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/agent-cursor.mdx): options, yielding, confirmation, spotlight, styling
-- [Tools](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/define-a-tool.mdx) and [Errors](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/errors.mdx)
-- [Using it without React](https://github.com/mustafaskyer/web-agents/blob/main/docs/(get-started)/installation/no-framework.mdx): `createWebAgents`
-- [Browsers without WebMCP](https://github.com/mustafaskyer/web-agents/blob/main/docs/more/polyfill.mdx): the polyfill it loads
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/core/README.md)
+- [How it works](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/how-it-works.mdx): why tools never know the cursor exists
+- [The agent cursor](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/agent-cursor.mdx): options, yielding, confirmation, spotlight, styling
+- [Tools](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/define-a-tool.mdx) and [Errors](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/errors.mdx)
+- [Using it without React](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/(get-started)/installation/no-framework.mdx): `createWebAgents`
+- [Browsers without WebMCP](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/polyfill.mdx): the polyfill it loads
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/core/README.md)

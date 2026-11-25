@@ -72,8 +72,8 @@ limits and a budget.
 
 ## Docs
 
-- [Add a chat](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/add-the-chat.mdx): setup, how a turn runs, options, picking a model, security
-- [Define an agent](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/define-an-agent.mdx): instructions, tool subsets, sub-agents, a model per agent
-- [Run the agent on the device](https://github.com/mustafaskyer/web-agents/blob/main/docs/more/on-device-agent.mdx)
-- [Deploy to Vercel](https://github.com/mustafaskyer/web-agents/blob/main/docs/more/deploy.md)
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/chat/README.md)
+- [Add a chat](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/add-the-chat.mdx): setup, how a turn runs, options, picking a model, security
+- [Define an agent](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/define-an-agent.mdx): instructions, tool subsets, sub-agents, a model per agent
+- [Run the agent on the device](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/on-device-agent.mdx)
+- [Deploy to Vercel](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/deploy.md)
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/chat/README.md)

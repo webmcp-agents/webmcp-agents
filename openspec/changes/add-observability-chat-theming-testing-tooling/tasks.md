@@ -11,13 +11,13 @@ Gate: `pnpm check && pnpm turbo run check-exports`.
 
 ## 0. Tooling (`repo-tooling`, design §4)
 
-- [ ] 0.1 Add `knip` + `knip.json` (design §4.1); fix or remove every finding in its own commit, silencing none. Verify: `pnpm knip` exits 0, and adding an unused export to a package makes it exit non-zero
-- [ ] 0.2 Add `konsistent` + `konsistent.json` (design §4.2, with the split example rules; no rule requires `agents.ts` of the playground); load the `konsistent-config` skill and the tool's `docs/README.md` first; settle open questions 6 and 10. Verify: `konsistent validate` and `pnpm konsistent` exit 0, and a `packages/chat/src/locales/fr.ts` that does not export `fr` makes it exit non-zero (R-TOOL-1)
-- [ ] 0.3 Root scripts `knip`, `konsistent`, and `check` as in design §4.3; the two CI steps with `--format github` and `--reporter github-actions` in `.github/workflows/ci.yml`. Verify: `pnpm check` runs both tools before turbo; the workflow file parses (R-TOOL-2)
-- [ ] 0.4 `repository.url`, `homepage` and the changeset `repo` → `webmcp-agents/webmcp-agents`, `https://webmcp-agents.dev`, in every `package.json` and `.changeset/config.json`. Verify: a search for `mustafaskyer/web-agents` finds nothing outside changelogs
-- [ ] 0.5 `CLAUDE.md`: Commands (knip, konsistent) and Gotchas (what each rule checks, how to fix a finding). Verify: the two commands appear and run as written
-- [ ] 0.6 **[R3]** `packages/vercel-api/README.md` (what it is, private, link to its reference pages). Verify: `published-package-shape` passes for every package
-- [ ] 0.7 **[new]** Phase gate. Verify: `pnpm check && pnpm turbo run check-exports` passes; commit
+- [x] 0.1 Add `knip` + `knip.json` (design §4.1); fix or remove every finding in its own commit, silencing none. Verify: `pnpm knip` exits 0, and adding an unused export to a package makes it exit non-zero
+- [x] 0.2 Add `konsistent` + `konsistent.json` (design §4.2, with the split example rules; no rule requires `agents.ts` of the playground); load the `konsistent-config` skill and the tool's `docs/README.md` first; settle open questions 6 and 10. Verify: `konsistent validate` and `pnpm konsistent` exit 0, and a `packages/chat/src/locales/fr.ts` that does not export `fr` makes it exit non-zero (R-TOOL-1)
+- [x] 0.3 Root scripts `knip`, `konsistent`, and `check` as in design §4.3; the two CI steps with `--format github` and `--reporter github-actions` in `.github/workflows/ci.yml`. Verify: `pnpm check` runs both tools before turbo; the workflow file parses (R-TOOL-2)
+- [x] 0.4 `repository.url`, `homepage` and the changeset `repo` → `webmcp-agents/webmcp-agents`, `https://webmcp-agents.dev`, in every `package.json` and `.changeset/config.json`. Verify: a search for `mustafaskyer/web-agents` finds nothing outside changelogs
+- [x] 0.5 `CLAUDE.md`: Commands (knip, konsistent) and Gotchas (what each rule checks, how to fix a finding). Verify: the two commands appear and run as written
+- [x] 0.6 **[R3]** `packages/vercel-api/README.md` (what it is, private, link to its reference pages). Verify: `published-package-shape` passes for every package
+- [x] 0.7 **[new]** Phase gate. Verify: `pnpm check && pnpm turbo run check-exports` passes; commit
 
 ## 1. Redaction (`data-redaction`, design §8). First: everything after it uses it
 

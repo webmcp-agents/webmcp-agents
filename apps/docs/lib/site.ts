@@ -1,5 +1,5 @@
 /** Where the site's links and tools point. The docs are the same site, mounted under /docs (blume.config.ts `basePath`). */
-export const REPO = "https://github.com/mustafaskyer/web-agents";
+export const REPO = "https://github.com/webmcp-agents/webmcp-agents";
 export const DOCS = "/docs";
 export const DEMOS = "/demos";
 export const QUICKSTART = `${DOCS}/installation`;

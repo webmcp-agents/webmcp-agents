@@ -1,0 +1,45 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "ignore": ["apps/docs/components/opendesigns/**", "apps/docs/components/ui/**"],
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.mjs", "capture/*.{ts,mjs}", "registry/default/**/*.tsx", "registry/test/*.ts", "registry/*.ts"],
+      "project": ["scripts/**", "capture/**", "registry/**"],
+      "ignoreBinaries": ["ffmpeg"],
+      "ignoreDependencies": ["lucide-react", "@types/react", "streamdown", "ai"]
+    },
+    "packages/*": {
+      "entry": ["src/*/index.ts", "src/**/worker.ts", "scripts/*.mjs"],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
+    },
+    "packages/chat": {
+      "entry": ["src/locales/*.ts"],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
+    },
+    "examples/*": {
+      "entry": ["src/main.tsx", "api/*.ts", "e2e/*.ts", "app/**/{page,layout,route}.{ts,tsx}"],
+      "project": ["**/*.{ts,tsx,css}"]
+    },
+    "docs/_examples": {
+      "entry": ["**/*.{ts,tsx}"],
+      "project": ["**/*.{ts,tsx}"],
+      "paths": {
+        "@/components/ui/*": ["../../examples/ui/src/components/*"],
+        "@/*": ["shared/*"]
+      }
+    },
+    "apps/docs": {
+      "entry": ["blume.config.ts", "components.ts", "pages/**/*.astro", "scripts/*.mjs", "theme.css"],
+      "project": ["**/*.{ts,tsx,css}"]
+    },
+    "packages/react": {
+      "entry": ["src/jsx.ts"]
+    }
+  },
+  "ignoreIssues": {
+    "packages/devtools/src/copy-as-code.ts": ["duplicates"],
+    "packages/local-agent/src/providers/transformers/provider.ts": ["duplicates"],
+    "packages/react/src/use-tool-answer.ts": ["duplicates"]
+  }
+}

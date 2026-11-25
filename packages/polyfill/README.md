@@ -20,5 +20,5 @@ A page that registers tools without the provider imports the same entries from c
 
 ## Docs
 
-- [Browsers without WebMCP](https://github.com/mustafaskyer/web-agents/blob/main/docs/more/polyfill.mdx): what it covers, how the provider loads it, and how it differs from Chrome
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/polyfill/README.md)
+- [Browsers without WebMCP](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/polyfill.mdx): what it covers, how the provider loads it, and how it differs from Chrome
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/polyfill/README.md)

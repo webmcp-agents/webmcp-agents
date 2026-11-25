@@ -68,4 +68,4 @@ Every factory also takes `{ id?, description? }` to rename a tool or reword what
 
 ## Docs
 
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/tools/README.md)
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/tools/README.md)
