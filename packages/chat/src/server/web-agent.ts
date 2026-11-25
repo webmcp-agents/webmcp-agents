@@ -4,7 +4,7 @@
  * `toToolLoopAgent` is exported for people who run a WebAgent inside their own AI SDK code.
  */
 import { jsonSchema, type LanguageModel, type ToolSet, ToolLoopAgent, type ToolLoopAgentSettings, stepCountIs } from "ai";
-import { DELEGATION_NOTE, selectTools, type WebAgent } from "../agent";
+import { selectTools, type WebAgent } from "../agent";
 import type { ToolDescriptor } from "../types";
 import { buildSystemPrompt, DEFAULT_SYSTEM_PROMPT } from "./system-prompt";
 import { cleanText, sanitizeSchema } from "./validate";
@@ -70,5 +70,3 @@ export function toToolLoopAgent(agent: WebAgent | undefined, options: ToToolLoop
   // explicit type arguments: inference would pick an `Output` type from the absent `output` setting
   return new ToolLoopAgent<never, ToolSet>(toToolLoopAgentSettings(agent, options));
 }
-
-export { DELEGATION_NOTE };

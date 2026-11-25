@@ -12,7 +12,6 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@base-ui/react": "^1.9.0",
     "@hookform/resolvers": "^7.0.3",
     "@webmcp-agents/chat": "workspace:*",
     "@webmcp-agents/core": "workspace:*",
@@ -20,17 +19,13 @@
     "@webmcp-agents/react": "workspace:*",
     "@webmcp-agents/vercel-api": "workspace:*",
     "ai": "^7.0.163",
-    "class-variance-authority": "^0.7.1",
-    "cn": "^0.5.2",
     "lucide-react": "^1.70.0",
     "next": "16.4.5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-hook-form": "^7.91.0",
     "server-only": "^0.0.1",
-    "shadcn": "^4.23.0",
     "streamdown": "latest",
-    "tw-animate-css": "^1.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {

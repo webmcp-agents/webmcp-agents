@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { type CartState, cart, type Order } from "../store/cart";
 
-export type { CartItem, Order, Totals } from "../store/cart";
+export type { Order, Totals } from "../store/cart";
 
 /** The cart as the page shows it: the store's state plus what the cart panel derives from it. */
 export interface CartView extends CartState {
