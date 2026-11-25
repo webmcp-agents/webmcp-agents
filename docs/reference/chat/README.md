@@ -33,6 +33,7 @@ model id needs); optional `vite` (≥ 6, for the dev plugin).
 | `@webmcp-agents/chat/server` | The `/api/chat` handler, `resolveModel`, `toToolLoopAgent`, system prompt, request schema |
 | `@webmcp-agents/chat/vite` | A Vite plugin that serves `/api/chat` in `vite dev` |
 | `@webmcp-agents/chat/chat.css` | The widget's styles |
+| `@webmcp-agents/chat/locales/ar`, `/es` | The chat in Arabic and Spanish, one entry each ([Locales](./locales.md)) |
 
 ## Quick start
 
@@ -71,11 +72,22 @@ plugins: [react(), webAgentsChatDev({ agents })],
 |---|---|---|
 | [`defineWebAgent`](./define-web-agent.md) | `@webmcp-agents/chat/agent` | An agent (instructions, tool subset, sub-agents, model) as plain data, shared by the browser and the server; `agent.invoke` runs it from code. Includes `WebAgent`, `WebAgentConfig`, `WebAgentInvokeOptions`, `WebAgentResult`, `WebAgentStep`, `selectTools`, `delegateTool`, `flattenWebAgents`. |
 | [`<AgentChat>`](./agent-chat.md) | `@webmcp-agents/chat` | The launcher and docked chat panel, with `chat.css` theming. Includes `AgentChatProps`. |
-| [`createChatHandler`](./create-chat-handler.md) | `@webmcp-agents/chat/server` | The `/api/chat` endpoint as a web-standard function. Includes `ChatHandlerOptions`, `DEFAULT_MODEL`, `ReasoningLevel`. |
+| [`ChatTheme`](./chat-theme.md) | `@webmcp-agents/chat` | Every visual value as a `--wa-chat-*` variable, and the theme object. Includes `ChatThemeInput`, `THEME_TOKENS`. |
+| [`themeToCssVars`](./theme-to-css-vars.md) | `@webmcp-agents/chat` | A theme as CSS variables, for a page without React. Includes `ChatCssVar`. |
+| [`defineChatTheme`](./define-chat-theme.md) | `@webmcp-agents/chat` | A theme, typed where it is written. |
+| [`ChatMessages`](./chat-messages.md) | `@webmcp-agents/chat` | Every string the chat shows, by key; `en`, the English catalog. Includes `ChatMessagesInput`, `Message`, `MessageKey`, `DeepPartial`. |
+| [`defineChatMessages`](./define-chat-messages.md) | `@webmcp-agents/chat` | A catalog override, typed where it is written. |
+| [`createTranslator`](./create-translator.md) | `@webmcp-agents/chat` | The catalog as a translate function, with locale formatting. Includes `Translate`, `ChatFormat`, `MessageValues`, `deepMerge`, `directionOf`. |
+| [Locales](./locales.md) | `@webmcp-agents/chat/locales/*` | `ar` and `es`. |
+| [Chat parts](./chat-parts.md) | `@webmcp-agents/chat` | Every element's `data-wa-part` name and state attributes. Includes `CHAT_PARTS`, `ChatPart`. |
+| [`ChatComponents`](./chat-components.md) | `@webmcp-agents/chat` | Replace a part with your own component; `unstyled`. Includes `PartProps`, `IconName`, `ChatCustomization`. |
+| [Chat error codes](./chat-error-codes.md) | `@webmcp-agents/chat` | Every failure as a code the catalog words. Includes `ChatErrorCode`, `CHAT_ERROR_CODES`, `chatErrorCode`. |
+| [`adapterLabel`](./adapter-label.md) | `@webmcp-agents/chat` | An adapter's name in the page's language. |
+| [`createChatHandler`](./create-chat-handler.md) | `@webmcp-agents/chat/server` | The `/api/chat` endpoint as a web-standard function. Includes `ChatHandlerOptions`, `ChatServerMessages`, `SERVER_MESSAGES`, `DEFAULT_MODEL`, `ReasoningLevel`. |
 | [`webAgentsChatDev`](./web-agents-chat-dev.md) | `@webmcp-agents/chat/vite` | A Vite plugin that serves `/api/chat` in `vite dev`. Includes `WebAgentsChatDevOptions`. |
 | [`useWebAgent`](./use-web-agent.md) | `@webmcp-agents/chat` | Run an agent from a component with live status and no chat. Includes `WebAgentHandle`, `WebAgentStatus`, `UseWebAgentOptions`. |
 | [`createCloudAdapter`](./create-cloud-adapter.md) | `@webmcp-agents/chat` | The adapter that talks to your `/api/chat`. Includes `CloudAdapterOptions`. |
-| [`useAgentChat`](./use-agent-chat.md) | `@webmcp-agents/chat` | The chat as a `useChat`-shaped hook, to render with your own components. Includes `AgentChatState`, `ToolPhase`, `UseAgentChatOptions`. |
+| [`useAgentChat`](./use-agent-chat.md) | `@webmcp-agents/chat` | The chat as a `useChat`-shaped hook, to render with your own components. Includes `AgentChatState`, `AgentChatError`, `ToolPhase`, `UseAgentChatOptions`. |
 | [`useAgentSession`](./use-agent-session.md) | `@webmcp-agents/chat` | The conversation in the chat's own message shape. Includes `AgentSession`, `UseAgentSessionOptions`. |
 | [`resolveModel`](./resolve-model.md) | `@webmcp-agents/chat/server` | A `"<provider>/<model>"` id as an AI SDK model. Includes `modelAvailability`, `parseModelId`, `providerOptionsFor`, `displayName`, `PROVIDERS`, `ModelUnavailableError`. |
 | [`toToolLoopAgent`](./to-tool-loop-agent.md) | `@webmcp-agents/chat/server` | A `WebAgent` as an AI SDK `ToolLoopAgent`. Includes `toToolLoopAgentSettings`, `toToolSet`. |

@@ -70,10 +70,32 @@ In development, `webAgentsChatDev({ agents: [shopper] })` from `@webmcp-agents/c
 provider's key in `.env.local` (never with a `VITE_` prefix: the plugin refuses it). A public deployment needs rate
 limits and a budget.
 
+## Look and language
+
+Every color, size and duration is a `--wa-chat-*` variable, every string comes from a catalog, and every element
+carries a `data-wa-part` hook, so the chat changes without a fork:
+
+```tsx
+import { ar } from "@webmcp-agents/chat/locales/ar"; // Arabic and Spanish ship separately
+
+<AgentChat
+  agent={shopper}
+  theme={{ color: { accent: "#0f62fe" }, radius: { panel: "16px" } }} // or :root { --wa-chat-color-accent: … }
+  messages={{ title: "Field Store assistant", composer: { placeholder: "Ask about an order" } }}
+  classNames={{ send: "btn btn-primary" }}
+  components={{ ToolCard: MyToolCard }} // replace any part; `unstyled` drops the library CSS
+/>;
+<AgentChat locale="ar" messages={ar} />; // right to left, Arabic plurals and digits
+```
+
+Failures reach the chat as codes and are worded from the catalog; `useAgentChat({ messages, locale })` gives a UI of
+your own the same words (`error.text`, `t`). The 0.4.0 variables, props and `data-theme` behavior keep working.
+
 ## Docs
 
 - [Add a chat](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/add-the-chat.mdx): setup, how a turn runs, options, picking a model, security
 - [Define an agent](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/define-an-agent.mdx): instructions, tool subsets, sub-agents, a model per agent
 - [Run the agent on the device](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/on-device-agent.mdx)
 - [Deploy to Vercel](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/deploy.md)
+- [Theme](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/chat/chat-theme.md), [messages](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/chat/chat-messages.md), [parts](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/chat/chat-parts.md) and [components](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/chat/chat-components.md)
 - [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/chat/README.md)

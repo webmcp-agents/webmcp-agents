@@ -41,6 +41,7 @@ An agent the chat can talk to: the model and tool loop behind a stream of parts.
 |---|---|---|---|
 | `id` | `string` | required | Stable id; the widget remembers the chosen adapter by it. |
 | `label` | `string` | required | Shown in the adapter switcher, for example "Claude (cloud)". |
+| `labelParts` | `{ kind: "cloud" \| "on-device"; model?: string }` | — | What a built-in adapter is, so the chat words its name in the page's language ([`adapterLabel`](./adapter-label.md)) instead of showing `label`. Leave it out when you give an explicit `label`. |
 | `run` | `(req: AgentRunRequest) => AsyncIterable<AgentStreamPart>` | required | Handle one user message: yield stream parts and call `req.callTool()` for each tool call. |
 | `status` | `() => AdapterStatus` | always ready | Current availability. |
 | `subscribe` | `(listener: () => void) => () => void` | not set | Called on status changes (a download progressing, the cloud check finishing). Returns an unsubscribe function. |
@@ -67,7 +68,7 @@ Whether an adapter can run right now. The composer explains any state but `ready
 | State | Members | Description |
 |---|---|---|
 | `ready` | | It can run. |
-| `unavailable` | `reason: string` | It cannot, and why. |
+| `unavailable` | `reason: string`, `code?: ChatErrorCode` | It cannot, and why. With a `code`, the chat words it from its catalog; `reason` is the adapter's own words. |
 | `needs-download` | `bytes?: number`, `note?: string` | A download must start first. `note` is a caveat for the download card, for example "No WebGPU here: a smaller, slower model runs on the CPU." |
 | `downloading` | `progress: number` | Downloading; `progress` is 0 to 1. |
 | `loading` | `progress?: number` | Starting up. Without `progress` it is a connection check (the cloud adapter); with `progress` it is a model already on this device being read from disk, which the widget words as a load, never as a download. |
@@ -99,7 +100,7 @@ What an adapter reports while it runs, in order. Start each assistant message wi
 | `tool-error` | `id`, `error` | The call failed. A text starting `Error [cancelled]` shows as cancelled, not failed. |
 | `step-finish` | `step` | One model step (and its tool calls) is done. |
 | `finish` | `reason: "stop" \| "max-steps" \| "aborted"` | The run is over. |
-| `error` | `error`, `code?: "chat_disabled" \| "rate_limited" \| "bad_request" \| "network"` | The run failed; `code` lets the widget explain it. |
+| `error` | `error`, `code?: ChatErrorCode` | The run failed. The chat shows the catalog's text for `code` ([error codes](./chat-error-codes.md)); no code reads as `unknown`. `error` is the English text for callers that are not the UI. |
 
 ### `AgentMessage` and `AgentPart`
 

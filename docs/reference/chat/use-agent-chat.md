@@ -11,6 +11,7 @@ The chat as a `useChat`-shaped React hook: the conversation as AI SDK `UIMessage
 ```ts
 import { useAgentChat } from "@webmcp-agents/chat";
 import type {
+  AgentChatError,
   AgentChatState,
   ToolPhase,
   UseAgentChatOptions,
@@ -37,6 +38,8 @@ The `agent-chat` block of the `@webmcp-agents` registry is a complete chat built
 | `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation, so it survives route changes and reloads. `false` keeps it in memory only. |
 | `getSnapshot` | `() => unknown` | — | Optional JSON-serializable app state captured per user turn (passed through; persisted with the session). |
 | `applySnapshot` | `(snapshot: { url?: string; app?: unknown }) => void \| Promise<void>` | default URL restore | Reapply a stage checkpoint once the fills are rewound; with it, no tool `revert` runs (SPA apps should `navigate(url)` and rehydrate `app`). |
+| `messages` | `ChatMessagesInput` | English | Overrides of the [message catalog](./chat-messages.md), for the text the hook words: `error.text`, the built-in suggestion, and `t`. |
+| `locale` | `string` | `"en"` | BCP 47, for plurals and number formatting in that text. An invalid tag is `"en"`. |
 
 ## Returns
 
@@ -46,7 +49,8 @@ An `AgentChatState`:
 |---|---|---|
 | `messages` | `UIMessage[]` | The conversation for rendering. `text` and `reasoning` parts carry `state` (`streaming` on the last part while the run streams); tool calls are `dynamic-tool` parts with `input-available` (running or parked), `output-available` or `output-error` (`errorText`; a cancelled call carries `Error [cancelled]: …`). Messages left empty are kept. |
 | `status` | `"submitted" \| "streaming" \| "ready" \| "error"` | AI SDK `ChatStatus` names: `submitted` until the reply's first part, then `streaming`, then `ready`; `error` after a failed run. |
-| `error` | `SessionError` | The last run's failure: `{ message, code? }`. |
+| `error` | `AgentChatError` | The last run's failure: `text` (the catalog's words for it, in `messages` and `locale`), `code` (a [`ChatErrorCode`](./chat-error-codes.md); `unknown` when the adapter gave none) and `message` (the adapter's own words, for logs). |
+| `t` | `Translate` | The translate function for `messages` and `locale` ([`createTranslator`](./create-translator.md)), for your UI's own strings. |
 | `sendMessage({ text })` | `(input: { text: string }) => void` | Send a message. Ignored when empty or while streaming. |
 | `stop()` | `() => void` | Stop the run; open tool calls become `cancelled`. |
 | `regenerate()` | `() => void` | Resume the interrupted turn from its last finished tool call, so nothing is done twice. |
