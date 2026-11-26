@@ -89,7 +89,8 @@ describe("no hard-coded text, in any state", () => {
     await page.viewport(414, 896);
   });
 
-  test("every string comes from the catalog, and every element is a part", { timeout: 30_000 }, async () => {
+  // One test walks every UI state in turn (~8 s alone, 37 s on a 1.5-CPU machine also running the other packages' tests).
+  test("every string comes from the catalog, and every element is a part", { timeout: 120_000 }, async () => {
     const ctl = controlled();
     const helper = defineWebAgent({ id: "helper", description: "Finds orders.", instructions: "Find orders." });
     const agent = defineWebAgent({ id: "shop", instructions: "Shop.", agents: [helper] });
