@@ -4,7 +4,7 @@ import { readRun } from "../run-record";
 
 /**
  * The run's answer (the text it replied with) contains this string, matches this RegExp or satisfies this asymmetric
- * matcher. On a `mockAdapter`, its last run's answer.
+ * matcher. On a `mockAdapter`, its last top-level run's answer (a sub-agent's run is not it).
  *
  * @example
  * expect(run).toHaveAnswered(/back in your cart/i);

@@ -7,9 +7,10 @@
  *
  * Needs `@webmcp-agents/chat`: importing this entry without it fails with a sentence naming it.
  */
-import { requirePeer } from "../peer";
+import { loadChat } from "./chat-peer";
 
-await requirePeer(() => import("@webmcp-agents/chat/agent"), { peer: "@webmcp-agents/chat", by: "@webmcp-agents/testing/chat" });
+// before any export is used: the modules below read the chat's values from it, never by a static import
+await loadChat("@webmcp-agents/testing/chat");
 
 export {
   fail,

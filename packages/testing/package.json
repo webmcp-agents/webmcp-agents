@@ -10,6 +10,7 @@
     "./src/setup.ts",
     "./dist/index.js",
     "./dist/matchers.js",
+    "./dist/matchers-*.js",
     "./dist/setup.js"
   ],
   "files": [

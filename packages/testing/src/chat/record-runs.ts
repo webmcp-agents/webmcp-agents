@@ -1,5 +1,6 @@
-import { type AgentRunEvent, onAgentRun } from "@webmcp-agents/chat";
+import type { AgentRunEvent } from "@webmcp-agents/chat";
 import { RUN_LOG, type RunLog, type RunLogOptions } from "../run-record";
+import { loadedChat } from "./chat-peer";
 
 /**
  * Record every `AgentRunEvent` (the chat's, `useWebAgent`'s, `agent.invoke`'s, sub-agents' included) until `stop()`.
@@ -15,7 +16,7 @@ import { RUN_LOG, type RunLog, type RunLogOptions } from "../run-record";
  */
 export function recordRuns(options: RunLogOptions = {}): RunLog {
   const events: AgentRunEvent[] = [];
-  const off = onAgentRun((e) => events.push(e), { raw: options.raw === true });
+  const off = loadedChat().onAgentRun((e) => events.push(e), { raw: options.raw === true });
   let stopped = false;
   return {
     [RUN_LOG]: true,

@@ -10,6 +10,7 @@ import { deferCleanup } from "./guard";
 import { type EventLog, recordEvents } from "./helpers/events";
 import { type CallToolOptions, callTool, type MockedTool, type MockToolDefinition, type MockToolImpl, mockTool } from "./helpers/tools";
 import { sleep } from "./helpers/wait";
+import { loadChat } from "./chat/chat-peer";
 import { createMount, type Mount } from "./mount";
 import { requirePeer } from "./peer";
 import type { RunLog } from "./run-record";
@@ -144,7 +145,7 @@ export const test = base.extend<WebAgentsFixtures>({
   // biome-ignore lint/correctness/noEmptyPattern: see above
   runs: async ({}, use) => {
     // loaded on use: a test that never destructures `runs` needs no chat, and a missing one fails here with a sentence
-    const { recordRuns } = await requirePeer(() => import("./chat/record-runs"), { peer: "@webmcp-agents/chat", by: "The runs fixture" });
+    const [{ recordRuns }] = await Promise.all([import("./chat/record-runs"), loadChat("The runs fixture")]);
     const log = recordRuns();
     const stop = once(() => log.stop());
     deferCleanup(stop);

@@ -7,6 +7,8 @@
  * - forces reduced motion, so the cursor snaps instead of animating (`webAgentsProject("browser", { motion: "full" })`
  *   keeps the motion, for tests of the motion itself);
  * - makes ids deterministic (`u-1`, `a-1`, `call-1`…), reset before every test;
+ * - empties `sessionStorage` and `localStorage` before every test, so a conversation the chat saved (its
+ *   `sessionStorage` key) does not carry into the next test while the ids start over;
  * - after every test: unmounts what `mount` and `vitest-browser-react` rendered, removes fixtures, then fails the test
  *   if a tool call it started is still running or a tool it registered is still registered, naming the tool.
  *
@@ -72,9 +74,22 @@ if (browser) {
   if (readMotion() === "reduced") await reduceMotion();
 }
 
+/** Empty both storages: a test starts from a page that remembers nothing. */
+function clearStorage(): void {
+  for (const name of ["sessionStorage", "localStorage"] as const) {
+    try {
+      window[name].clear();
+    } catch {
+      // storage denied (an opaque origin, a sandboxed frame): nothing was kept either
+    }
+  }
+}
+
 beforeEach(async () => {
   resetIds();
-  if (browser) await beginTest();
+  if (!browser) return;
+  clearStorage();
+  await beginTest();
 });
 
 afterEach(async () => {

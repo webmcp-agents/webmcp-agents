@@ -115,6 +115,13 @@ describe("toHaveSpan", () => {
     expect(m.spans).toHaveSpan("invoke_agent shopper");
   });
 
+  test("a /g RegExp name matches every time (its lastIndex is reset)", () => {
+    const m = turn();
+    const name = /execute_tool/g;
+    expect(m).toHaveSpan(name);
+    expect(m).toHaveSpan(name);
+  });
+
   test("fails saying which spans exist, or what the closest one has", async () => {
     const m = turn();
     expect(await failure(() => expect(m).toHaveSpan("execute_tool pay"))).toMatch(/there is none\. Spans:\n {4}execute_tool add/);

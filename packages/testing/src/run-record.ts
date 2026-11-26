@@ -1,7 +1,8 @@
 /**
  * The run matchers (`toHaveCalledTool(s)`, `toHaveAnswered`, `toHaveFinishedWith`, `toHaveBeenOfferedTools`) read a
  * run from four places: a `WebAgentResult` (what `agent.invoke` resolved to), a `mockAdapter` (which saw every part
- * it streamed), the error `agent.invoke` rejected with, or the `runs` fixture's `RunLog` (every run event).
+ * it streamed), the error `agent.invoke` rejected with (how it ended only: it carries no calls), or the `runs`
+ * fixture's `RunLog` (every run event).
  */
 import type { AgentRunEvent } from "@webmcp-agents/chat";
 import { kindOf, MatcherInputError } from "./format";
@@ -30,12 +31,18 @@ export interface RecordedFinish {
 export interface RunRecord {
   /** Every tool call, every run, in order. */
   readonly calls: RecordedCall[];
-  /** The text each run streamed, joined, in run order. */
-  readonly answers: string[];
+  /** The text each run streamed, joined, in run order (undefined for a run that streamed none). */
+  readonly answers: (string | undefined)[];
   /** How each run ended, in order (undefined while a run is in flight). */
   readonly finishes: (RecordedFinish | undefined)[];
   /** The tool names offered on each model step, in order. */
   readonly offered: string[][];
+  /**
+   * The index (in `answers` / `finishes`) of the last top-level run: one without `ref.parent`. A sub-agent's run on
+   * the same adapter starts after its parent and ends before it, so the last index is not the run that answered.
+   * -1 before any run.
+   */
+  top: number;
 }
 
 /** Where a mock adapter keeps its {@link RunRecord}. */
@@ -124,8 +131,8 @@ export function readRun(received: unknown, matcher: string): ReadRun {
     return {
       source: "the mock adapter",
       calls: record.calls,
-      answer: record.answers.at(-1),
-      finish: record.finishes.at(-1),
+      answer: record.answers[record.top],
+      finish: record.finishes[record.top],
       offered: record.offered,
     };
   }
@@ -140,6 +147,10 @@ export function readRun(received: unknown, matcher: string): ReadRun {
     };
   }
   if (received instanceof Error) {
+    if (matcher === "toHaveCalledTool" || matcher === "toHaveCalledTools")
+      throw new MatcherInputError(
+        `${matcher} cannot read the error agent.invoke rejected with: the error carries no calls. Assert on the mockAdapter or the runs log.`,
+      );
     const aborted = received.name === "AbortError";
     const code = (received as Error & { code?: unknown }).code;
     return {

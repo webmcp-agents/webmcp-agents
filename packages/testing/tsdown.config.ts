@@ -2,7 +2,9 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig({
   // One file per entry (design §9.2). `chat` and `server` load their optional peers with a top-level await, so a
-  // missing one fails at import with a sentence naming it; the other entries never touch them.
+  // missing one fails at import with a sentence naming it; the other entries never touch them. `chat`'s modules import
+  // @webmcp-agents/chat as types only (values come from src/chat/chat-peer.ts), so dist/chat.js has no static import
+  // of it that would run before that check.
   entry: {
     index: "src/index.ts",
     matchers: "src/matchers.ts",

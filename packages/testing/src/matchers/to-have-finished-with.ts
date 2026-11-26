@@ -7,7 +7,7 @@ const REASONS: FinishReason[] = ["stop", "max-steps", "aborted", "error"];
 /**
  * The run ended this way: `"stop"`, `"max-steps"`, `"aborted"` or `"error"`; with `code` too, the adapter's error
  * code (`"rate_limited"`, `"network"`…). A `WebAgentResult` reads as `"stop"` (see the matcher's page); a
- * `mockAdapter` knows exactly; the error `agent.invoke` rejected with reads as `"error"` (or `"aborted"`).
+ * `mockAdapter` knows exactly (its last top-level run, not a sub-agent's); the error `agent.invoke` rejected with reads as `"error"` (or `"aborted"`).
  *
  * @example
  * expect(adapter).toHaveFinishedWith("error", "rate_limited");

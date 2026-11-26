@@ -4,7 +4,8 @@ import { readRun } from "../run-record";
 
 /**
  * The run called `tool`, with an input that contains `input` when given (a partial match: other keys may be there).
- * Reads a `WebAgentResult`, a `mockAdapter` or the error `agent.invoke` rejected with.
+ * Reads a `WebAgentResult`, a `mockAdapter` or the `runs` fixture's `RunLog`. The error `agent.invoke` rejected with
+ * carries no calls, so it is refused (a negated call would pass on nothing): assert on the `mockAdapter` instead.
  *
  * @example
  * expect(run).toHaveCalledTool("add_to_cart", { qty: 2 });

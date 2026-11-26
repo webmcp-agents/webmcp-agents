@@ -1,7 +1,7 @@
 import type { AgentEvent } from "@webmcp-agents/core";
 import { toolError } from "@webmcp-agents/core";
 import { describe, expect, test, vi } from "vitest";
-import { mockAdapter, text, toolCall } from "../src/chat";
+import { fail, mockAdapter, text, toolCall } from "../src/chat";
 import type { AgentRunEvent } from "@webmcp-agents/chat";
 import "../src/matchers";
 import { RUN_LOG, type RunLog } from "../src/run-record";
@@ -346,5 +346,128 @@ describe("run matchers on a RunLog (the runs fixture)", () => {
     const message = await failure(() => expect(log(run("stop"))).not.toContainSensitive(["mugs"]));
     expect(message).toContain("Found in the run log");
     expect(message).toContain("tool-start search");
+  });
+});
+
+describe("a mockAdapter's runs: the matchers read its last top-level run", () => {
+  const tools = [{ name: "add_to_cart", description: "", inputSchema: {} }];
+  async function play(adapter: ReturnType<typeof mockAdapter>, callTool = vi.fn(async () => ok("ok")), ref?: object) {
+    for await (const _ of adapter.run({
+      messages: [],
+      tools,
+      signal: new AbortController().signal,
+      callTool,
+      ...(ref ? { ref } : {}),
+    } as never));
+  }
+
+  test("a later run that failed has no answer: an earlier run's text is not it", async () => {
+    const adapter = mockAdapter([text("Done."), fail("rate_limited")]);
+    await play(adapter);
+    await play(adapter);
+    expect(await failure(() => expect(adapter).toHaveAnswered("Done."))).toContain('has no answer: the run ended with "error"');
+    expect(adapter).toHaveFinishedWith("error", "rate_limited");
+  });
+
+  test("a sub-agent's run on the same adapter is not the run: the parent's failure is", async () => {
+    const adapter = mockAdapter([toolCall("delegate_to_helper"), text("Found two mugs."), fail("rate_limited")]);
+    // the parent's delegate call runs the sub-agent on the same adapter, under the call (ref.parent)
+    const delegate = vi.fn(async () => {
+      await play(adapter, undefined, { conversation: "c1", run: "r2", parent: "d1" });
+      return ok("Found two mugs.");
+    });
+    await play(adapter, delegate, { conversation: "c1", run: "r1" });
+    expect(delegate).toHaveBeenCalledOnce();
+    expect(adapter).toHaveFinishedWith("error", "rate_limited");
+    expect(await failure(() => expect(adapter).toHaveAnswered("Found two mugs."))).toContain("has no answer");
+  });
+
+  test("the error agent.invoke rejected with carries no calls: the call matchers refuse it, negated too", async () => {
+    const err = Object.assign(new Error("Too many requests."), { code: "rate_limited" });
+    for (const assertion of [
+      () => expect(err).toHaveCalledTool("place_order"),
+      () => expect(err).not.toHaveCalledTool("place_order"),
+      () => expect(err).toHaveCalledTools([]),
+      () => expect(err).not.toHaveCalledTools(["place_order"]),
+    ]) {
+      expect(await failure(assertion)).toContain("the error carries no calls. Assert on the mockAdapter or the runs log.");
+    }
+  });
+});
+
+describe("toHaveBeenOfferedTools, negated", () => {
+  const tools = (...names: string[]) => names.map((name) => ({ name, description: "", inputSchema: {} }));
+  async function twoSteps() {
+    const adapter = mockAdapter([toolCall("add_to_cart"), text("Added.")]);
+    const callTool = vi.fn(async () => ok("ok"));
+    const run = {
+      messages: [],
+      // step 1 (before its call ran) is offered place_order, step 2 is not
+      get tools() {
+        return callTool.mock.calls.length ? tools("add_to_cart") : tools("add_to_cart", "place_order");
+      },
+      signal: new AbortController().signal,
+      callTool,
+    };
+    for await (const _ of adapter.run(run as never));
+    return adapter;
+  }
+
+  test("with a list it refuses to run, and points at the asymmetric form", async () => {
+    const adapter = await twoSteps();
+    const message = await failure(() => expect(adapter).not.toHaveBeenOfferedTools(["place_order"]));
+    expect(message).toContain('toHaveBeenOfferedTools(expect.not.arrayContaining(["place_order"]))');
+    // the asymmetric form sees the step that was offered it
+    expect(await failure(() => expect(adapter).toHaveBeenOfferedTools(expect.not.arrayContaining(["place_order"])))).toContain(
+      "Model step 1 of 2 was offered: add_to_cart, place_order",
+    );
+  });
+
+  test("an adapter that has not run fails either way", async () => {
+    expect(await failure(() => expect(mockAdapter([])).toHaveBeenOfferedTools(expect.anything()))).toContain("has not run");
+    expect(await failure(() => expect(mockAdapter([])).not.toHaveBeenOfferedTools(expect.anything()))).toContain("has not run");
+  });
+});
+
+describe("toContainSensitive reads what Object.entries misses", () => {
+  test("URL, Request, Headers, URLSearchParams and FormData", async () => {
+    expect(new URL("https://shop.example/?token=sk-test")).toContainSensitive(["sk-test"]);
+    const request = new Request("https://shop.example/api", { headers: { authorization: "Bearer sk-test" } });
+    expect(await failure(() => expect({ request }).not.toContainSensitive(["sk-test"]))).toContain(
+      'value.request.headers.get("authorization")',
+    );
+    expect(new Request("https://shop.example/?key=sk-test")).toContainSensitive(["sk-test"]);
+    expect(new Headers({ "x-key": "sk-test" })).toContainSensitive(["sk-test"]);
+    expect(new URLSearchParams({ passport: "A1234567" })).toContainSensitive(["A1234567"]);
+    const form = new FormData();
+    form.set("passport", "A1234567");
+    expect(form).toContainSensitive(["A1234567"]);
+    expect(new Headers({ a: "b" })).not.toContainSensitive(["sk-test"]);
+  });
+
+  test("an Error's cause and own properties, not only its message", async () => {
+    const err = Object.assign(new Error("Failed.", { cause: { token: "sk-test" } }), { body: { passport: "A1234567" } });
+    expect(await failure(() => expect(err).not.toContainSensitive(["sk-test"]))).toContain("value.cause.token");
+    expect(await failure(() => expect(err).not.toContainSensitive(["A1234567"]))).toContain("value.body.passport");
+  });
+
+  test("a value nested deeper than it reads is not claimed absent", async () => {
+    let deep: Record<string, unknown> = { token: "sk-test" };
+    for (let i = 0; i < 30; i++) deep = { next: deep };
+    const message = await failure(() => expect(deep).not.toContainSensitive(["A1234567"]));
+    expect(message).toContain("could not read all of the value: it stops 24 levels down, at value.next");
+    // a value found above the limit still answers
+    expect({ token: "A1234567", deep }).toContainSensitive(["A1234567"]);
+  });
+
+  test("a /g RegExp matches every time (its lastIndex is reset)", async () => {
+    const key = /sk-\w+/g;
+    expect({ a: "sk-test" }).toContainSensitive([key]);
+    expect({ a: "sk-test" }).toContainSensitive([key]);
+    expect(await failure(() => expect({ a: "sk-test" }).not.toContainSensitive([key]))).toContain("Found in the value");
+    const answer = /mugs/g;
+    const run = { text: "Two mugs.", steps: [], messages: [] };
+    expect(run).toHaveAnswered(answer);
+    expect(run).toHaveAnswered(answer);
   });
 });

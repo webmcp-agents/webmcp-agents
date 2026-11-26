@@ -108,7 +108,7 @@ export function mockAdapter(script: MockScript, options: MockAdapterOptions = {}
   if (!Array.isArray(script) && typeof script !== "function") {
     throw new TypeError("mockAdapter() takes a list of steps (text(), toolCall(), fail()…) or a function that returns one per model step.");
   }
-  const record: RunRecord = { calls: [], answers: [], finishes: [], offered: [] };
+  const record: RunRecord = { calls: [], answers: [], finishes: [], offered: [], top: -1 };
   const requests: MockRequest[] = [];
   let cursor = 0;
   let runs = 0;
@@ -213,7 +213,10 @@ export function mockAdapter(script: MockScript, options: MockAdapterOptions = {}
       signal: req.signal,
       ...(req.ref ? { ref: { ...req.ref } } : {}),
     });
+    record.answers[n - 1] = undefined;
     record.finishes[n - 1] = undefined;
+    // a sub-agent's run (`ref.parent`) is not the one the run matchers read
+    if (!req.ref?.parent) record.top = n - 1;
     return observe(play(req, n), n);
   });
 

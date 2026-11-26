@@ -51,7 +51,10 @@ export function hint(state: MatcherState, matcher: string, args: unknown[] = [])
 /** `text` matches `expected`: a string is contained, a RegExp tested, an asymmetric matcher asked. */
 export function textMatches(state: MatcherState, text: string, expected: unknown): boolean {
   if (typeof expected === "string") return text.includes(expected);
-  if (expected instanceof RegExp) return expected.test(text);
+  if (expected instanceof RegExp) {
+    expected.lastIndex = 0; // a /g or /y RegExp would start where its last match ended
+    return expected.test(text);
+  }
   return state.equals(text, expected);
 }
 

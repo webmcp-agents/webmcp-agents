@@ -1,8 +1,9 @@
-import { type AgentAdapter, type AgentChatProps, type ChatMessagesInput, en } from "@webmcp-agents/chat";
+import type { AgentAdapter, AgentChatProps, ChatMessagesInput } from "@webmcp-agents/chat";
 import { onTestFinished } from "vitest";
 import { until } from "../helpers/wait";
 import { requirePeer } from "../peer";
 import { SENTINEL, sentinelOf } from "../sentinel";
+import { loadChat, loadedChat } from "./chat-peer";
 
 /** Options for {@link renderChat}. */
 export interface RenderChatOptions {
@@ -51,7 +52,7 @@ const silent: AgentAdapter = { id: "silent", label: "Silent", async *run() {} };
  * sentinelMessages().composer.send; // "⟦composer.send⟧"
  */
 export function sentinelMessages(): ChatMessagesInput {
-  return sentinelOf(en) as ChatMessagesInput;
+  return sentinelOf(loadedChat().en) as ChatMessagesInput;
 }
 
 /**
@@ -70,7 +71,7 @@ export async function renderChat(options: RenderChatOptions = {}): Promise<Rende
     requirePeer(() => import("react"), { peer: "react", by }),
     requirePeer(() => import("react-dom/client"), { peer: "react-dom", by }),
     requirePeer(() => import("react-dom"), { peer: "react-dom", by }),
-    requirePeer(() => import("@webmcp-agents/chat"), { peer: "@webmcp-agents/chat", by }),
+    loadChat(by),
   ]);
   const before = new Set(document.querySelectorAll('[data-web-agents-ui="chat"]'));
   const container = document.createElement("div");

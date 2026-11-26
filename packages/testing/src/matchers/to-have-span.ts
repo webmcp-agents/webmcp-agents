@@ -22,7 +22,11 @@ export function toHaveSpan(
     throw new MatcherInputError(
       `toHaveSpan needs spans: a memoryExporter(), an InMemorySpanExporter or an array of spans, got ${show(received, 60)}.`,
     );
-  const named = spans.filter((s) => (typeof name === "string" ? s.name === name : name.test(s.name)));
+  const named = spans.filter((s) => {
+    if (typeof name === "string") return s.name === name;
+    name.lastIndex = 0; // a /g or /y RegExp would start where its last match ended
+    return name.test(s.name);
+  });
   const matching = named.filter((s) => Object.entries(attributes ?? {}).every(([k, v]) => this.equals(s.attributes[k], v)));
   const head = hint(this, "toHaveSpan", attributes ? [name, attributes] : [name]);
   const list = spans.length ? spans.map((s) => `    ${s.name}`).join("\n") : "    (no spans)";

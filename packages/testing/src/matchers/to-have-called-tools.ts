@@ -3,7 +3,8 @@ import { hint, MatcherInputError, show } from "../format";
 import { readRun } from "../run-record";
 
 /**
- * The run called exactly these tools, in this order (no other call before, between or after).
+ * The run called exactly these tools, in this order (no other call before, between or after). Reads what
+ * `toHaveCalledTool` reads; the error `agent.invoke` rejected with carries no calls, so it is refused.
  *
  * @example
  * expect(run).toHaveCalledTools(["track_last_order", "add_to_cart"]);

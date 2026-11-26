@@ -92,6 +92,17 @@ describe("tests do not see each other", () => {
   }
 });
 
+describe("storage starts empty", () => {
+  for (const n of [1, 2]) {
+    test(`test ${n} finds no conversation the last test saved`, () => {
+      expect(sessionStorage.getItem("web-agents:chat")).toBeNull();
+      expect(localStorage.length).toBe(0);
+      sessionStorage.setItem("web-agents:chat", `conversation ${n}`);
+      localStorage.setItem("kept", `${n}`);
+    });
+  }
+});
+
 describe("ids are predictable", () => {
   const seen: string[][] = [];
   for (const n of [1, 2]) {
