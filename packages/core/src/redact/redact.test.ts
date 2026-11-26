@@ -128,7 +128,9 @@ describe("limits", () => {
       // linear scanning takes ~0.3 s per MB; backtracking would take minutes. The margin is for a loaded CI machine.
       expect(performance.now() - t).toBeLessThan(15_000);
     }
-  });
+    // The four scans take under 1 s alone and took 10.6 s on a CI runner busy with the other packages' tests,
+    // so the default 5 s test timeout failed a linear scan. 60 s still fails a backtracking one.
+  }, 60_000);
 });
 
 describe("keys", () => {
