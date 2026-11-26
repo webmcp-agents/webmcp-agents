@@ -45,7 +45,7 @@ devtools panel is on **Alt+Shift+A**, and `window.agent.invoke("open_product", {
     - product/[slug]/page.tsx (Server Component + the client `add_to_cart` form)
     - cart/, checkout/ (client views; checkout holds `apply_promo` and the confirm-gated `checkout`)
     - api/chat/route.ts (`createVercelChatRoute({ app, agents, model, observability })`, the example's guarded route)
-    - api/telemetry/route.ts (`observability.relay()`: the page's spans, sent where the server's go)
+    - api/telemetry/route.ts (`createVercelTelemetryRoute({ app, observability })`: the page's spans, behind the chat's origin rule and a per-IP limit, sent where the server's go)
   - webmcp-agents/
     - agents.ts (`shopper` with the `checkout` sub-agent: shared by the client and the route)
     - tools/ (index.ts: the catalog, plain modules, one file per tool)

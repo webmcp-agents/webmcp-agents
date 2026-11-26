@@ -1,3 +1,3 @@
 import { defineMeta } from "blume";
 
-export default defineMeta({ title: "@webmcp-agents/devtools", order: 5 });
+export default defineMeta({ title: "@webmcp-agents/devtools", icon: "square-terminal", order: 5 });

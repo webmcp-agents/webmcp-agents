@@ -4,7 +4,7 @@ description: "Every browser span of the test, kept in memory, with flush() for t
 
 # `spans`
 
-The `spans` fixture: [`observeAgents`](../telemetry/observe-agents.md) sending every browser span of the test to an in-memory exporter, one span per batch, redacted as it would be exported. `flush()` waits for spans still on their way (the span builder loads when the first run starts). Observing stops after the test. It needs `@webmcp-agents/telemetry`; without it, destructuring `spans` fails with a sentence naming the package.
+The `spans` fixture: [`observeAgents`](../../observability/observe-agents.mdx) sending every browser span of the test to an in-memory exporter, one span per batch, redacted as it would be exported. `flush()` waits for spans still on their way (the span builder loads when the first run starts). Observing stops after the test. It needs `@webmcp-agents/telemetry`; without it, destructuring `spans` fails with a sentence naming the package.
 
 ## Import
 
@@ -49,4 +49,4 @@ A `SpansFixture`.
 
 - [`toHaveSpan`](./to-have-span.md), [`toBeOneTrace`](./to-be-one-trace.md)
 - [`memoryExporter`, `spanTree`](./telemetry.md)
-- [`observeAgents`](../telemetry/observe-agents.md)
+- [`observeAgents`](../../observability/observe-agents.mdx)

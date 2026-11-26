@@ -1,0 +1,164 @@
+---
+title: metadataMapping
+description: "Group a conversation's traces in your backend: copy webmcp.conversation.id to the key your backend groups by, exported raw."
+sidebar:
+  label: "metadataMapping"
+related:
+  - /observability/privacy
+  - /observability/define-observability
+  - /observability/define-observability
+---
+
+Every span carries `webmcp.conversation.id`, so you can always find every turn of one conversation. A backend that
+groups traces into sessions or threads does it by a key of its own, though, and `metadataMapping` copies the id to that
+key. Use it when your backend has a sessions or threads view; skip it when filtering by `webmcp.conversation.id` is
+enough.
+
+## Example
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/metadata-mapping.ts</include>
+
+`observeAgents` takes the same option for the page's own spans.
+
+## Options
+
+<TypeTable
+  type={{
+    metadataMapping: {
+      type: "Record<string, string>",
+      description:
+        "Copy one of the span's attributes to the name a backend groups by. Runs before redaction.",
+    },
+  }}
+/>
+
+Every other option is on [defineObservability](/observability/define-observability#options).
+
+## Your backend
+
+Your backend's key, which the `lib/observability.ts` of [its installation](/observability/installation) maps:
+
+<RememberBackend />
+
+<Tabs dropdown param="backend" syncKey="backend">
+<Tab title="Any OTLP backend" id="otlp">
+
+Map the id to the key your backend groups by, if it has one. Without one, filter by `webmcp.conversation.id`
+itself.
+
+</Tab>
+<Tab title="Arize" id="arize">
+
+Arize AX and Phoenix both group sessions by `session.id`, which its setup maps. Source:
+[Phoenix sessions](https://arize.com/docs/phoenix/tracing/how-to-tracing/setup-tracing/setup-sessions).
+
+</Tab>
+<Tab title="Braintrust" id="braintrust">
+
+Braintrust documents no session or user attribute, so its setup maps nothing: filter by `webmcp.conversation.id`,
+which is on every span. Source: [Attributes](https://docs.braintrust.dev/integrations/sdk-integrations/opentelemetry/attributes).
+
+</Tab>
+<Tab title="Datadog" id="datadog">
+
+LLM Observability builds sessions from `gen_ai.conversation.id`, which its setup maps. Source:
+[LLM Observability with OpenTelemetry](https://docs.datadoghq.com/llm_observability/instrumentation/otel_instrumentation.md).
+
+</Tab>
+<Tab title="Helicone" id="helicone">
+
+Helicone logs model calls, not spans: its sessions come from the model provider's
+`extraBody: { helicone: { sessionId, userId } }`, not from `metadataMapping`. Source:
+[Sessions](https://docs.helicone.ai/features/sessions.md).
+
+</Tab>
+<Tab title="IBM Instana" id="instana">
+
+Its setup maps no key: filter by `webmcp.conversation.id`, which is on every span.
+
+</Tab>
+<Tab title="Laminar" id="laminar">
+
+Laminar groups traces into sessions by `lmnr.association.properties.session_id` on the root span (and people by
+`…user_id`), which its setup maps. Source:
+[Span attribute reference](https://laminar.sh/docs/tracing/structure/span-attribute-reference).
+
+</Tab>
+<Tab title="Langfuse" id="langfuse">
+
+Langfuse groups traces into sessions by `langfuse.session.id` (or `session.id`), and people by `langfuse.user.id` (or
+`user.id`). Its setup maps the conversation id to the session. Source:
+[OpenTelemetry integration](https://langfuse.com/integrations/native/opentelemetry).
+
+</Tab>
+<Tab title="LangSmith" id="langsmith">
+
+LangSmith groups traces into threads by `langsmith.trace.session_id`, which its setup maps. Sources:
+[Trace with OpenTelemetry](https://docs.langchain.com/langsmith/trace-with-opentelemetry),
+[Threads](https://docs.langchain.com/langsmith/threads).
+
+</Tab>
+<Tab title="LangWatch" id="langwatch">
+
+LangWatch groups messages into threads by `langwatch.thread.id` (and people by `langwatch.user.id`), as in its setup's
+`metadataMapping`. Source:
+[Semantic conventions](https://langwatch.ai/docs/integration/typescript/tutorials/semantic-conventions.md).
+
+</Tab>
+<Tab title="New Relic" id="new-relic">
+
+Its setup maps no key: filter by `webmcp.conversation.id`, which is on every span.
+
+</Tab>
+<Tab title="PostHog" id="posthog">
+
+PostHog takes its session from `$ai_session_id`, or else from `gen_ai.conversation.id`, which its setup maps. The
+person is `posthog.distinct_id` (or `user.id`): set it from your own user id where you have one. Source:
+[OpenTelemetry installation](https://posthog.com/docs/ai-observability/installation/opentelemetry.md).
+
+</Tab>
+<Tab title="Sentry" id="sentry">
+
+Sentry groups AI spans into conversations by `gen_ai.conversation.id`, which its setup maps. Set the person with
+`Sentry.setUser`. Source: [AI conversations](https://docs.sentry.io/ai/observability/conversations/).
+
+</Tab>
+<Tab title="Traceloop" id="traceloop">
+
+Traceloop filters by association properties, any key under `traceloop.association.properties.`; its setup maps the
+conversation id to `traceloop.association.properties.conversation_id`. Source:
+[Association properties](https://www.traceloop.com/docs/openllmetry/tracing/association.md).
+
+</Tab>
+<Tab title="Vercel" id="vercel">
+
+Vercel forwards traces to the backend of your choice through its Trace Drains: map the id to that backend's key.
+
+</Tab>
+<Tab title="W&B Weave" id="weave">
+
+Weave groups turns into threads by `wandb.thread_id`, which its setup maps. Source:
+[OpenTelemetry in Weave](https://docs.coreweave.com/weave/guides/tracking/otel).
+
+</Tab>
+</Tabs>
+
+## Notes
+
+:::warning[The copy is exported raw]
+The copy happens before redaction, and the target name is exempt from the sensitive-key rule on purpose: names like
+`session.id` would otherwise match `session` and be replaced. So whatever you map is exported as it is. Map ids, never
+content, and never `webmcp.session.id` (the chat session's token, which is redacted by default) unless you mean to
+export it.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Privacy and redaction" href="/observability/privacy" icon="shield">
+    What a span records by default, and how to record more.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

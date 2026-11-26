@@ -19,7 +19,7 @@ locks you turned on: they are what keep your key from being used as a free model
 `chatRequest(body, options?)` builds a request the way the page sends it (same origin by default; pass `origin` to
 play another site). `withSession(handler)` gets a chat session first and adds it to every request it sends.
 `readChatStream` reads the streamed answer into parts. `model.calls` records what the model was sent, here the tools
-left after the allowlist.
+left after the allowlist; a refused request leaves it empty (the model was never called).
 
 ## What to cover
 

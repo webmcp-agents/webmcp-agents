@@ -49,6 +49,13 @@ fail closed (an outage shouldn't become an unbounded bill).
 variable: see [`createVercelChatRoute`](/reference/vercel-api/create-vercel-chat-route) and
 [Deploy](/more/deploy#3-guards).
 
+## The telemetry relay
+
+With [observability](/observability), the page posts its spans to `/api/telemetry`, and everything that route accepts
+is forwarded to your tracing backend, which bills by volume too. `observability.relay()` refuses other origins and
+requests with no `Origin`; give it a per-IP limit through its `guard` as well (about 60 requests a minute: the page
+sends roughly one batch per run). See [`observability.relay`](/observability/relay).
+
 ## A spend limit at your provider
 
 The last guard isn't in your code. Give the site's key a cap at the provider, so that if every check above failed, the

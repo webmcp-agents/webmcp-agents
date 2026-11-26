@@ -1,3 +1,3 @@
 import { defineMeta } from "blume";
 
-export default defineMeta({ title: "@webmcp-agents/vercel-api", order: 8 });
+export default defineMeta({ title: "@webmcp-agents/vercel-api", icon: "triangle", order: 8 });

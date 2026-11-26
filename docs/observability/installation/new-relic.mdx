@@ -1,0 +1,169 @@
+---
+title: Send traces to New Relic
+description: "Six steps to agent traces in New Relic, over OTLP as protobuf."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: New Relic
+---
+
+<RememberBackend name="New Relic" />
+
+:::note[Not run by us]
+Written from New Relic's docs on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in New Relic: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus the protobuf exporter: New Relic recommends HTTP/protobuf and does not say JSON is accepted.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @opentelemetry/exporter-trace-otlp-proto
+```
+
+## Set the environment
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/new-relic.env</include>
+
+- **Endpoint:** `https://otlp.nr-data.net` (US), `https://otlp.eu01.nr-data.net` (EU), `https://otlp.jp.nr-data.net` (JP), `https://gov-otlp.nr-data.net` (FedRAMP); ports 443, 4317 and 4318.
+- **Auth:** `api-key: <license key>`.
+
+## Add the server layer
+
+The layer reads the environment from step 2.
+
+<View title="Vite">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/astro/src/lib/observability.ts</include>
+
+</View>
+
+The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in New Relic
+
+Start the app and send one message in the chat. The trace appears in New Relic.
+
+:::note[New Relic's limits]
+1 MB per payload; attribute values up to 4095 characters, at most 128 attributes per span. With `recordInputs` or `recordOutputs` on, long prompts and answers are cut at 4095 characters.
+:::
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry OTLP endpoint](https://docs.newrelic.com/docs/opentelemetry/best-practices/opentelemetry-otlp/)
+
+Not confirmed: OTLP JSON acceptance.
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=new-relic" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for New Relic.
+</Card>

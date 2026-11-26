@@ -1,0 +1,112 @@
+---
+title: The relay
+description: "observability.relay: the /api/telemetry endpoint the page posts its spans to, what it checks, and the guard that limits it."
+sidebar:
+  label: "The relay"
+related:
+  - /observability/observe-agents
+  - /security/limits
+  - /observability/spans
+---
+
+`observability.relay()` builds the `POST` handler the page's spans arrive at. A backend's API key must never reach the
+page, so the page posts its runs and tool calls to your own endpoint, `/api/telemetry`, and the server forwards them
+through the same layer as its own spans: the same exporters, or the app's own provider. Mount it once, next to the
+chat route.
+
+## Import
+
+The relay is a method of the layer, so it comes with it:
+
+```ts
+import { defineObservability } from "@webmcp-agents/telemetry/server";
+import type { TelemetryRelayOptions } from "@webmcp-agents/telemetry/server";
+```
+
+## Example
+
+Everything the relay accepts reaches your backend, so give it a per-IP limit through `guard`, as for the chat:
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+The counts here live in memory, per instance. In production keep them in a shared store, as for the chat
+([Limits and budgets](/security/limits)); on Vercel,
+[`createVercelTelemetryRoute`](/reference/vercel-api/create-vercel-telemetry-route) does that.
+
+## Options
+
+<AutoTypeTable path="../../packages/telemetry/src/server/types.ts" name="TelemetryRelayOptions" />
+
+## Returns
+
+`observability.relay(options?)` returns `(req: Request, ...host) => Promise<Response>`. Every answer has no body:
+
+| Status | When |
+|---|---|
+| `202` | Accepted (or dropped quietly) |
+| `400` | Not this library's OTLP JSON |
+| `403` | Cross-site, or no `Origin` |
+| `405` | Not a `POST` |
+| `413` | Over `maxBytes` |
+| `415` | Not `application/json` |
+| `500` | The `guard` threw |
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="What the relay checks">
+    It does not trust the page. It refuses cross-site requests and requests with no `Origin` (a script, not a page),
+    caps the body at 256 KB, accepts only OTLP JSON from this library's instrumentation scope, redacts every attribute
+    again, replaces the page's resource with the server's, and lets the server's sampling decide. The cross-site rule
+    is the chat's own ([`isCrossSite`](/reference/chat/chat-request-schema)).
+  </AccordionItem>
+  <AccordionItem title="A `202` reveals nothing">
+    The relay also answers `202` when telemetry is off (`OTEL_SDK_DISABLED`), when the server's sampling said no, or
+    when the backend failed. Nothing about an upstream error reaches the page.
+  </AccordionItem>
+  <AccordionItem title="A `404` stops the page">
+    A page whose relay answers `404` stops sending, so a page without a relay costs one request.
+  </AccordionItem>
+  <AccordionItem title="Serverless hosts">
+    An argument after the request with `waitUntil` (a Worker's `ctx`), or Vercel's request context, keeps the function
+    alive until the batch is sent; the `202` never waits for it.
+  </AccordionItem>
+</Accordion>
+
+:::warning[The `Origin` check is not a limit]
+It stops other sites and bare scripts, not a script that sends a matching `Origin`. Keep the `guard`, with its counts
+in a shared store. Set `allowMissingOrigin` only behind a proxy that strips `Origin`, and keep the `guard` then too.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="relayThrough" href="/observability/relay-through" icon="git-fork">
+    Where relayed spans go when your app has its own provider.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

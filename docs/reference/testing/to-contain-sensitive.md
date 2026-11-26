@@ -44,7 +44,7 @@ Found in the event log:
   - "A1234567" at events[0].args.passport (event: start fill_traveler)
 ```
 
-On a `Response` it reads the body, so it is async: `await` it. `onAgentEvent` listeners get a call's `args` as the agent sent them (only a `fill`'s value is masked), so check `events.of("fill")` for what the cursor showed.
+On a `Response` it reads the body, so it is async: `await` it. Inside a value it reads what no own property holds too: a `URL`'s `href`, a `Request`'s `url` and headers, the entries of `Headers`, `URLSearchParams` and `FormData`, and an `Error`'s `message`, `cause` and own properties. It reads 24 levels down: when nothing was found but some part lies deeper, it fails with the path where it stopped instead of claiming the value is absent; pass that part itself. A `/g` or `/y` RegExp is matched from the start every time. `onAgentEvent` listeners get a call's `args` as the agent sent them (only a `fill`'s value is masked), so check `events.of("fill")` for what the cursor showed.
 
 ## See also
 

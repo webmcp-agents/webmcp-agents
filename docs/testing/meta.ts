@@ -3,6 +3,7 @@ import { defineMeta } from "blume";
 // Testing what you build: one page per layer, in the order you would add tests.
 export default defineMeta({
   title: "Testing",
+  icon: "flask-conical",
   order: 6,
   pages: [
     "index",

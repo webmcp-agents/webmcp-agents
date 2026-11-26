@@ -40,7 +40,7 @@ What it does:
 | When | What |
 |---|---|
 | Once | Registers the matchers, installs the WebMCP polyfill (Playwright's Chromium has none), forces `prefers-reduced-motion: reduce` so the cursor snaps (unless the project's `motion` is `"full"`), installs a deterministic id source (`u-1`, `a-1`, `call-1`…). |
-| Before each test | Starts ids over; remembers which tools are registered. |
+| Before each test | Starts ids over; empties `sessionStorage` and `localStorage` (so a conversation the chat saved does not carry into the next test); remembers which tools are registered. |
 | After each test | Unmounts what `mount` and `vitest-browser-react` rendered, removes fixtures, then fails the test if a call it started is still running or a tool it registered is still registered, naming the tool, and cleans both up. |
 
 A call that is about to answer gets a second; a tool a provider releases after its grace period gets two. Tools a `beforeAll` registered belong to the file, not the test. A page without WebMCP ("no polyfill" tests) uses `@webmcp-agents/testing/matchers` alone.

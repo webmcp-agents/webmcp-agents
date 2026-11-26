@@ -4,7 +4,7 @@ description: "The /api/telemetry relay for a Vercel Function: the browser's span
 
 # `createVercelTelemetryRoute`
 
-Builds the `/api/telemetry` handler for a Vercel Function: [`observability.relay()`](../telemetry/relay.md) behind the same origin rule as the chat and a per-IP limit, through one observability layer per function instance (`observabilityFor(env)`), which [`createVercelChatRoute`](./create-vercel-chat-route.md) passes to the chat handler too. Telemetry is off unless the deployment sets the standard `OTEL_*` variables: the relay then accepts and drops. The package is private and not published to npm.
+Builds the `/api/telemetry` handler for a Vercel Function: [`observability.relay()`](../../observability/relay.mdx) behind the same origin rule as the chat and a per-IP limit, through one observability layer per function instance (`observabilityFor(env)`), which [`createVercelChatRoute`](./create-vercel-chat-route.md) passes to the chat handler too. Telemetry is off unless the deployment sets the standard `OTEL_*` variables: the relay then accepts and drops. The package is private and not published to npm.
 
 ## Import
 
@@ -36,7 +36,7 @@ export const { POST } = createVercelTelemetryRoute({ app: "ecommerce" });
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `RATE_LIMIT_TELEMETRY_PER_MINUTE` | number | `60` | Relay requests per IP per minute (a page sends at most one batch every 2 s). |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` and the rest | text | none | Where spans go: see [`defineObservability`](../telemetry/define-observability.md#environment-variables). Unset: off. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` and the rest | text | none | Where spans go: see [`defineObservability`](../../observability/where-spans-go.mdx#options). Unset: off. |
 
 ## Returns
 
@@ -50,5 +50,5 @@ export const { POST } = createVercelTelemetryRoute({ app: "ecommerce" });
 ## See also
 
 - [`createVercelChatRoute`](./create-vercel-chat-route.md)
-- [`observability.relay`](../telemetry/relay.md)
+- [`observability.relay`](../../observability/relay.mdx)
 - [Deploy](../../more/deploy.md)

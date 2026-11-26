@@ -32,9 +32,9 @@ redact.url("https://user:pw@shop.test/reset?token=abc#top");
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `keys` | `string[] \| (defaults) => string[]` | `DEFAULT_SENSITIVE_KEYS` | Field names whose value is always redacted. A function extends the defaults, a list replaces them. Names are compared after lowercasing and dropping everything but letters and digits (`"Api-Key"` → `"apikey"`). A key matches when its last word or words equal an entry (`authToken`, `user_api_key`, `cardNumber`, `card_pin`). An entry of five letters or more also matches at the end of a run-together name (`accesstoken`, `userpassword`). So `timespan`, `japan`, `spin` and `tokenCount` are kept. |
-| `allowKeys` | `string[]` | `[]` | Names never redacted by name, checked first (`"tokenCount"`, `"sessionCount"`). Their values are still scanned. |
+| `allowKeys` | `string[]` | `[]` | Names never redacted by name (`"tokenCount"`, `"sessionCount"`): they win over `keys`, but not over a tool's own `sensitive` fields, which the page cannot unmask. Their values are still scanned. |
 | `patterns` | `false \| Record<string, boolean \| PatternRule>` | email, card, jwt, bearer, secretKey on; phone, iban off | Value detectors run on every string. The card detector checks Luhn, so a 16-digit order number is kept. `secretKey` finds `sk-…`, `ghp_…` and `AKIA…` keys. `true` or `false` turns one on or off, a `PatternRule` (`{ pattern, label, validate?, style? }`) replaces one or adds one under a new name, and `false` turns them all off. |
-| `paths` | `string[]` | `[]` | Exact paths whose value is redacted, `*` standing for one segment: `"output.*.address"`. A tool's input sits under `input` and its result under `output` (the call's `kind`). |
+| `paths` | `string[]` | `[]` | Exact paths whose value is redacted, `*` standing for one segment: `"output.*.address"`. A tool's input sits under `input` and its result under `output` (the call's `kind`). JSON inside a string continues the string's path, and a WebMCP result's envelope is transparent: the JSON in `content[n].text` and the `structuredContent` object both sit right under `output`, so `output.shipping.address` matches either. |
 | `allowQuery` | `string[]` | `[]` | Query parameters whose values are kept in URLs. |
 | `style` | `"full" \| "partial" \| "indexed"` | `"full"` | `"partial"` keeps the first and last two characters of a long value (`"42••••42"`). `"indexed"` writes a stable token per distinct value within one scope (`"[EMAIL_1]"`, `"[EMAIL_2]"`), so a trace still shows which steps used the same value. |
 | `token` | `string` | `"[REDACTED]"` | What a redacted value becomes. |
@@ -48,8 +48,8 @@ A `Redactor`: call it as `redact(value, { kind?, tool?, sensitive? })` for a red
 
 | Member | Description |
 |---|---|
-| `text(value)` | One string, scanned. JSON inside it is parsed, redacted by key and written back. |
-| `url(value, { for? })` | Credentials and hash dropped, origin and path kept, the query rebuilt as written. `for: "log"` (default) redacts every query value outside `allowQuery`. `for: "model"` redacts only parameters that are sensitive by name or by value. Anything that is not an absolute http(s) URL or a path starting with `/` is scanned as text. |
+| `text(value)` | One string, scanned. JSON inside it is parsed, redacted by key and written back; JSON that needs no change comes back exactly as written (formatting, big integers). |
+| `url(value, { for? })` | Credentials dropped, origin and path kept, the query rebuilt as written. `for: "log"` (default) drops the hash and redacts every query value outside `allowQuery`. `for: "model"` redacts only parameters that are sensitive by name or by value, and keeps the hash (a hash router's route), its query treated the same way. Anything that is not an absolute http(s) URL or a path starting with `/` is scanned as text. |
 | `headers(value)` | `authorization`, `cookie`, `set-cookie` and other sensitive names redacted; every other value scanned. |
 | `error(value)` | A loggable line from anything thrown: its message only, scanned (provider errors can echo an API key). |
 | `extend(options)` | A new redactor with these options over this one's. A `keys` function receives this one's keys. |

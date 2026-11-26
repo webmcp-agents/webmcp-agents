@@ -1,11 +1,11 @@
 ---
-title: Several backends with a Collector
-description: "Send to two backends at once without a second exporter in your function: one OTLP target, an OpenTelemetry Collector that fans out, with a ready otel-collector.yaml."
+title: Collector and troubleshooting
+description: "Send to several backends through one OpenTelemetry Collector, see what the app sends on your machine, and fix spans that do not arrive."
 sidebar:
-  label: Collector fan-out
+  label: "Collector and troubleshooting"
 related:
   - /observability/where-spans-go
-  - /observability/backends/otlp
+  - /observability/otlp
 ---
 
 To send the same traces to two backends (an LLM tool for the team that tunes prompts, and your APM for the on-call
@@ -13,11 +13,11 @@ engineer), do not add a second exporter to the chat handler: each one adds a req
 keys live in your app. Point the app at one OpenTelemetry Collector instead, and let the Collector fan out. The keys
 then live in the Collector, and you can drop or rewrite attributes before anything leaves your network.
 
-## A complete example
+## Example
 
 The app sends to the Collector:
 
-<include meta='title=".env"'>/_examples/observability/env/collector.env</include>
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/collector.env</include>
 
 The Collector receives OTLP and sends every trace to Langfuse and to LangSmith:
 
@@ -27,19 +27,6 @@ This file passes `otelcol validate` with the Collector's core distribution, vers
 two backends. Run it with the keys in the Collector's environment:
 
 <include meta='title="terminal"'>/_examples/observability/run-collector.sh</include>
-
-## Notes
-
-- **Exporter names.** Since Collector 0.144 the OTLP exporters are `otlp_http` and `otlp_grpc`. The older `otlphttp`
-  and `otlp` still work as deprecated aliases, and most vendors' docs still show them.
-- **`endpoint` or `traces_endpoint`.** `endpoint` is a base (`/v1/traces` is appended); `traces_endpoint` is used as
-  given, as `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is in the app.
-- **Each backend's own rules** (protocol, headers, an attribute to group by) are on its [recipe page](/observability/backends).
-  `encoding: json` on an `otlp_http` exporter sends JSON; the default is protobuf, which every backend here accepts.
-- **One pipeline per backend** when they need different processing: give each its own `traces/<name>` pipeline with
-  its own processors.
-- **Batching.** The `batch` processor is still the documented choice. Do not combine it with exporter-side
-  `sending_queue` batching: the Collector warns about it.
 
 ## Try it on your machine
 
@@ -53,8 +40,81 @@ Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in the app, send one mes
 trace. This is the setup this library was verified against, over `http/json`, `http/protobuf` and `grpc`: one trace per
 turn, the page's run span as the root, the server's model steps and the page's tool calls as its children.
 
+## Troubleshooting
+
+Set `WEB_AGENTS_OTEL_DEBUG=true` first: the layer then prints each exported span to the console, redacted.
+
+<Accordion>
+  <AccordionItem title="No span arrives, and nothing fails">
+    With no `OTEL_EXPORTER_OTLP_*` variable, no `exporters`, no `spanProcessors` and no provider registered by the app,
+    the layer is off, and says so once in development ([Where spans go](/observability/where-spans-go)). Check that
+    `OTEL_SDK_DISABLED` is not `true` and `WEB_AGENTS_OTEL_ENABLED` is not `false`.
+  </AccordionItem>
+  <AccordionItem title="One error names a package">
+    A protocol whose package is not installed turns that target off with one error naming it:
+    `@opentelemetry/exporter-trace-otlp-proto` for `http/protobuf`, `@opentelemetry/exporter-trace-otlp-grpc` for
+    `grpc`. Without the three OpenTelemetry peers, the layer is off and says which to install.
+  </AccordionItem>
+  <AccordionItem title="The server's spans arrive, the page's do not">
+    The page posts to `/api/telemetry`. A relay that answers `404` makes the page stop sending: mount
+    [the relay](/observability/relay) there. A `403` means a cross-site request or one with no `Origin`.
+  </AccordionItem>
+  <AccordionItem title="`403` from the backend">
+    For Datadog, the intake host does not match your site. For IBM Instana, the host is usually for another region than
+    your tenant's.
+  </AccordionItem>
+  <AccordionItem title="`404` from PostHog">
+    PostHog's path does not end in `/v1/traces`: set the exact URL with `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, not the
+    base variable, which appends `/v1/traces`.
+  </AccordionItem>
+  <AccordionItem title="`415` from Phoenix">
+    Phoenix accepts protobuf only: install `@opentelemetry/exporter-trace-otlp-proto` and set
+    `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`.
+  </AccordionItem>
+  <AccordionItem title="Every model step appears twice">
+    Your app registered `@ai-sdk/otel` too and `appIntegrations` is `"keep"`, or `conventions` is `"both"`
+    ([`appIntegrations`](/observability/app-integrations)).
+  </AccordionItem>
+</Accordion>
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="Exporter names">
+    Since Collector 0.144 the OTLP exporters are `otlp_http` and `otlp_grpc`. The older `otlphttp` and `otlp` still
+    work as deprecated aliases, and most vendors' docs still show them.
+  </AccordionItem>
+  <AccordionItem title="`endpoint` or `traces_endpoint`">
+    `endpoint` is a base (`/v1/traces` is appended); `traces_endpoint` is used as given, as
+    `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` is in the app.
+  </AccordionItem>
+  <AccordionItem title="Each backend's own rules">
+    The protocol, the headers and the attribute to group by are on each backend's
+    [installation page](/observability/installation). `encoding: json` on an `otlp_http` exporter sends JSON; the
+    default is protobuf, which every backend here accepts.
+  </AccordionItem>
+  <AccordionItem title="One pipeline per backend">
+    When backends need different processing, give each its own `traces/<name>` pipeline with its own processors.
+  </AccordionItem>
+  <AccordionItem title="Batching">
+    The `batch` processor is still the documented choice. Do not combine it with exporter-side `sending_queue`
+    batching: the Collector warns about it.
+  </AccordionItem>
+</Accordion>
+
 ## Sources
 
 - [OTLP HTTP exporter](https://github.com/open-telemetry/opentelemetry-collector/blob/main/exporter/otlphttpexporter/README.md)
 - [Batch processor](https://github.com/open-telemetry/opentelemetry-collector/blob/main/processor/batchprocessor/README.md)
 - [Exporter helper (sending queue)](https://github.com/open-telemetry/opentelemetry-collector/blob/main/exporter/exporterhelper/README.md)
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Test privacy and telemetry" href="/testing/privacy-and-telemetry" icon="flask-conical">
+    Check the span tree, and that no secret reaches a span.
+  </Card>
+  <Card title="Reference: @webmcp-agents/telemetry" href="/reference/telemetry" icon="book-open">
+    Every entry, function and type of the package.
+  </Card>
+</CardGroup>

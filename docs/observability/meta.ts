@@ -1,8 +1,29 @@
 import { defineMeta } from "blume";
 
-// Sending agent runs to an observability backend: the overview, then one topic per page, then a recipe per backend.
+// The observability path, in order: the overview, Installation (one page per backend, like Get started's one page
+// per framework), the APIs one page each, then privacy, the span names and the Collector,
+// one by one: the order is this list, and the labels carry no numbers (only Build numbers its path).
 export default defineMeta({
   title: "Observability",
+  icon: "activity",
   order: 5,
-  pages: ["index", "where-spans-go", "privacy", "browser-spans", "on-agent-run", "collector", "backends"],
+  pages: [
+    "index",
+    "installation",
+    "apis",
+    "define-observability",
+    "where-spans-go",
+    "otlp",
+    "relay",
+    "relay-through",
+    "app-integrations",
+    "observe-agents",
+    "on-agent-run",
+    "custom-events",
+    "sampling",
+    "metadata-mapping",
+    "privacy",
+    "spans",
+    "collector",
+  ],
 });

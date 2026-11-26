@@ -1,0 +1,68 @@
+---
+title: Sampling
+description: "Keep a share of turns, or decide per turn: the server decides from the trace id, for its spans and the page's, so a turn is kept or dropped whole."
+sidebar:
+  label: "Sampling"
+related:
+  - /observability/privacy
+  - /observability/where-spans-go
+  - /observability/define-observability
+---
+
+`sampling` decides which turns are exported. Keep a share of them when the volume costs too much, or decide per turn:
+by agent, or by a consent cookie when the model steps must not be exported without the person's agreement. The server
+decides from the trace id, for its own spans and for the ones the page relays, so a turn is kept or dropped whole.
+
+## Example
+
+Keep a turn only when the person agreed to analytics:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/sampling.ts</include>
+
+To keep a share instead, `sampling: { type: "ratio", probability: 0.1 }`, or set `OTEL_TRACES_SAMPLER=traceidratio`
+with `OTEL_TRACES_SAMPLER_ARG=0.1` and write no code.
+
+## Options
+
+<TypeTable
+  type={{
+    sampling: {
+      type: "Sampling",
+      default: '{ type: "always" }',
+      description:
+        "Which requests are exported: always, never, ratio (by trace id, so a trace is kept whole) or custom (a throw drops it).",
+    },
+  }}
+/>
+
+<AutoTypeTable path="../../packages/telemetry/src/shared/types.ts" name="SamplingContext" />
+
+The table above is what a `custom` sampler receives. Every other option is on
+[defineObservability](/observability/define-observability#options).
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="The default comes from the environment">
+    With no `sampling`, the layer reads `OTEL_TRACES_SAMPLER` (and `OTEL_TRACES_SAMPLER_ARG`), else keeps every turn.
+  </AccordionItem>
+  <AccordionItem title="The page's own sampling">
+    `observeAgents` takes a `sampling` too, decided when each run starts. The page's consent belongs in its `enabled`
+    option instead: a run the person did not agree to produces no span and no request
+    ([Privacy and redaction](/observability/privacy#ask-the-person-first)).
+  </AccordionItem>
+  <AccordionItem title="Off entirely">
+    `WEB_AGENTS_OTEL_ENABLED=false` keeps this library's spans off without touching the app's own.
+  </AccordionItem>
+</Accordion>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="metadataMapping" href="/observability/metadata-mapping" icon="link">
+    Group a conversation's traces in your backend.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

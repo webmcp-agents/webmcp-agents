@@ -56,7 +56,8 @@ Every event has `type` and `ref` (a `RunRef`). Times (`at`) are `performance.now
 | `conversation` | `string` | required | The same for every turn of one chat: kept across a reload and a restore, new after "new chat". `useWebAgent` and `agent.invoke` start a conversation per call. |
 | `run` | `string` | required | One user turn, one `agent.invoke`, or one sub-agent run. |
 | `parent` | `string` | not set | For a sub-agent's run, the id of the `delegate_to_<id>` call that started it. |
-| `traceparent` | `string` | set | The run's W3C trace context, sent as the `traceparent` header of each of its step requests. A sub-agent's run shares its parent's trace id. |
+| `traceparent` | `string` | set | The run's W3C trace context, sent as the `traceparent` header of each of its step requests. A sub-agent's run shares its parent's trace id. Its flags are `01` (sampled) while `sampled` is true, else `00`, read as each request is sent. |
+| `sampled` | `boolean` | `false` | Whether something on the page records this run's span, so the server puts its step spans under it. A listener that records the run sets it to `true` on `run-start`, which arrives before the run's first step request is built; [`observeAgents`](../../observability/observe-agents.mdx) does once consent and its sampling keep the run. A sub-agent's run starts with its parent's value. Left `false`, the server keeps its own root span instead of pointing at a parent no backend receives. |
 
 Ids come from `crypto.randomUUID()` (unique across pages and tabs), or random bytes where that needs a secure context the
 page does not have. Under `@webmcp-agents/testing/setup` they are deterministic (`run-1`, `conversation-1`).

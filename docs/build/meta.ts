@@ -3,6 +3,7 @@ import { defineMeta } from "blume";
 // The path, in order: each page ends with "Next". The numbers in the sidebar come from each page's `sidebar.label`.
 export default defineMeta({
   title: "Build",
+  icon: "hammer",
   order: 2,
   pages: [
     "define-a-tool",

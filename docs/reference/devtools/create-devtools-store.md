@@ -55,7 +55,7 @@ A `DevtoolsStore`:
 | `setSetting` | `<K extends keyof DevtoolsSettings>(key: K, value: DevtoolsSettings[K]) => void` | Change and persist one setting. `spotlight` and `yieldToUser` also go to `visuals`. |
 | `resetLayout` | `() => void` | Dock position and size back to defaults. |
 | `setRevealed` | `(on: boolean) => void` | Show (and copy) the values as they were. Does nothing outside a development build (`canReveal`). |
-| `raw` | `(id: string) => RawCall \| undefined` | A call's `args`, `fills`, `result` and `error` before redaction. `undefined` outside a development build, and once the call has left the timeline. |
+| `raw` | `(id: string) => RawCall \| undefined` | A call's `args`, `fills`, `result`, `error` and `prompt` before redaction. `undefined` outside a development build, and once the call has left the timeline. |
 | `shown` | `(tool: string, args: unknown) => unknown` | `args` as the panel shows and copies them: redacted, unless `revealed`. |
 | `destroy` | `() => void` | Stop listening and restore `window.agent`. Calls in flight still settle. Idempotent. |
 

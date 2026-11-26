@@ -149,10 +149,6 @@ const OPTION_TYPES = [
   { type: "ScrollToInput", file: "packages/tools/src/scroll-to.ts", page: "reference/tools/scroll-to.md" },
   { type: "SetThemeInput", file: "packages/tools/src/set-theme.ts", page: "reference/tools/set-theme.md" },
   { type: "WeekInfo", file: "packages/tools/src/calendar.ts", page: "reference/tools/calendar.md" },
-  { type: "ObservabilityConfig", file: "packages/telemetry/src/server/types.ts", page: "reference/telemetry/define-observability.md" },
-  { type: "TelemetryRelayOptions", file: "packages/telemetry/src/server/types.ts", page: "reference/telemetry/relay.md" },
-  { type: "ObserveAgentsOptions", file: "packages/telemetry/src/browser/types.ts", page: "reference/telemetry/observe-agents.md" },
-  { type: "SpanRecord", file: "packages/telemetry/src/browser/types.ts", page: "reference/telemetry/observe-agents.md" },
   {
     type: "VercelTelemetryRouteOptions",
     file: "packages/vercel-api/src/telemetry.ts",
@@ -168,9 +164,7 @@ const OPTION_TYPES = [
   { type: "ToolFormOptions", file: "packages/testing/src/helpers/forms.ts", page: "reference/testing/helpers.md" },
   { type: "EchoFormOptions", file: "packages/testing/src/helpers/forms.ts", page: "reference/testing/helpers.md" },
   { type: "UntilOptions", file: "packages/testing/src/helpers/wait.ts", page: "reference/testing/helpers.md" },
-  { type: "MockAdapterOptions", file: "packages/testing/src/chat/mock-adapter.ts", page: "reference/testing/mock-adapter.md" },
   { type: "MockChatServerOptions", file: "packages/testing/src/chat/mock-chat-server.ts", page: "reference/testing/mock-chat-server.md" },
-  { type: "RenderChatOptions", file: "packages/testing/src/chat/render-chat.ts", page: "reference/testing/render-chat.md" },
   { type: "ChatRequestOptions", file: "packages/testing/src/server/request.ts", page: "reference/testing/server-requests.md" },
   { type: "OpenAppOptions", file: "packages/testing/src/playwright/index.ts", page: "reference/testing/playwright.md" },
   {

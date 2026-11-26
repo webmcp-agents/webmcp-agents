@@ -4,7 +4,7 @@ description: "The run's answer contains or matches the expected text."
 
 # `toHaveAnswered`
 
-Passes when the run's answer (the text it replied with) contains this string, matches this RegExp or satisfies this asymmetric matcher. On a [`mockAdapter`](./mock-adapter.md), its last run's answer.
+Passes when the run's answer (the text it replied with) contains this string, matches this RegExp or satisfies this asymmetric matcher. On a [`mockAdapter`](./mock-adapter.md), its last top-level run's answer: a sub-agent's run on the same adapter is not it, and a run that streamed no text has none.
 
 ## Import
 

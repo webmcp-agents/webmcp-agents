@@ -1,0 +1,165 @@
+---
+title: Send traces through Vercel
+description: "Six steps to agent traces through Vercel's OpenTelemetry setup and its Trace Drains."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: Vercel
+---
+
+<RememberBackend name="Vercel" />
+
+:::note[Not run by us]
+Written from Vercel's docs and the `@vercel/otel` package (2.3.0) on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in Vercel: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus Vercel's. `@opentelemetry/sdk-trace` is not needed when the app registers a tracer provider, as `@vercel/otel` does.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @vercel/otel
+```
+
+## Set the environment
+
+Nothing new for the layer. `@vercel/otel` reads the `OTEL_EXPORTER_OTLP_*` variables for its own exporter, but its default protocol is `http/protobuf` (the layer's own is `http/json`), and it has no gRPC. Its `traceExporter` and `spanProcessors` options take an instance, such as its `OTLPHttpJsonTraceExporter`.
+
+## Add the server layer
+
+`registerOTel` registers a global OpenTelemetry provider, which the layer finds and uses ([rule 3](/observability/where-spans-go)). In Next.js, put it in `instrumentation.ts` at the project's root:
+
+<include meta='title="instrumentation.ts"'>/_examples/observability/backends/vercel-instrumentation.ts</include>
+
+The layer needs no options.
+
+<View title="Vite">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/astro/src/lib/observability.ts</include>
+
+</View>
+
+The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in Vercel
+
+Start the app and send one message in the chat. Vercel's Trace Drains forward the traces to a backend of your choice, as OTLP over HTTP; they need `@vercel/otel` (a hand-written SDK setup gets no drains). On Vercel without `@vercel/otel`, the [`createVercelTelemetryRoute`](/reference/vercel-api/create-vercel-telemetry-route) and the `OTEL_*` variables are enough: the handler hands its export to Vercel's `waitUntil`.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [Instrumentation](https://vercel.com/docs/tracing/instrumentation.md): `registerOTel`
+- [Trace drains](https://vercel.com/docs/drains/reference/traces.md)
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=vercel" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for Vercel.
+</Card>

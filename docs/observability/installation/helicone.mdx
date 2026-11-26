@@ -1,0 +1,75 @@
+---
+title: Log model calls in Helicone
+description: "Helicone logs every model call as the chat's model, beside the telemetry layer rather than instead of it: the same six steps, two of them skipped."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: Helicone
+---
+
+<RememberBackend name="Helicone" />
+
+:::note[Not run by us]
+Written from Helicone's docs on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in Helicone: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+Helicone is not an OpenTelemetry backend: it has no general OTLP endpoint. It sits between your server and the model provider and logs every call that passes through it, so it is set up as the chat's model. Its provider package:
+
+```package-install
+npm install @helicone/ai-sdk-provider
+```
+
+## Set the environment
+
+Your Helicone key, on the server. Your provider keys are kept in Helicone's dashboard.
+
+```bash .env
+HELICONE_API_KEY=…
+```
+
+## Add the server layer
+
+Give the chat handler a Helicone model, in place of the model it had:
+
+<include meta='title="api/chat.ts"'>/_examples/observability/backends/helicone.ts</include>
+
+The older proxy form (`createOpenAI({ baseURL: "https://oai.helicone.ai/v1", headers: { "Helicone-Auth": … } })` with `Helicone-Session-Id` headers) is still maintained but no longer developed.
+
+## Add the relay route
+
+Helicone takes no spans from the page, so there is no relay for it. Skip this step, or keep it when you also send spans to a backend: pick that backend in [Installation](/observability/installation) and follow its step 4.
+
+## Observe the page
+
+The same: the page's runs and tool calls are spans, which Helicone does not take. Skip it unless you send spans elsewhere.
+
+## Check it in Helicone
+
+Start the app and send one message in the chat. Each model call appears in Helicone. To group a conversation's calls into a Helicone session, the provider takes `extraBody: { helicone: { sessionId, userId } }` per model.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [Vercel AI SDK through the AI Gateway](https://docs.helicone.ai/gateway/integrations/vercel-ai-sdk.md)
+- [Vercel AI SDK (proxy)](https://docs.helicone.ai/getting-started/integration-method/vercelai.md)
+- [Sessions](https://docs.helicone.ai/features/sessions.md)
+- [`/v1/trace/log`](https://docs.helicone.ai/rest/trace/post-v1tracelog.md): OTLP JSON, for spans of its OpenLLMetry integration only
+
+Not confirmed: that Helicone's `/v1/trace/log` understands this library's spans.
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=helicone" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for Helicone.
+</Card>

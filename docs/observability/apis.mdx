@@ -1,0 +1,68 @@
+---
+title: The telemetry APIs
+description: "What you have after installation, one page per API: the server's layer and its options, the relay, the page's observer and the run events."
+sidebar:
+  label: "The telemetry APIs"
+related:
+  - /observability/installation
+  - /reference/telemetry
+---
+
+Installation wires three pieces: the layer on the server, the relay route, and the observer on the page. Each has a
+page of its own below, in the order you would reach for them, and each opens on the backend you picked during
+installation wherever a backend changes something. Most apps never need more than the defaults; read on when you want
+to change where spans go, what they record, or how many turns are kept.
+
+<CardGroup cols={2}>
+  <Card title="defineObservability" href="/observability/define-observability" icon="server">
+    The server's layer: the chat handler records model steps with it.
+  </Card>
+  <Card title="Where spans go" href="/observability/where-spans-go" icon="route">
+    The five rules that pick a destination, and the `OTEL_*` environment.
+  </Card>
+  <Card title="otlp" href="/observability/otlp" icon="send">
+    One OTLP destination in code: a URL, a protocol, headers.
+  </Card>
+  <Card title="The relay" href="/observability/relay" icon="arrow-right-left">
+    `/api/telemetry`: the page's spans in, checked and redacted.
+  </Card>
+  <Card title="relayThrough" href="/observability/relay-through" icon="git-fork">
+    The page's spans when your app has its own provider.
+  </Card>
+  <Card title="appIntegrations" href="/observability/app-integrations" icon="copy-x">
+    One `chat` span per step beside your own `@ai-sdk/otel`.
+  </Card>
+  <Card title="observeAgents" href="/observability/observe-agents" icon="eye">
+    The page's runs and tool calls as spans.
+  </Card>
+  <Card title="onAgentRun" href="/observability/on-agent-run" icon="list-checks">
+    The run events for your own analytics, no backend.
+  </Card>
+  <Card title="Custom events" href="/observability/custom-events" icon="sparkles">
+    Your own events and spans in the run's trace, page and server.
+  </Card>
+  <Card title="Sampling" href="/observability/sampling" icon="percent">
+    Keep a share of turns, or decide per turn.
+  </Card>
+  <Card title="metadataMapping" href="/observability/metadata-mapping" icon="link">
+    Group a conversation in your backend.
+  </Card>
+  <Card title="Privacy and redaction" href="/observability/privacy" icon="shield">
+    What a span records, and how to record more.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the option types.
+  </Card>
+  <Card title="Collector and troubleshooting" href="/observability/collector" icon="wrench">
+    Several backends at once, and spans that do not arrive.
+  </Card>
+</CardGroup>
+
+## Where each one lives
+
+- `@webmcp-agents/telemetry/server`: `defineObservability`, `otlp`, and the layer's `relay`, `event` and `span`.
+  Server only.
+- `@webmcp-agents/telemetry`: `observeAgents`, `consoleExporter`, `recordAgentEvent` and `withAgentSpan`, for the
+  page.
+- `@webmcp-agents/telemetry/react`: `<ObserveAgents>`, the same observer as a component.
+- `@webmcp-agents/chat`: `onAgentRun`, the run events both sides are built on.

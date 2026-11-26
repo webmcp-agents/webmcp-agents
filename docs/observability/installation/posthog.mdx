@@ -1,0 +1,151 @@
+---
+title: Send traces to PostHog
+description: "Six steps to agent traces and $ai_generation events in PostHog, with the environment alone or PostHog's exporter."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: PostHog
+---
+
+<RememberBackend name="PostHog" />
+
+:::note[Not run by us]
+Written from PostHog's docs and its `@posthog/ai` package (8.22.0) on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in PostHog: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages. PostHog accepts OTLP over HTTP as JSON or protobuf, so the built-in exporter needs nothing more.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel
+```
+
+## Set the environment
+
+PostHog's path does not end in `/v1/traces`: set the exact URL with the `…_TRACES_ENDPOINT` variable. The base variable would append `/v1/traces` and get a `404`.
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/posthog-otlp.env</include>
+
+## Add the server layer
+
+The endpoint and token come from the environment; the layer adds the key PostHog derives its session from.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/posthog-otlp.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+<Expandable title="With PostHog's exporter">
+
+Install `@posthog/ai` and pass its exporter instead of the environment. The option is `projectToken` (your `phc_` token); `host` defaults to `https://us.i.posthog.com` (EU: `https://eu.i.posthog.com`).
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/posthog.ts</include>
+
+</Expandable>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in PostHog
+
+Start the app and send one message in the chat. PostHog keeps only spans whose name or attributes start with `gen_ai.`, `llm.`, `ai.` or `traceloop.`; this library's spans carry `gen_ai.*`, so they pass, and with the default `conventions: "genai"` model spans become `$ai_generation` events. PostHog takes its session from `$ai_session_id`, or else from `gen_ai.conversation.id`, which the layer maps. The person is `posthog.distinct_id` (or `user.id`): set it from your own user id where you have one.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry installation](https://posthog.com/docs/ai-observability/installation/opentelemetry.md): endpoint, auth, protocols
+- [Vercel AI SDK](https://posthog.com/docs/llm-analytics/installation/vercel-ai): `@posthog/ai/otel`
+
+Not confirmed: the EU path (`/i/v0/ai/otel` on the EU host) on a docs page: it comes from the package's source.
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=posthog" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for PostHog.
+</Card>

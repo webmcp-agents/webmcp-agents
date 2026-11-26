@@ -65,7 +65,7 @@ function chatTokens() {
     const cell = (v) => (!v ? "" : v.startsWith("follows") ? v : shown(v));
     rows.push(`| \`${publicName}\` | ${cell(light)} | ${cell(night)} | ${old ? `\`${old}\`` : ""} |`);
   }
-  // the two tokens the root rule uses directly (no resolved copy)
+  // the token the root rule uses directly (no resolved copy)
   rows.push(`| \`--wa-chat-z\` | ${shown(root.get("--wa-chat-z"))} |  | \`--wa-chat-z\` |`);
   return `${HEADER}| Variable | Default | Dark default | 0.4.0 name |\n|---|---|---|---|\n${rows.join("\n")}\n`;
 }

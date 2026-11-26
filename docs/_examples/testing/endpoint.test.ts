@@ -22,11 +22,13 @@ const hi = { messages: ["hi"] };
 
 test("needs a session", async () => {
   expect((await handler(chatRequest(hi))).status).toBe(401);
+  expect(model.calls).toHaveLength(0);
 });
 
 test("refuses another site", async () => {
   const evil = { origin: "https://evil.example" };
   expect((await handler(chatRequest(hi, evil))).status).toBe(403);
+  expect(model.calls).toHaveLength(0);
 });
 
 test("drops tools off the allowlist", async () => {

@@ -1,0 +1,160 @@
+---
+title: Send traces to Datadog
+description: "Six steps to agent traces in Datadog and its LLM Observability, through the agentless OTLP intake or dd-trace's provider."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: Datadog
+---
+
+<RememberBackend name="Datadog" />
+
+:::note[Not run by us]
+Written from Datadog's docs on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in Datadog: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages. Datadog's agentless intake takes OTLP over HTTP as JSON or protobuf (not gRPC), so the built-in JSON exporter needs nothing more.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel
+```
+
+## Set the environment
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/datadog.env</include>
+
+- **Endpoint:** `https://otlp.<site>/v1/traces`, for the sites `otlp.datadoghq.com`, `otlp.datadoghq.eu`, `otlp.us5.datadoghq.com` and `otlp.ddog-gov.com`.
+- **Headers:** `dd-api-key: <key>`. `compute_stats=true` computes trace metrics, which the direct intake does not do by default.
+- **A Datadog Agent** receives OTLP on 4317 and 4318: point `OTEL_EXPORTER_OTLP_ENDPOINT` at it instead, and the Agent holds the key.
+
+:::warning[LLM Observability needs one attribute]
+LLM Observability reads only traces with the resource attribute `dd_llmobs_enabled=true` (or the header `DD-LLMObs-Enabled: true`), as the file above sets. It reads `gen_ai.*` and drops spans without it.
+:::
+
+## Add the server layer
+
+The endpoint and key come from the environment; the layer adds the key LLM Observability builds sessions from. Keep the default `conventions: "genai"`: LLM Observability maps the AI SDK's older `ai.*` spans only partly.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/datadog.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+<Expandable title="With dd-trace">
+
+If the app already runs `dd-trace`, register its OpenTelemetry provider, before any other import, and the layer uses it ([rule 3](/observability/where-spans-go)):
+
+<include meta='title="tracer.ts"'>/_examples/observability/backends/datadog-tracer.ts</include>
+
+</Expandable>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in Datadog
+
+Start the app and send one message in the chat. The trace appears in APM and, with `dd_llmobs_enabled=true`, in LLM Observability, which builds sessions from `gen_ai.conversation.id`. A `403` from the intake means its host does not match your site.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OTLP intake endpoint](https://docs.datadoghq.com/opentelemetry/setup/intake_endpoint/)
+- [OTLP traces](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest/traces/)
+- [LLM Observability with OpenTelemetry](https://docs.datadoghq.com/llm_observability/instrumentation/otel_instrumentation.md)
+- [OTLP in the Agent](https://docs.datadoghq.com/opentelemetry/setup/otlp_ingest_in_the_agent.md)
+- [OpenTelemetry API support in dd-trace (Node.js)](https://docs.datadoghq.com/opentelemetry/instrument/api_support/nodejs.md)
+
+Not confirmed: the intake hosts of US3, AP1 and AP2 (they follow the same pattern).
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=datadog" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for Datadog.
+</Card>

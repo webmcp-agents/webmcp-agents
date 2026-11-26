@@ -1,0 +1,153 @@
+---
+title: Send traces to Braintrust
+description: "Six steps to agent traces in Braintrust, through its span processor or the environment alone."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: Braintrust
+---
+
+<RememberBackend name="Braintrust" />
+
+:::note[Not run by us]
+Written from Braintrust's docs and its `@braintrust/otel` package (1.1.0) on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in Braintrust: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus Braintrust's span processor (the OpenTelemetry code moved to `@braintrust/otel` from `braintrust` in 1.0).
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @braintrust/otel
+```
+
+## Set the environment
+
+The processor reads `BRAINTRUST_API_KEY`, `BRAINTRUST_PARENT` and `BRAINTRUST_API_URL`:
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/braintrust.env</include>
+
+<Expandable title="Without the package">
+
+The environment alone is enough; skip `@braintrust/otel` and use the [generic layer](/observability/installation/otlp#add-the-server-layer) in step 3:
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/braintrust-otlp.env</include>
+
+Braintrust's docs do not state the protocol for traces; its own package sends JSON, which the built-in exporter sends too.
+
+</Expandable>
+
+## Add the server layer
+
+Braintrust's span processor, with the project. `parent` is `project_name:<name>`, `project_id:<id>` or `experiment_id:<id>`.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/braintrust.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in Braintrust
+
+Start the app and send one message in the chat. Braintrust maps the `gen_ai.*` attributes to its inputs, outputs and metrics, so the default `conventions: "genai"` fits. It documents no session or user attribute: filter by `webmcp.conversation.id`, which every span carries.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry](https://docs.braintrust.dev/integrations/sdk-integrations/opentelemetry): the processor, endpoint and headers
+- [Attributes](https://docs.braintrust.dev/integrations/sdk-integrations/opentelemetry/attributes)
+
+Not confirmed: OTLP JSON for traces on a docs page (confirmed only by the vendor's package).
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=braintrust" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for Braintrust.
+</Card>

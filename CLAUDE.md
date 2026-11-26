@@ -36,7 +36,7 @@ pnpm check                                 # biome ci + konsistent + knip + type
 pnpm konsistent                            # structural conventions (konsistent.json); `pnpm exec konsistent validate` checks the config
 pnpm knip                                  # unused files, exports and dependencies (knip.json)
 pnpm --filter @webmcp-agents/core size        # core bundle budget (min+gz): visuals-only ≤ 10.55 KB, whole package ≤ 18.6 KB,
-                                           # the /redact entry ≤ 2.75 KB (the polyfill chunk, loaded on demand, is reported, not counted)
+                                           # the /redact entry ≤ 2.9 KB (the polyfill chunk, loaded on demand, is reported, not counted)
 pnpm typecheck | pnpm test | pnpm build    # via turbo
 pnpm lint / pnpm format                    # biome
 pnpm turbo run check-exports               # publint + are-the-types-wrong on every package (CI runs it)
@@ -152,9 +152,12 @@ packages/testing/       @webmcp-agents/testing: the Vitest kit the repo's own te
                         (shell until phase 5). A devDependency of the root only (core ↔ testing would be a Turbo cycle)
 capture/                the docs media harness: playwright.config.ts (webServer for the four apps; stills, mobile, clips
                         projects), *.capture.ts, encode.mjs (ffmpeg → docs/media, budgets: clips ≤ 1.5 MB, hero.gif ≤ 3 MB)
-docs/observability/     overview, where-spans-go (the OTEL_* rules), privacy, browser-spans, on-agent-run, collector, backends/ (one recipe per
-                        vendor, each value read from the vendor's docs with the source linked; code in docs/_examples/observability/, whose
-                        `vendors/*.d.ts` are type stand-ins for the vendor packages, mapped in the tsconfig `paths` AND in `knip.json`)
+docs/observability/     the telemetry docs and its only API pages: overview, installation/ (one six-step page per backend, like Get
+                        started's one per framework; the backend picked there carries to every later page), then the APIs one numbered
+                        page each (option tables generated from packages/telemetry types), privacy, collector. Each backend fact is
+                        read from the vendor's docs with the source linked; code in docs/_examples/observability/, whose
+                        `vendors/*.d.ts` are type stand-ins for the vendor packages, mapped in the tsconfig `paths` AND in `knip.json`.
+                        docs/reference/telemetry/ holds only a README linking to these pages (old reference URLs redirect)
 docs/testing/           the ten testing pages (snippets are files in docs/_examples/testing/ that run in `pnpm check`)
 docs/more/chat-theming.mdx, chat-localization.mdx   theming (the token table is generated from chat.css) and localization
 apps/docs/scripts/generate-partials.mjs   writes docs/_partials/chat-tokens.mdx (from packages/chat chat.css) and testing-reference.mdx
@@ -429,8 +432,13 @@ mid-run (the cursor must vanish and the tool still complete).
   `test: { server: { deps: { inline: [/@opentelemetry\/api/, /@ai-sdk\/otel/] } } }` (telemetry and vercel-api have it). A browser
   test that stubs `fetch` must pass every non-relay URL through to the real one. Never give `observeAgents` an exporter whose
   `flush()` calls back into the observer (infinite recursion; the testing kit's fixture wraps its exporter for that reason).
-  AI SDK per-call telemetry integrations replace the ones registered with `registerTelemetry`, so a layer passed as
-  `observability` is the only one that sees the chat's steps (`telemetry: false` passes no setting at all). Sentry's OpenTelemetry setup needs `enableOpenTelemetrySetup: true` (default only in some SDKs).
+  AI SDK per-call telemetry integrations replace the ones registered with `registerTelemetry`, so the layer passes the app's
+  along with its own, every app integration wrapped to record no content; where the layer writes to the app's own provider
+  (global, or a passed provider that is the global one) it leaves the app's `@ai-sdk/otel` integrations out of sampled
+  requests (`appIntegrations: "dedupe"`, the default), or each step would be two `chat` spans (`telemetry: false` passes no
+  setting at all). In global/provider mode the page's relayed spans go through the layer's own OTLP pipeline with their
+  browser ids (`relayThrough: "exporter"`); only without an OTLP target are they replayed through the app's tracer (new
+  ids, parents matched in memory, a 30 s hold). The page sends a run's spans in one batch, parent first, when the run ends. Sentry's OpenTelemetry setup needs `enableOpenTelemetrySetup: true` (default only in some SDKs).
   The layer's export timeout is 30 s (the OpenTelemetry default is 10 s); the docs say so.
 - Redaction and the chat CSS: `core/redact` is its own entry and the main entry may import only `isSensitiveControl` from it (size
   budgets). After changing `chat.css`, run `node apps/docs/scripts/generate-partials.mjs`: `pnpm check` fails on a stale token table.

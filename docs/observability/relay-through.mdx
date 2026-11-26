@@ -1,0 +1,107 @@
+---
+title: relayThrough
+description: "Where the relay sends the page's spans when your app has its own OpenTelemetry provider: straight to the OTLP target, or through the provider."
+sidebar:
+  label: "relayThrough"
+related:
+  - /observability/relay
+  - /observability/where-spans-go
+  - /observability/define-observability
+---
+
+`relayThrough` matters only when the server's spans go through a provider your app owns: one you pass as
+`tracerProvider`, or one the app registered (Sentry, `@vercel/otel`, `dd-trace`). It decides how the page's relayed
+spans reach the backend then. With a provider this package builds, the page's spans always go through it and this
+option does nothing.
+
+## Example
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/relay-through.ts</include>
+
+## Options
+
+<TypeTable
+  type={{
+    relayThrough: {
+      type: '"exporter" | "provider"',
+      default: '"exporter"',
+      description:
+        "Where the relay sends the browser's spans when the server's go through an app's provider: straight to the OTLP target, or re-created through the provider.",
+    },
+  }}
+/>
+
+Every other option is on [defineObservability](/observability/define-observability#options).
+
+## The two paths
+
+<Columns cols={2}>
+  <Column>
+    <Card title={'"exporter" (default)'} icon="send">
+      Straight to the OTLP target (`exporters`, else the `OTEL_EXPORTER_OTLP_*` variables), with the browser's own span
+      ids. A run and its tool calls need no reordering, and line up with the server's step spans.
+    </Card>
+  </Column>
+  <Column>
+    <Card title={'"provider"'} icon="git-fork">
+      Re-created through the app's provider, which gives them new span ids. For an app whose provider must see every
+      span: its own processors and its own exporter.
+    </Card>
+  </Column>
+</Columns>
+
+## Your backend
+
+<RememberBackend />
+
+<Tabs dropdown param="backend" syncKey="backend">
+<Tab title="Any other backend" id="other">
+
+Your backend's spans go through a provider this package builds, so `relayThrough` does nothing.
+
+</Tab>
+<Tab title="Datadog" id="datadog">
+
+With the agentless intake, nothing to choose. With `dd-trace`'s provider, the default sends the page's spans straight
+to an OTLP target when one is set; with none, they go through `dd-trace`'s provider.
+
+</Tab>
+<Tab title="Sentry" id="sentry">
+
+Sentry's provider carries the server's spans. With no OTLP target set, the page's spans are re-created through it;
+set `relayThrough: "provider"` to keep that even when an `OTEL_EXPORTER_OTLP_*` target is set.
+
+</Tab>
+<Tab title="Vercel" id="vercel">
+
+The provider `registerOTel` registers carries the server's spans. `@vercel/otel` reads the same
+`OTEL_EXPORTER_OTLP_*` variables, so a target usually resolves and the page's spans go straight to it, keeping
+their ids.
+
+</Tab>
+</Tabs>
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="With no OTLP target, it is the provider">
+    When neither `exporters` nor the `OTEL_EXPORTER_OTLP_*` variables give a target, there is nothing to send straight
+    to: relayed spans go through the app's provider whatever this option says.
+  </AccordionItem>
+  <AccordionItem title="Parents first, and a 30 second hold">
+    Through the provider, each span is re-created with its recorded times, parents first, in the browser's trace. The
+    page sends a run's spans together, so parents usually come first; a child that still arrives a batch before its
+    parent waits for it up to 30 seconds.
+  </AccordionItem>
+</Accordion>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="appIntegrations" href="/observability/app-integrations" icon="copy-x">
+    One `chat` span per step when your app registered `@ai-sdk/otel` too.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

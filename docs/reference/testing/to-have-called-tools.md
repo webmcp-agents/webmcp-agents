@@ -4,7 +4,7 @@ description: "The run called exactly these tools, in this order."
 
 # `toHaveCalledTools`
 
-Passes when the run called exactly these tools, in this order: no call before, between or after. Reads the same runs as [`toHaveCalledTool`](./to-have-called-tool.md).
+Passes when the run called exactly these tools, in this order: no call before, between or after. Reads the same runs as [`toHaveCalledTool`](./to-have-called-tool.md) (not the error `agent.invoke` rejected with: it carries no calls).
 
 ## Import
 

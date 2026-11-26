@@ -22,6 +22,26 @@ const appAlias = {
   },
 };
 
+/** The backends that had a recipe page under /observability/backends, now each an installation page. */
+const FORMER_BACKEND_PAGES = [
+  "otlp",
+  "arize",
+  "braintrust",
+  "datadog",
+  "helicone",
+  "instana",
+  "laminar",
+  "langfuse",
+  "langsmith",
+  "langwatch",
+  "new-relic",
+  "posthog",
+  "sentry",
+  "traceloop",
+  "vercel",
+  "weave",
+];
+
 const SITE_URL = (process.env.SITE_URL ?? "https://webmcp-agents.dev").replace(/\/$/, "");
 export default defineConfig({
   title: "WebMCP Agents",
@@ -83,6 +103,21 @@ export default defineConfig({
     { from: "/guides/declarative-forms", to: "/more/declarative-forms" },
     { from: "/guides/polyfill", to: "/more/polyfill" },
     { from: "/guides/deploy", to: "/more/deploy" },
+    // The backend recipes became Observability's Installation pages, one per backend, like Get started's frameworks.
+    // Exact paths, not a `:backend` pattern: a static build writes a redirect page only for an exact path.
+    { from: "/observability/backends", to: "/observability/installation" },
+    ...FORMER_BACKEND_PAGES.map((id) => ({ from: `/observability/backends/${id}`, to: `/observability/installation/${id}` })),
+    { from: "/observability/browser-spans", to: "/observability/observe-agents" },
+    // The telemetry reference pages merged into the Observability API pages; reference/telemetry is the index.
+    { from: "/reference/telemetry/define-observability", to: "/observability/define-observability" },
+    { from: "/reference/telemetry/observe-agents", to: "/observability/observe-agents" },
+    { from: "/reference/telemetry/observe-agents-component", to: "/observability/observe-agents" },
+    { from: "/reference/telemetry/relay", to: "/observability/relay" },
+    { from: "/reference/telemetry/otlp", to: "/observability/otlp" },
+    { from: "/reference/telemetry/console-exporter", to: "/observability/observe-agents" },
+    { from: "/reference/telemetry/resolve-target", to: "/observability/where-spans-go" },
+    { from: "/reference/telemetry/semconv", to: "/observability/spans" },
+    { from: "/reference/telemetry/types", to: "/observability/spans" },
   ],
   // The OpenDesigns blocks predate the React Compiler; they run as written.
   react: { compiler: false },

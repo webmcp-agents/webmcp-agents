@@ -1,48 +1,80 @@
 ---
-title: Privacy and consent
+title: Privacy and redaction
 description: "What a span contains by default (ids, timings, the model, token counts), how to record prompts and tool data, ask the person first, and why redaction always runs last."
+sidebar:
+  label: "Privacy and redaction"
 related:
   - /security/redaction
-  - /observability/browser-spans
+  - /observability/observe-agents
   - /testing/privacy-and-telemetry
 ---
 
 Telemetry leaves your app: it is data about the person's conversation, sent to a third party. So the defaults record
-as little as is useful, and every value passes through the redactor on its way out.
+as little as is useful, and every value passes through the redactor on its way out. Read this page before you turn on
+content recording, and before you ship to people who have to agree to analytics.
 
-## What is recorded by default
+By default a span records ids (conversation, run, step, tool call), timings, the agent and the model, token counts, how
+each run and tool call ended, error codes, and the page's URL with every query value redacted. It does not record the
+person's messages, the model's prompts and answers, tool inputs or tool results.
 
-Ids (conversation, run, step, tool call), timings, the agent and the model, token counts, how each run and tool call
-ended, error codes, and the page's URL with every query value redacted. Not recorded: the person's messages, the
-model's prompts and answers, tool inputs and tool results.
-
-## Record content
+## Example
 
 Turn content on separately on each side. On the server, `recordInputs` records prompts and tool definitions on the
-model spans, and `recordOutputs` the model's answers. In the browser, the same two options of `observeAgents` record
-tool inputs and results on `execute_tool` spans.
+model spans, and `recordOutputs` the model's answers; `redact` adds your own rules for this layer:
 
 <include meta='title="lib/observability.ts"'>/_examples/observability/privacy.ts</include>
 
-The chat handler's own `telemetry.recordInputs` and `recordOutputs`, when set, win over the layer's.
+In the browser, the same two options of `observeAgents` record tool inputs and results on `execute_tool` spans.
 
-## Redaction runs last, always
+## Options
 
-Every attribute is redacted after your span processors, after `metadataMapping`, and before the span filter and the
-exporters, with recording on or off. The rules are the page's on the page and the process's on the server
-([Redaction](/security/redaction)); `redact` replaces them for this layer, and `redact: false` turns it off, for local
-debugging only. The relay redacts what a page sends a second time, since it cannot trust the browser.
+<TypeTable
+  type={{
+    recordInputs: {
+      type: "boolean",
+      default: "false",
+      description: "Record prompts and tool definitions on model spans, redacted. The handler's own telemetry.recordInputs wins.",
+    },
+    recordOutputs: {
+      type: "boolean",
+      default: "false",
+      description: "Record the model's output on model spans, redacted. The handler's own telemetry.recordOutputs wins.",
+    },
+    redact: {
+      type: "false | RedactOptions | Redactor",
+      default: "the process's redactor",
+      description: "Redaction of everything exported, server spans and relayed browser spans. false only for local debugging.",
+    },
+  }}
+/>
 
-Through an app's own provider (Sentry, `@vercel/otel`), the layer cannot own the pipeline. It then redacts every
-attribute it sets before the span exists. What the app's own processors or instrumentations add is theirs to handle.
+Every other option is on [defineObservability](/observability/define-observability#options).
 
-## `metadataMapping` exports the target raw
+## Your backend
 
-`metadataMapping` copies an attribute to the name a backend groups by, such as
-`{ "webmcp.conversation.id": "session.id" }`. The copy happens before redaction, and the target name is exempt from
-the sensitive-key rule on purpose: names like `session.id` would otherwise match `session` and be replaced. So
-whatever you map is exported as it is. Map ids, never content, and never `webmcp.session.id` (the chat session's
-token, which is redacted by default) unless you mean to export it.
+<RememberBackend />
+
+<Tabs dropdown param="backend" syncKey="backend">
+<Tab title="Any other backend" id="other">
+
+Nothing differs: what you turn on is recorded, redacted, and exported as is.
+
+</Tab>
+<Tab title="New Relic" id="new-relic">
+
+New Relic keeps attribute values up to 4095 characters: with `recordInputs` or `recordOutputs` on, long prompts and
+answers are cut there.
+
+</Tab>
+<Tab title="Sentry" id="sentry">
+
+Through Sentry's provider, the layer redacts the attributes it sets before each span exists. Sentry's own
+instrumentations, such as its `vercelAIIntegration` (on by default when tracing is on, with its own `recordInputs`
+and `recordOutputs`), are Sentry's to configure. Source:
+[Vercel AI integration](https://docs.sentry.io/platforms/javascript/guides/node/configuration/integrations/vercelai/).
+
+</Tab>
+</Tabs>
 
 ## Ask the person first
 
@@ -52,11 +84,43 @@ person did not agree to produces no span, makes no request, and does not even lo
 <include meta='title="components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
 
 The server's spans do not know about the page's consent. If the model steps must not be exported either, decide it on
-the server: `sampling: { type: "custom", sampler }` receives the request, so it can read a consent cookie, or keep the
-layer off with `WEB_AGENTS_OTEL_ENABLED=false`.
+the server with a [custom sampler](/observability/sampling) that reads a consent cookie, or keep the layer off with
+`WEB_AGENTS_OTEL_ENABLED=false`.
 
-## Sampling
+## Notes
 
-`sampling: { type: "ratio", probability: 0.1 }` (or `OTEL_TRACES_SAMPLER=traceidratio` with `OTEL_TRACES_SAMPLER_ARG`)
-keeps a share of turns. The server decides from the trace id, for its own spans and for the ones the page relays, so a
-turn is kept or dropped whole.
+<Accordion>
+  <AccordionItem title="Redaction runs last, always">
+    Every attribute is redacted after your span processors, after `metadataMapping`, and before the span filter and
+    the exporters, with recording on or off. The rules are the page's on the page and the process's on the server
+    ([Redaction](/security/redaction)); `redact` replaces them for this layer. The relay redacts what a page sends a
+    second time, since it cannot trust the browser. Your own
+    [custom events and spans](/observability/custom-events) pass through the same redaction and span filter.
+  </AccordionItem>
+  <AccordionItem title="Through an app's own provider">
+    Through Sentry's or `@vercel/otel`'s provider, the layer cannot own the pipeline. It then redacts every attribute
+    it sets before the span exists. What the app's own processors or instrumentations add is theirs to handle.
+  </AccordionItem>
+  <AccordionItem title="The app's own AI SDK integrations">
+    The chat handler's own `telemetry.recordInputs` and `recordOutputs`, when set, win over the layer's. An AI SDK
+    integration your app registered itself (`registerTelemetry`) still runs on each step but never records content:
+    it cannot redact, so only this layer's spans carry prompts and answers. When it is the app's own `@ai-sdk/otel`
+    one, recording into the same provider, it is left out of the chat's calls
+    ([`appIntegrations`](/observability/app-integrations)), so each step is one span, redacted.
+  </AccordionItem>
+</Accordion>
+
+:::warning[`redact: false` is for local debugging only]
+It sends every value as it is, from the server and from the pages the relay forwards.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the option types.
+  </Card>
+  <Card title="Test privacy and telemetry" href="/testing/privacy-and-telemetry" icon="flask-conical">
+    Check the span tree, and that no secret reaches a span.
+  </Card>
+</CardGroup>

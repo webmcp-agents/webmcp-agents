@@ -35,6 +35,8 @@ Nothing: it passes, or fails the test with a message that says what happened.
 
 A failure names the first step that was not offered them, what it was offered, and what was missing.
 
+To say that no step was offered a tool, use the asymmetric form, one tool per assertion (`expect.not.arrayContaining(["a", "b"])` also matches a step offered only `a`). Negated with a list (`.not.toHaveBeenOfferedTools(["place_order"])`) the matcher refuses to run: it would pass as soon as one step was not offered the tool, even if another was. An adapter that has not run fails either way, negated too.
+
 ## See also
 
 - [`mockAdapter`](./mock-adapter.md)

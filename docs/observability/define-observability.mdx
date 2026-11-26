@@ -1,0 +1,215 @@
+---
+title: defineObservability
+description: "The server's telemetry layer: one object the chat handler records model steps with and the relay forwards the page's spans through."
+sidebar:
+  label: "defineObservability"
+related:
+  - /observability/where-spans-go
+  - /observability/relay
+  - /observability/spans
+---
+
+`defineObservability()` builds the server's telemetry layer, once, in its own module. Give it to the chat handler as
+its `observability` option and every model step becomes a `chat` span; mount its `relay` at `/api/telemetry` and the
+page's runs and tool calls join the same trace. With no options, the standard `OTEL_*` environment (or a provider your
+app registered) decides where spans go, so most apps write it once and never touch it again.
+
+## Import
+
+```ts
+import { defineObservability } from "@webmcp-agents/telemetry/server";
+import type {
+  Observability,
+  ObservabilityConfig,
+} from "@webmcp-agents/telemetry/server";
+```
+
+## Example
+
+The layer, and the chat route that uses it. The highlighted lines are the ones the layer adds.
+
+<include meta='title="lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+Nothing loads until the first request: the three OpenTelemetry packages are imported then, on the server only.
+
+## Options
+
+Every option is optional. Open a row for its description and default.
+
+<AutoTypeTable path="../../packages/telemetry/src/server/types.ts" name="ObservabilityConfig" />
+
+Four of them have a page of their own: [`relayThrough`](/observability/relay-through),
+[`appIntegrations`](/observability/app-integrations), [`sampling`](/observability/sampling) and
+[`metadataMapping`](/observability/metadata-mapping). `recordInputs`, `recordOutputs` and `redact` are on
+[Privacy and redaction](/observability/privacy).
+
+## Returns
+
+An `Observability`, which is what the chat handler takes as `observability` (`ChatObservability`: `telemetry`,
+`withContext`, `flush`, `exportTimeoutMs`), plus:
+
+- `enabled`: false when the configuration resolves to off, or once setting it up failed.
+- [`relay(options?)`](/observability/relay): the `/api/telemetry` handler.
+- `shutdown()`: sends what is buffered and shuts down a provider this package built; an app's own provider is only
+  flushed.
+
+`flush()` and `shutdown()` never reject.
+
+## Your backend
+
+<RememberBackend />
+
+<Tabs dropdown param="backend" syncKey="backend">
+<Tab title="Any other backend" id="other">
+
+The shared `lib/observability.ts` above is all it needs: where spans go comes from the environment.
+
+</Tab>
+<Tab title="Arize" id="arize">
+
+`spanProcessors` takes OpenInference's span processor around a protobuf exporter, and `resourceAttributes` names the
+project (`openinference.project.name`). The file is on [its installation page](/observability/installation/arize).
+
+</Tab>
+<Tab title="Braintrust" id="braintrust">
+
+`spanProcessors` takes `BraintrustSpanProcessor` with its `parent` (`project_name:<name>`, `project_id:<id>` or
+`experiment_id:<id>`); without the package, the environment is enough.
+
+</Tab>
+<Tab title="Helicone" id="helicone">
+
+Helicone is the chat handler's `model`, not an option of this layer: the layer, if you use one, is set up like for any
+other backend.
+
+</Tab>
+<Tab title="IBM Instana" id="instana">
+
+Written out, `exporters` takes one `otlp()` target with `protocol: "http/protobuf"` and the `x-instana-key` header, and
+`resourceAttributes` sets an identity (`faas.id`, `host.id` or `device.id`) and `INSTANA_PLUGIN: "genai"`.
+
+</Tab>
+<Tab title="Langfuse" id="langfuse">
+
+`spanProcessors` takes `LangfuseSpanProcessor`, which reads its keys and `LANGFUSE_BASE_URL` from the environment.
+
+</Tab>
+<Tab title="LangWatch" id="langwatch">
+
+`exporters` takes `LangWatchExporter`, and `conventions: "legacy"` sends the AI SDK's `ai.*` spans that LangWatch's AI
+SDK integration is built on.
+
+</Tab>
+<Tab title="PostHog" id="posthog">
+
+With its package, `exporters` takes `PostHogTraceExporter` (`projectToken`, `host`); without it, the environment is
+enough.
+
+</Tab>
+<Tab title="Sentry" id="sentry">
+
+No exporter: Sentry's provider is found and used once `Sentry.init` has `enableOpenTelemetrySetup: true`.
+
+</Tab>
+<Tab title="Vercel" id="vercel">
+
+No options: the provider `registerOTel` from `@vercel/otel` registers is found and used.
+
+</Tab>
+<Tab title="W&B Weave" id="weave">
+
+`resourceAttributes` files the traces: `wandb.entity` and `wandb.project`.
+
+</Tab>
+</Tabs>
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="Decided once, never global">
+    Where spans go is decided on the first request, first match wins ([Where spans go](/observability/where-spans-go)).
+    The layer never registers anything globally and never shuts down a provider it did not build.
+  </AccordionItem>
+  <AccordionItem title="When something fails">
+    A missing package, bad env, both endpoint forms on a target, an unknown protocol, a throwing or hanging exporter,
+    an unreachable backend: each is logged once (redacted), turns off only what it affects, and never changes a chat
+    request's answer or timing.
+  </AccordionItem>
+  <AccordionItem title="Options in detail">
+    Giving `exporters` builds a private provider. `spanProcessors` run first, before `metadataMapping`, redaction and
+    `spanFilter`. `tracerProvider: "global"` is off, with one error, when the app registered none. `spanFilter` runs
+    last on a provider this package builds; through an app's provider, when the span starts (name and attributes
+    only). The handler's own `telemetry.recordInputs` and `recordOutputs` win over the layer's. To drop your own
+    [custom spans](/observability/custom-events), filter on `webmcp.custom`.
+  </AccordionItem>
+  <AccordionItem title="Through an app's provider">
+    This package cannot own the app's pipeline, so it redacts every attribute it sets before the span exists. What
+    the app's own processors add is theirs to handle.
+  </AccordionItem>
+  <AccordionItem title="The span tree">
+    When the request carries the page's `traceparent` with its sampled flag set (the page records its run span), the
+    AI SDK's own `invoke_agent` and `step` wrapper spans are left out, so each `chat` span is a direct child of the
+    browser's run span. Without it, or with the flag unset (a page without `observeAgents`, a run without consent or
+    sampled out by the page, a 0.4.0 page), the AI SDK's tree is exported as is, in a trace of its own. The flag
+    decides only the parent: whether the step is exported is the server's sampling.
+  </AccordionItem>
+  <AccordionItem title="The app's own AI SDK integrations">
+    Integrations the app registered with `registerTelemetry` are passed along with this package's for each call
+    (`ai@7` replaces registered ones with per-call ones otherwise), never recording content: they cannot redact. The
+    one exception is the app's own `@ai-sdk/otel` integration when it would record the same steps into the same
+    provider ([`appIntegrations`](/observability/app-integrations)).
+  </AccordionItem>
+  <AccordionItem title="Serverless">
+    The handler hands `flush()` to the host's `waitUntil` when it finds one (Vercel, Workers); a Vercel app keeps one
+    layer per function instance
+    ([`createVercelTelemetryRoute`](/reference/vercel-api/create-vercel-telemetry-route)).
+  </AccordionItem>
+  <AccordionItem title="One layer per server">
+    Define it once, in its own module, and import it from the chat route and the relay route. Both then share one
+    provider, one sampler and one redactor.
+  </AccordionItem>
+  <AccordionItem title="`conventions`: the model spans' attribute style">
+    `"genai"` (the default) emits the OpenTelemetry GenAI conventions, `gen_ai.*`. `"legacy"` emits the AI SDK's older
+    `ai.*` spans, which some tools were built on. `"both"` emits each set from its own tracer, so model steps appear
+    twice: use it only to compare.
+  </AccordionItem>
+</Accordion>
+
+:::warning[`redact: false` is for local debugging only]
+Every value the layer exports passes through the redactor. Turning it off sends prompts, tool data and ids as they are.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Where spans go" href="/observability/where-spans-go" icon="route">
+    The five rules that pick a destination, and the environment.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

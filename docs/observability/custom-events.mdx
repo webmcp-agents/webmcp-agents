@@ -1,0 +1,155 @@
+---
+title: Custom events
+description: "Your own events and spans in an agent's trace, from the page and from the server: a coupon applied, a search, a pricing call, beside the runs, tool calls and model steps."
+sidebar:
+  label: Custom events
+related:
+  - /observability/observe-agents
+  - /observability/define-observability
+  - /observability/privacy
+---
+
+The layer records runs, tool calls and model steps. What your app knows besides (a coupon applied, an inventory
+lookup, a pricing call) goes in the same trace with four functions: two on the page, two on the server. They use the
+same pipeline as the library's own spans, so the conversation key, redaction, sampling and your backend apply to them
+as they are.
+
+## Import
+
+```ts
+import {
+  recordAgentEvent,
+  withAgentSpan,
+} from "@webmcp-agents/telemetry";
+import type {
+  AgentSpanOptions,
+  CustomAttributes,
+} from "@webmcp-agents/telemetry";
+import type { CustomSpanOptions } from "@webmcp-agents/telemetry/server";
+```
+
+On the server, `observability.event` and `observability.span` are methods of the layer
+[`defineObservability`](/observability/define-observability) returns.
+
+## Example
+
+<Tabs syncKey="custom-side" hash={false}>
+<Tab title="Browser">
+
+**`lib/agent-events.ts`**
+
+<include meta='title="lib/agent-events.ts"'>/_examples/observability/custom-browser.ts</include>
+
+`recordAgentEvent` adds an event to the running run's `invoke_agent` span. `withAgentSpan` times a function as a
+span under the tool call that is running, when exactly one is, else under the run.
+
+</Tab>
+<Tab title="Server">
+
+**`lib/pricing.ts`**
+
+<include meta='title="lib/pricing.ts"'>/_examples/shared/lib/pricing.ts</include>
+
+`observability.span` times a function as a span of the chat request's trace; `observability.event` records a
+zero-length span. Both work in any code that runs during a chat request: a server-side tool, `prepareAgent`,
+`telemetry.metadata`, your own code awaited there.
+
+</Tab>
+</Tabs>
+
+## Options
+
+`recordAgentEvent(name, attributes?, options?)` and `withAgentSpan(name, fn, attributes?, options?)` take an
+`AgentSpanOptions`:
+
+<AutoTypeTable path="../../packages/telemetry/src/browser/custom.ts" name="AgentSpanOptions" />
+
+`observability.event(name, attributes?, options?)` and `observability.span(name, fn, attributes?, options?)` take a
+`CustomSpanOptions`:
+
+<AutoTypeTable path="../../packages/telemetry/src/server/types.ts" name="CustomSpanOptions" />
+
+`attributes` is a `CustomAttributes`: a record of attribute values (strings, numbers, booleans, and arrays of them).
+Values that are not (objects, `null`, `undefined`) are left out.
+
+## Returns
+
+- `withAgentSpan` and `observability.span` return what `fn` returns: a promise is followed, so the span ends when it
+  settles. A throw or rejection sets the span's status to error (`error.type` is the error's name) and is passed on
+  unchanged.
+- `recordAgentEvent` and `observability.event` return nothing.
+
+## Before the request: `guard` and `beforeModel`
+
+:::warning[Pass the request]
+`guard` and `beforeModel` run before the handler enters the chat request, so a span there needs
+`{ request: req }`. On the very first request the layer is not built yet when the `guard` runs: that one span is
+dropped.
+:::
+
+In your chat route, an excerpt:
+
+```ts
+createChatHandler({
+  agents,
+  observability,
+  guard: (req) => {
+    const path = new URL(req.url).pathname;
+    observability.event("chat.checked", { "chat.path": path }, { request: req });
+    return undefined;
+  },
+});
+```
+
+## Names and attributes
+
+Name a span or an event after what happened, in your own namespace (`cart.coupon_applied`, `pricing.quote`). Every
+custom span carries `webmcp.custom: true` (`ATTR_CUSTOM`, exported by both entries), so a backend query or a
+`spanFilter` can tell it from the library's. Keys under `webmcp.*` are this library's: yours are dropped, so app code
+cannot forge a run's ids. Every name and value is redacted like the library's own
+([Privacy and redaction](/observability/privacy)).
+
+To keep the library's spans and drop your own:
+
+**`lib/observability.ts`**
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/custom-filter.ts</include>
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="When nothing is recorded">
+    In the browser, both are no-ops, and `fn` still runs, when `observeAgents` is not running, when the person has not
+    consented, for a run that is not sampled, and between runs: consent and sampling are decided per run, so outside
+    one there is nothing to follow. `options.run` naming a run that is not recorded is the same. On the server, both
+    are no-ops outside a chat request and when the request is not sampled.
+  </AccordionItem>
+  <AccordionItem title="Where a server span goes">
+    Its parent is the first of: the custom span it runs in; the app's active span (with a context manager
+    registered); the browser's run span, when the page records it (the `traceparent` is sampled); the request's first
+    model span. Before a request's first model step, on a page that does not record its run, it starts a trace of
+    its own.
+  </AccordionItem>
+  <AccordionItem title="Why the server records a span, not an event">
+    The run span a request belongs to is the browser's, and an event can only go on a span still open in the same
+    process. So `observability.event` is a zero-length span in the request's trace.
+  </AccordionItem>
+  <AccordionItem title="Telemetry never breaks your code">
+    A failure inside these functions is swallowed and logged once; `fn` runs, and its result or error is yours.
+  </AccordionItem>
+  <AccordionItem title="With `@opentelemetry/api`">
+    An app that already runs OpenTelemetry can use `@opentelemetry/api` directly inside a chat request: with a
+    global provider and context manager registered, its spans join the same trace, and nest under `observability.span`.
+  </AccordionItem>
+</Accordion>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Sampling" href="/observability/sampling" icon="percent">
+    Keep a share of turns: custom spans are kept or dropped with theirs.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    `webmcp.custom` and every other name the layer writes.
+  </Card>
+</CardGroup>
