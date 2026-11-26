@@ -113,6 +113,23 @@ describe("devtools panel", () => {
     await until(() => !!byText(runner, "button", "Copied"), 1000, "Copied");
   });
 
+  it("re-runs a redacted call with the values as they were, never the token", async () => {
+    const signIn = uniqueName("sign_in_x");
+    toolForm(signIn, { fields: '<input name="password" aria-label="Password">' });
+    await new Promise((r) => setTimeout(r, 0)); // the declarative form registers on the next task
+    await modelContext().executeTool(signIn, { password: "hunter2" });
+    await userEvent.click($(".launcher") as HTMLElement);
+    await userEvent.click(byText(uiRoot("devtools"), '[role="tab"]', "Timeline") as HTMLElement);
+    await until(() => !!byText(uiRoot("devtools"), ".call-head", signIn), 3000, "row");
+    await userEvent.click(byText(uiRoot("devtools"), ".call-head", signIn) as HTMLElement);
+    expect(uiRoot("devtools").querySelector(".row")?.textContent).not.toContain("hunter2");
+    await userEvent.click(byText(uiRoot("devtools"), "button", "Re-run") as HTMLElement);
+    const runner = $(".runner") as HTMLElement;
+    const values = [...runner.querySelectorAll("input")].map((i) => i.value);
+    expect(values).toContain("hunter2");
+    expect(values.join()).not.toMatch(/REDACTED|•/);
+  });
+
   it("keeps the agent cursor while the pointer moves over the panel", async () => {
     const confirm = uniqueName("place_order_x");
     toolForm(confirm, { autosubmit: false });

@@ -39,7 +39,10 @@ export interface RedactOptions {
    * So `timespan`, `japan`, `spin` and `tokenCount` are kept.
    */
   keys?: readonly string[] | ((defaults: readonly string[]) => readonly string[]);
-  /** Names never redacted by name, checked first (`"tokenCount"`, `"sessionCount"`). Their values are still scanned. */
+  /**
+   * Names never redacted by name (`"tokenCount"`, `"sessionCount"`): they win over `keys`, but never over a tool's own
+   * `sensitive` fields, which the page cannot unmask. Their values are still scanned.
+   */
   allowKeys?: readonly string[];
   /**
    * Value detectors, run on every string. Default: `email`, `card` (Luhn-checked), `jwt`, `bearer`, `secretKey`
@@ -49,7 +52,9 @@ export interface RedactOptions {
   patterns?: false | (Partial<Record<BuiltInPattern, boolean | PatternRule>> & Record<string, boolean | PatternRule>);
   /**
    * Exact paths whose value is redacted, `*` standing for one segment: `"output.*.address"`. A tool's input is under
-   * `input`, its result under `output` (the redactor's `kind`); other values start at their own keys.
+   * `input`, its result under `output` (the redactor's `kind`); other values start at their own keys. JSON inside a
+   * string continues the string's path, and a WebMCP result's envelope is transparent: the JSON in `content[n].text`
+   * and the `structuredContent` object both sit right under `output`, so `output.shipping.address` matches either.
    */
   paths?: readonly string[];
   /** Query parameters whose values are kept in URLs. Default: none, so every query value is redacted in logs. */
@@ -85,6 +90,7 @@ export interface RedactUrlOptions {
    * `"log"` (default): every query value outside `allowQuery` is redacted, for telemetry, logs and attributes.
    * `"model"`: only a parameter that is sensitive by name (a key) or by value (a detector matches) is redacted, for
    * the URLs the model reads (the page's URL in a step request, the page-move note), so `?from=CAI&to=LHR` reaches it.
+   * The hash is kept, so a hash-routed page (`#/results?from=CAI`) reads as where it is; its query is treated the same.
    */
   for?: "log" | "model";
 }
@@ -93,11 +99,13 @@ export interface RedactUrlOptions {
 export interface Redactor {
   /** A redacted deep copy. Cycles become `"[Circular]"`; a value that fails to read or to redact becomes the token. */
   <T>(value: T, ctx?: RedactContext): T;
-  /** One string, scanned by the detectors (JSON inside it is parsed, redacted by key and written back). */
+  /** One string, scanned by the detectors (JSON inside it is parsed, redacted by key and written back; unchanged JSON as is). */
   text(value: string): string;
   /**
-   * A URL: credentials and hash dropped, origin and path kept (the path scanned), query values redacted (see
-   * {@link RedactUrlOptions}). A relative URL starting with `/` keeps its form; anything else is scanned as text.
+   * A URL: credentials dropped, origin and path kept (the path scanned), query values redacted (see
+   * {@link RedactUrlOptions}). The hash is dropped in `"log"` mode; in `"model"` mode it is kept (a hash router's route)
+   * and redacted like the path and query. A relative URL starting with `/` keeps its form; anything else is scanned as
+   * text.
    */
   url(value: string, options?: RedactUrlOptions): string;
   /** HTTP headers: sensitive names (`authorization`, `cookie`, `set-cookie`) redacted, every other value scanned. */
@@ -211,8 +219,9 @@ export function createRedactor(options: RedactOptions = {}): Redactor {
 
   const sensitiveKey = (key: string, extra?: readonly string[]): boolean => {
     const k = norm(key);
-    if (allow.has(k)) return false;
+    // the tool's own marks first: the page's allowKeys cannot unmask a field the tool declared sensitive (R-RED-3)
     if (extra?.some((e) => norm(e) === k)) return true;
+    if (allow.has(k)) return false;
     const parts = words(key);
     for (let i = 0; i < parts.length; i++) if (keys.has(parts.slice(i).join(""))) return true;
     for (const s of keys) if (s.length > 4 && k.endsWith(s)) return true;
@@ -233,18 +242,26 @@ export function createRedactor(options: RedactOptions = {}): Redactor {
     return out;
   };
 
-  /** A string: JSON inside it is redacted by key, an absolute URL as a URL, anything else scanned. */
-  const str = (value: string, ctx: RedactContext): string => {
+  /**
+   * A string: JSON inside it is redacted by key (from the string's own `path`), an absolute URL as a URL, anything else
+   * scanned. JSON that needs no change comes back as written: re-serializing would compact it and round big integers.
+   */
+  const str = (value: string, ctx: RedactContext, path = ""): string => {
     const s = String(value ?? "");
     const t = s.trim();
     if (/^[[{]/.test(t) && t.length <= maxStringLength)
       try {
-        return JSON.stringify(walk(() => JSON.parse(t), "", undefined, ctx, 0, new WeakSet()));
+        const parsed: unknown = JSON.parse(t);
+        const out = JSON.stringify(walk(() => parsed, path, undefined, ctx, 0, new WeakSet()));
+        return out === JSON.stringify(parsed) ? s : out;
       } catch {
         // not JSON after all
       }
     return /^https?:\/\//i.test(t) ? url(s) : scan(s);
   };
+
+  /** `output.content.0.text.x` and `output.structuredContent.x` → `output.x`: path rules name the result's own fields. */
+  const bare = (path: string): string => path.replace(/^output\.(?:content\.\d+\.text|structuredContent)(?=\.|$)/, "output");
 
   const walk = (
     read: () => unknown,
@@ -259,9 +276,9 @@ export function createRedactor(options: RedactOptions = {}): Redactor {
       // keyed values only: the root is never handed to `custom`, so a throwing rule redacts one field, not everything
       const own = key === undefined ? undefined : custom?.(value, { key, path, kind: ctx.kind ?? "attribute", tool: ctx.tool });
       if (own !== undefined) return own;
-      if (key !== undefined && (sensitiveKey(key, ctx.sensitive) || paths.some((p) => p.test(path))))
+      if (key !== undefined && (sensitiveKey(key, ctx.sensitive) || paths.some((p) => p.test(path) || p.test(bare(path)))))
         return replace(String(value ?? ""), norm(key).toUpperCase());
-      if (typeof value === "string") return str(value, ctx);
+      if (typeof value === "string") return str(value, ctx, path);
       if (!value || typeof value !== "object" || value instanceof Date) return value;
       if (value instanceof Error) return error(value);
       if (seen.has(value)) return "[Circular]";
@@ -301,7 +318,14 @@ export function createRedactor(options: RedactOptions = {}): Redactor {
           : `${pair.split("=")[0]}=${replace(v, norm(name).toUpperCase())}`;
       })
       .join("&");
-    return `${relative ? "" : `${u.protocol}//${u.host}`}${scan(u.pathname)}${query ? `?${query}` : ""}`;
+    // The model reads a hash router's route, cleaned as a path of its own: `#/results?from=CAI` keeps its query, and
+    // a fragment of parameters (`#access_token=…`) is read as a query.
+    const h = u.hash.slice(1);
+    const hash =
+      reader === "model" && h
+        ? `#${h[0] === "/" ? url(h, { for: reader }) : url(`/${h.includes("?") || !h.includes("=") ? "" : "?"}${h}`, { for: reader }).replace(/^\/\??/, "")}`
+        : "";
+    return `${relative ? "" : `${u.protocol}//${u.host}`}${scan(u.pathname)}${query ? `?${query}` : ""}${hash}`;
   };
 
   const error = (value: unknown): string => {

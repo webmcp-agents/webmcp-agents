@@ -3,7 +3,7 @@
  * A sub-agent's run as shadcn/ui's Subagent pattern: the `delegate_to_<id>` call is the outer Trace line; inside it,
  * the sub-agent's own tool calls (each an AgentTool) and its answer. `phase.agent` comes from `useAgentChat().toolPhase`.
  */
-import { createTranslator, type ToolPhase, type Translate } from "@webmcp-agents/chat";
+import { createTranslator, redactToolCall, type ToolPhase, type Translate } from "@webmcp-agents/chat";
 import type { UIMessage } from "ai";
 import { Streamdown } from "streamdown";
 import { Badge } from "@/components/ui/badge";
@@ -30,7 +30,8 @@ export function AgentSubagent({
 }) {
   const id = phase?.agent?.id ?? subagentId(part.toolName);
   const state = phase?.phase ?? "running";
-  const task = (part.input as { task?: string } | undefined)?.task;
+  // the task is the model's own words about the person's data: shown through the page's redactor, like a tool's input
+  const task = (redactToolCall({ name: part.toolName, input: part.input }).input as { task?: string } | undefined)?.task;
   const title =
     state === "running" || state === "parked"
       ? t("trace.agentRunning", { agent: id })

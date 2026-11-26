@@ -46,10 +46,10 @@ describe("URLs the model reads", () => {
     ]);
     const note = (moved[2]!.parts[0] as { text: string }).text;
     expect(note).toContain('"/results?from=CAI&to=LHR&date=2026-12-20"');
-    expect(note).toContain('"/reset?token=[REDACTED]&email=[REDACTED]&page=2"');
+    expect(note).toContain('"/reset?token=[REDACTED]&email=[REDACTED]&page=2#top"'); // the hash is kept: a hash router's route
   });
 
-  it("the step request's page URL loses credentials, hash and sensitive parameters, and keeps the rest", async () => {
+  it("the step request's page URL loses credentials and sensitive parameters, and keeps the rest (hash included)", async () => {
     const bodies: Array<{ page?: { url: string } }> = [];
     const handler = createChatHandler({ model: mockModel([{ text: "ok" }]) });
     const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -66,7 +66,7 @@ describe("URLs the model reads", () => {
     })) {
       // drain
     }
-    expect(bodies[0]?.page?.url).toBe("https://shop.test/reset?token=[REDACTED]&email=[REDACTED]&page=2");
+    expect(bodies[0]?.page?.url).toBe("https://shop.test/reset?token=[REDACTED]&email=[REDACTED]&page=2#frag");
   });
 
   it("a search the model needs reaches it unchanged", () => {

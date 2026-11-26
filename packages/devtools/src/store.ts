@@ -153,7 +153,7 @@ export interface DevtoolsState {
 }
 
 /** A call's values before redaction (`DevtoolsStore.raw`): kept in development builds only. */
-export type RawCall = Pick<CallRecord, "args" | "fills" | "result" | "error">;
+export type RawCall = Pick<CallRecord, "args" | "fills" | "result" | "error" | "prompt">;
 
 /** The part of the visuals controller the settings drive. */
 export type DevtoolsVisuals = Pick<AgentVisuals, "setSpotlight" | "setYieldToUser">;
@@ -438,6 +438,8 @@ export function createDevtoolsStore({
       fill: (field: string, value: string | boolean) =>
         redact({ [field]: value }, { kind: "fill", tool, sensitive: marked.input })[field] as string | boolean,
       error: (text: string) => redact.text(text),
+      // a gate's prompt can quote what the agent typed (a confirm-gated form's values): the same scan as the chat's
+      prompt: (text: string) => redact.text(text),
     };
   };
   const push = (call: CallRecord, raw?: RawCall): CallRecord => {
@@ -531,7 +533,8 @@ export function createDevtoolsStore({
       }
       case "park": {
         const call = latestOpen(e.tool) ?? agentCall(e.tool);
-        patch(call.id, { status: "waiting", prompt: e.prompt });
+        keepRaw(call.id, { prompt: e.prompt });
+        patch(call.id, { status: "waiting", prompt: redactorFor(e.tool).prompt(e.prompt) });
         return;
       }
       case "result":

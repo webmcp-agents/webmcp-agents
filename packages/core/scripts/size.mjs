@@ -64,11 +64,16 @@ const redact = fileURLToPath(new URL("../src/redact/index.ts", import.meta.url))
  * confirm prompt reused, the touch point, a redundant submit selector, and the cursor's HTML whitespace. Measured
  * 10.49 KB (10739 B) and 18.58 KB (19029 B); budgets raised to 10.55 KB and 18.6 KB (decided by the user through the
  * lead session).
+ *
+ * PR #9 review fixes (2026-11-26): `paths` rules match inside a tool result's JSON text and `structuredContent`,
+ * untouched JSON comes back as written (big integers, formatting), a tool's `sensitive` wins over `allowKeys`, and a
+ * model URL keeps its hash (cleaned like a path and query) so hash-routed page moves read right. Measured 2.88 KB
+ * (2952 B); redact budget raised to 2.9 KB. The main entry does not change.
  */
 const CHECKS = [
   { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.55 * KB },
   { name: "whole package", exports: "*", budget: 18.6 * KB },
-  { name: "redact (@webmcp-agents/core/redact)", exports: "*", from: redact, budget: 2.75 * KB },
+  { name: "redact (@webmcp-agents/core/redact)", exports: "*", from: redact, budget: 2.9 * KB },
 ];
 
 async function size(exports, from = index) {

@@ -7,7 +7,8 @@ import { configureRedaction } from "@webmcp-agents/core/redact";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { toAgentInvokeCode } from "./copy-as-code";
 import { createDevtoolsStore, type DevtoolsStore } from "./store";
-import { cleanupFixtures, fixture, modelContext, uniqueName } from "@webmcp-agents/testing";
+import { userEvent } from "vitest/browser";
+import { cleanupFixtures, fixture, modelContext, toolForm, uniqueName, until } from "@webmcp-agents/testing";
 
 const PASSPORT = "A1234567";
 const EMAIL = "sara@example.com";
@@ -96,6 +97,20 @@ describe("devtools redaction", () => {
     expect(record && JSON.stringify(store.raw(record.id))).toContain(PASSPORT);
     store.clearCalls();
     expect(record && store.raw(record.id)).toBeUndefined();
+  });
+
+  it("a waiting call's prompt is redacted; reveal shows it as it was", async () => {
+    const id = uniqueName("send_invite_x");
+    const form = toolForm(id, { autosubmit: false, submit: `Send to ${EMAIL}` });
+    await new Promise((r) => setTimeout(r, 0));
+    const run = store.runTool(id, { qty: 1 });
+    await until(() => call(id)?.status === "waiting", 5000, "waiting");
+    expect(call(id)?.prompt).toMatch(/Send to/);
+    expect(call(id)?.prompt).not.toContain(EMAIL);
+    const record = call(id);
+    expect(record && store.raw(record.id)?.prompt).toContain(EMAIL);
+    await userEvent.click(form.querySelector("button") as HTMLButtonElement);
+    expect((await run).status).toBe("ok");
   });
 
   it("configured after a call was logged: the next call follows the new rules", async () => {

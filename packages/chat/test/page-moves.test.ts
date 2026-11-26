@@ -64,6 +64,12 @@ describe("withPageMoves", () => {
     expect(sent[1]!.parts[0]).toMatchObject({ text: expect.stringContaining('from the page "/shop" to "/product/x"') });
   });
 
+  it("a hash-routed move reads as the routes it went between, a secret in the hash redacted", () => {
+    const history = [assistant("a1", "Here are the bags.", "/#/shop"), user("u2", "reset it", "/#/reset?token=abc&step=2")];
+    const note = withPageMoves(history)[1]!.parts[0];
+    expect(note).toMatchObject({ text: expect.stringContaining('from the page "/#/shop" to "/#/reset?token=[REDACTED]&step=2"') });
+  });
+
   it("an agent's own navigation within a run is not a move: only the run's end counts", () => {
     // the run started on "/", the agent navigated to /shop, the run ended there and the person wrote from /shop
     const history = [user("u1", "show bags", "/"), assistant("a1", "Here are the bags.", "/shop"), user("u2", "the cheapest?", "/shop")];

@@ -174,6 +174,31 @@ describe("keys", () => {
     expect(r({ a: { address: "x" } }, { kind: "tool-output" })).toEqual({ a: { address: "[REDACTED]" } });
   });
 
+  it("paths match inside a tool result's JSON text and its structuredContent, the envelope transparent", () => {
+    const r = createRedactor({ paths: ["output.shipping.address", "output.*.zip"] });
+    const result = { shipping: { address: "1 Main St", zip: "12345", city: "Cairo" } };
+    const out = r({ content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result }, { kind: "tool-output" });
+    const redacted = { shipping: { address: "[REDACTED]", zip: "[REDACTED]", city: "Cairo" } };
+    expect(JSON.parse(out.content[0]!.text)).toEqual(redacted);
+    expect(out.structuredContent).toEqual(redacted);
+    // a JSON string under another key continues that key's path
+    expect(createRedactor({ paths: ["body.card.holder"] })({ body: '{"card":{"holder":"Sara"}}' })).toEqual({
+      body: '{"card":{"holder":"[REDACTED]"}}',
+    });
+  });
+
+  it("JSON that needs no change comes back as written (formatting, big integers)", () => {
+    const text = '{\n  "id": 12345678901234567890,\n  "qty": 2\n}';
+    expect(redact.text(text)).toBe(text);
+    expect(redact({ body: text })).toEqual({ body: text });
+    expect(redact.text('{ "secret": "x", "qty": 2 }')).toBe('{"secret":"[REDACTED]","qty":2}');
+  });
+
+  it("allowKeys never unmask a field the tool marks sensitive", () => {
+    const r = createRedactor({ allowKeys: ["passport", "password"] });
+    expect(r({ passport: "A1234567", password: "p" }, { sensitive: ["passport"] })).toEqual({ passport: "[REDACTED]", password: "p" });
+  });
+
   it("a key list replaces the defaults", () => {
     expect(createRedactor({ keys: ["pin"] })({ password: "p", pin: 1 })).toEqual({ password: "p", pin: "[REDACTED]" });
     expect(DEFAULT_SENSITIVE_KEYS).toContain("password");
@@ -239,6 +264,19 @@ describe("urls", () => {
     expect(redact.url("https://shop.test/q?note=mail%20a%40b.co", { for: "model" })).toBe("https://shop.test/q?note=[REDACTED]");
     // a kept value goes out exactly as written: no re-encoding
     expect(redact.url("/s?q=a,b&tag=x%20y&flag", { for: "model" })).toBe("/s?q=a,b&tag=x%20y&flag");
+  });
+
+  it("for the model: a hash route is kept, its query and an OAuth fragment redacted like the query", () => {
+    expect(redact.url("/#/results?from=CAI&to=LHR", { for: "model" })).toBe("/#/results?from=CAI&to=LHR");
+    expect(redact.url("https://shop.test/app#/reset?token=abc&page=2", { for: "model" })).toBe(
+      "https://shop.test/app#/reset?token=[REDACTED]&page=2",
+    );
+    expect(redact.url("https://shop.test/cb#access_token=abc&state=s1", { for: "model" })).toBe(
+      "https://shop.test/cb#access_token=[REDACTED]&state=s1",
+    );
+    expect(redact.url("/inbox#a@b.co", { for: "model" })).toBe("/inbox#[REDACTED]");
+    // logs still drop it
+    expect(redact.url("/#/results?from=CAI")).toBe("/");
   });
 
   it("a URL inside a value is cleaned strictly; headers by name and value", () => {
