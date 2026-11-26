@@ -22,10 +22,3 @@ export const MotionBoundary = ({
     </div>
   );
 };
-export const PreviewMotionProvider = ({
-  paused,
-  children,
-}: {
-  paused: boolean;
-  children: ReactNode;
-}) => <MotionPolicy.Provider value={paused}>{children}</MotionPolicy.Provider>;

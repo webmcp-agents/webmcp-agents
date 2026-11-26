@@ -1,5 +1,4 @@
 "use client";
-import ArrowRight01Icon from "@hugeicons/core-free-icons/ArrowRight01Icon";
 import Tick02Icon from "@hugeicons/core-free-icons/Tick02Icon";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ import {
   MenuTrigger as MenuTriggerPrimitive,
   Popover as PopoverPrimitive,
   Separator as SeparatorPrimitive,
-  SubmenuTrigger as SubmenuTriggerPrimitive,
 } from "react-aria-components";
 import type {
   MenuItemProps as MenuItemPrimitiveProps,
@@ -192,60 +190,6 @@ const AriaDropdownMenuItem = ({
     )}
   </MenuItemPrimitive>
 );
-const DropdownMenuSub = ({
-  ...props
-}: React.ComponentProps<typeof SubmenuTriggerPrimitive>) => (
-  <SubmenuTriggerPrimitive data-slot="dropdown-menu-sub" {...props} />
-);
-const DropdownMenuSubTrigger = ({
-  className,
-  inset,
-  children,
-  ...props
-}: MenuItemPrimitiveProps<object> & {
-  inset?: boolean;
-}) => (
-  <MenuItemPrimitive
-    data-slot="dropdown-menu-sub-trigger"
-    data-inset={inset}
-    textValue={typeof children === "string" ? children : props.textValue}
-    className={cn(
-      "focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-open:bg-accent data-open:text-accent-foreground flex cursor-default items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-hidden select-none data-inset:pl-7 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-      className
-    )}
-    {...props}
-  >
-    {composeRenderProps(children, (resolvedChildren) => (
-      <>
-        {resolvedChildren}
-        <HugeiconsIcon
-          icon={ArrowRight01Icon}
-          strokeWidth={2}
-          className="ml-auto"
-        />
-      </>
-    ))}
-  </MenuItemPrimitive>
-);
-const DropdownMenuSubContent = ({
-  placement = "end top",
-  crossOffset = -3,
-  offset = 0,
-  className,
-  ...props
-}: React.ComponentProps<typeof DropdownMenuContent>) => (
-  <DropdownMenuContent
-    data-slot="dropdown-menu-sub-content"
-    className={cn(
-      "bg-popover text-popover-foreground ring-foreground/10 w-auto min-w-[96px] rounded-lg p-1 shadow-lg ring-1 duration-100",
-      className
-    )}
-    placement={placement}
-    crossOffset={crossOffset}
-    offset={offset}
-    {...props}
-  />
-);
 const DropdownMenuSeparator = ({
   className,
   ...props
@@ -253,19 +197,6 @@ const DropdownMenuSeparator = ({
   <SeparatorPrimitive
     data-slot="dropdown-menu-separator"
     className={cn("bg-border -mx-1 my-1 h-px", className)}
-    {...props}
-  />
-);
-const DropdownMenuShortcut = ({
-  className,
-  ...props
-}: React.ComponentProps<"span">) => (
-  <span
-    data-slot="dropdown-menu-shortcut"
-    className={cn(
-      "text-muted-foreground group-focus/dropdown-menu-item:text-accent-foreground ml-auto text-xs tracking-widest",
-      className
-    )}
     {...props}
   />
 );
@@ -288,65 +219,6 @@ const DropdownMenuTrigger = ({
     );
   return asChild ? pressable(children) : <Button {...props}>{children}</Button>;
 };
-/** A group of mutually exclusive items; the selected one shows a check. */
-const DropdownMenuRadioGroup = ({
-  value,
-  onValueChange,
-  children,
-  ...props
-}: Omit<
-  MenuSectionPrimitiveProps<object>,
-  "selectionMode" | "selectedKeys" | "onSelectionChange" | "value"
-> & {
-  value?: string;
-  onValueChange?: (value: string) => void;
-}) => (
-  <MenuSectionPrimitive
-    data-slot="dropdown-menu-radio-group"
-    selectionMode="single"
-    selectedKeys={value === undefined ? [] : [value]}
-    onSelectionChange={(keys) => {
-      const next = [...keys][0];
-      if (next !== undefined) onValueChange?.(String(next));
-    }}
-    {...props}
-  >
-    {children}
-  </MenuSectionPrimitive>
-);
-const DropdownMenuRadioItem = ({
-  value,
-  ...props
-}: Omit<React.ComponentProps<typeof AriaDropdownMenuItem>, "id" | "value"> & { value: string }) => (
-  <AriaDropdownMenuItem id={value} {...props} />
-);
-/** A toggle item; wraps itself in its own multi-select section so the check follows `checked`. */
-const DropdownMenuCheckboxItem = ({
-  checked,
-  onCheckedChange,
-  children,
-  id,
-  ...props
-}: Omit<React.ComponentProps<typeof AriaDropdownMenuItem>, "id"> & {
-  id?: string;
-  checked?: boolean;
-  onCheckedChange?: (checked: boolean) => void;
-}) => {
-  const fallbackId = React.useId();
-  const key = id ?? (typeof children === "string" ? children : fallbackId);
-  return (
-    <MenuSectionPrimitive
-      data-slot="dropdown-menu-checkbox-group"
-      selectionMode="multiple"
-      selectedKeys={checked ? [key] : []}
-      onSelectionChange={(keys) => onCheckedChange?.([...keys].includes(key))}
-    >
-      <AriaDropdownMenuItem id={key} {...props}>
-        {children}
-      </AriaDropdownMenuItem>
-    </MenuSectionPrimitive>
-  );
-};
 const DropdownMenuItem = ({
   disabled,
   onSelect,
@@ -365,9 +237,6 @@ const DropdownMenuItem = ({
   />
 );
 export {
-  DropdownMenuCheckboxItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
   DropdownMenu,
@@ -375,8 +244,4 @@ export {
   DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
 };

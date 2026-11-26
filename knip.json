@@ -1,10 +1,16 @@
 {
   "$schema": "https://unpkg.com/knip@latest/schema.json",
   "ignoreExportsUsedInFile": true,
-  "ignore": ["apps/docs/components/opendesigns/**", "apps/docs/components/ui/**"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.mjs", "capture/*.{ts,mjs}", "registry/default/**/*.tsx", "registry/test/*.ts", "registry/*.ts"],
+      "entry": [
+        "scripts/*.mjs",
+        "capture/*.{ts,mjs}",
+        "capture/backends/*.{ts,mjs}",
+        "registry/default/**/*.tsx",
+        "registry/test/*.ts",
+        "registry/*.ts"
+      ],
       "project": ["scripts/**", "capture/**", "registry/**"],
       "ignoreBinaries": ["ffmpeg"],
       "ignoreDependencies": ["lucide-react", "@types/react", "streamdown", "ai"]

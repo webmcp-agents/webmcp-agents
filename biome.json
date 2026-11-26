@@ -138,16 +138,7 @@
       }
     },
     {
-      "includes": [
-        "packages/chat/src/components/**",
-        "packages/chat/src/adapter/**",
-        "packages/chat/src/session/**",
-        "packages/chat/src/index.ts",
-        "packages/chat/src/agent.ts",
-        "packages/chat/src/shared.ts",
-        "packages/chat/src/tools.ts",
-        "packages/chat/src/types.ts"
-      ],
+      "includes": ["packages/chat/src/**", "!packages/chat/src/server/**", "!packages/chat/src/vite/**", "!**/*.test.ts", "!**/*.test.tsx"],
       "linter": {
         "rules": {
           "style": {

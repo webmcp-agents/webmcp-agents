@@ -36,18 +36,6 @@ export const brand = {
   },
 };
 
-export const setBrandName = (name: string): void => {
-  if (typeof window === "undefined") {
-    return;
-  }
-  if (!name || name === DEFAULT_BRAND) {
-    delete window.__opendesignsBrand;
-  } else {
-    window.__opendesignsBrand = name;
-  }
-  window.dispatchEvent(new Event(BRAND_EVENT));
-};
-
 const storedName = (): string | undefined => {
   try {
     const raw = window.localStorage.getItem(THEME_STORAGE_KEY);

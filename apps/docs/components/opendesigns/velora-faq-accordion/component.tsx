@@ -30,7 +30,6 @@ import type { FaqGuideTopic, FaqStudyAction, FaqStudyQuestion } from "./faq";
 
 import "./styles.css";
 
-export { createFaqStudy } from "./faq";
 export type { FaqGuideTopic, FaqStudyAction, FaqStudyQuestion } from "./faq";
 
 export interface FaqAccordionProps {

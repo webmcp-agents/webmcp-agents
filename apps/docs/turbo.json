@@ -6,6 +6,8 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/docs/**", "$TURBO_ROOT$/registry/registry.json", "$TURBO_ROOT$/registry/default/**"],
       "outputs": ["dist/**", "public/r/**"]
     },
-    "test": { "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/docs/**", "$TURBO_ROOT$/packages/chat/src/chat.css"] }
+    "test": {
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/docs/**", "$TURBO_ROOT$/packages/chat/src/chat.css", "$TURBO_ROOT$/packages/*/src/**"]
+    }
   }
 }

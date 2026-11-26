@@ -2,24 +2,6 @@ import { useBrandName } from "../opendesigns/_shared/brand";
 import { cn } from "@/lib/utils";
 import type { SVGProps } from "react";
 
-export const OpenDesignsMark = ({
-  className,
-  ...props
-}: SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 32 32"
-    width="32"
-    height="32"
-    aria-hidden="true"
-    className={className}
-    {...props}
-  >
-    <path
-      fill="currentColor"
-      d="M3 3h12v12H3zm14 0h12v12H17zM3 17h12v12H3zm14 0h12v12H17z"
-    />
-  </svg>
-);
 /** The agent cursor's arrow (the same path core draws), the site's mark. */
 const CURSOR_PATH = "M5.1 3.4 20.2 9.5c.8.3.8 1.4 0 1.7l-6.3 2.5-2.5 6.3c-.3.8-1.4.8-1.7 0L3.4 5.1c-.3-.9.8-2 1.7-1.7z";
 
