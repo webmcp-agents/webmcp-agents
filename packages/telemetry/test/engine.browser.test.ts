@@ -355,19 +355,100 @@ describe("sampling and batching", () => {
     expect(asked).toEqual([{ agent: "shopper", conversation: "conv-1" }]);
   });
 
-  test("defaults: sent at most every 2 seconds, or sooner once 64 are waiting", async () => {
-    const batches: number[] = [];
-    const e = createEngine({ exporters: [{ export: (s) => void batches.push(s.length) }] })!;
+  test("a recorded run is claimed (ref.sampled, so its step requests say -01); one without consent or sampled out is not", async () => {
+    const fresh = (): RunRef => ({ conversation: "conv-1", run: "run-1", traceparent: `00-${TRACE}-${RUN_SPAN}-00` });
+    const claimed: (boolean | undefined)[] = [];
+    for (const [options, consent, kept] of [
+      [{}, true, undefined],
+      [{}, false, undefined],
+      [{ sampling: { type: "never" } }, true, undefined],
+      // the caller (observeAgents) already sampled: the engine follows its decision, never samples twice
+      [{ sampling: { type: "never" } }, true, true],
+      [{}, true, false],
+    ] as const) {
+      const ref = fresh();
+      const { e } = engine(options as ObserveAgentsOptions);
+      e.event({ type: "run-start", ref, agent: "shopper", adapter: "cloud", at: 1 }, consent, kept);
+      claimed.push(ref.sampled);
+    }
+    expect(claimed).toEqual([true, undefined, undefined, true, undefined]);
+  });
+
+  /** An engine whose exporter records each batch as its span names, in order. */
+  async function batching(options: ObserveAgentsOptions = {}) {
+    const batches: string[][] = [];
+    const e = createEngine({ exporters: [{ export: (s) => void batches.push(s.map((x) => x.name)) }], ...options })!;
     await e.flush(); // the exporters chunk is loaded
+    return { e, batches };
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const callEvents = (ref: RunRef, call: string, at: number): AgentRunEvent[] => [
+    { type: "tool-start", ref, step: 1, call, tool: "search", at },
+    { type: "tool-finish", ref, call, tool: "search", ms: 1, waitedMs: 0, state: "done" },
+  ];
+
+  test("a run's spans are held until the run ends, then sent in one batch, parents first (a sub-agent's run included)", async () => {
+    const { e, batches } = await batching();
     vi.useFakeTimers();
-    for (const ev of cloudTurn()) e.event(ev, true);
-    await vi.advanceTimersByTimeAsync(1999);
+    const sub: RunRef = { ...REF, run: "sub", parent: "call-1", traceparent: undefined };
+    const delegated: AgentRunEvent[] = [
+      { type: "run-start", ref: sub, agent: "helper", adapter: "cloud", at: 53 },
+      ...callEvents(sub, "call-2", 54),
+      { type: "run-finish", ref: sub, reason: "stop", ms: 5, steps: 1 },
+    ];
+    const events = cloudTurn(REF, "cloud", delegated);
+    for (const ev of events.slice(0, -1)) e.event(ev, true);
+    // the batch timer and the batch size do not send a run's spans early
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(batches).toEqual([]);
+    e.event(events.at(-1)!, true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(batches).toEqual([["invoke_agent shopper", "execute_tool add_to_cart", "invoke_agent helper", "execute_tool search"]]);
+  });
+
+  test(`past ${128} spans a run sends what it holds early, in the same order; the rest goes when it ends`, async () => {
+    const { e, batches } = await batching();
+    e.event({ type: "run-start", ref: REF, agent: "shopper", adapter: "cloud", at: 1 }, true);
+    for (let i = 0; i < 130; i++) for (const ev of callEvents(REF, `c${i}`, 2 + i)) e.event(ev, true);
+    await tick();
+    expect(batches.map((b) => b.length)).toEqual([128]);
+    e.event({ type: "run-finish", ref: REF, reason: "stop", ms: 500, steps: 1 }, true);
+    await e.flush();
+    expect(batches.map((b) => b.length)).toEqual([128, 3]);
+    expect(batches[1]![0]).toBe("invoke_agent shopper");
+  });
+
+  test("a run that goes on for 5 minutes sends what it holds then; a span that ends after its run is not held again", async () => {
+    const { e, batches } = await batching();
+    vi.useFakeTimers();
+    e.event({ type: "run-start", ref: REF, agent: "shopper", adapter: "cloud", at: 1 }, true);
+    for (const ev of callEvents(REF, "c1", 2)) e.event(ev, true);
+    await vi.advanceTimersByTimeAsync(5 * 60_000 - 1);
     expect(batches).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
-    expect(batches).toEqual([2]);
-    for (let i = 0; i < 32; i++) for (const ev of cloudTurn({ ...REF, run: `r${i}`, traceparent: undefined })) e.event(ev, true);
+    expect(batches).toEqual([["execute_tool search"]]);
+    // a sub-agent's run that outlives its root goes on the ordinary batch (2 s), not held again
+    const sub: RunRef = { ...REF, run: "sub", parent: "late", traceparent: undefined };
+    e.event({ type: "tool-start", ref: REF, step: 1, call: "late", tool: "delegate_to_helper", at: 3 }, true);
+    e.event({ type: "run-start", ref: sub, agent: "helper", adapter: "cloud", at: 4 });
+    e.event({ type: "run-finish", ref: REF, reason: "stop", ms: 10, steps: 1 }, true);
+    e.event({ type: "run-finish", ref: sub, reason: "stop", ms: 20, steps: 1 });
     await vi.advanceTimersByTimeAsync(0);
-    expect(batches).toEqual([2, 64]);
+    expect(batches).toEqual([["execute_tool search"], ["invoke_agent shopper"]]);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(batches.at(-1)).toEqual(["invoke_agent helper"]);
+  });
+
+  test("flush (the page hidden) sends a running run's spans now; a run the filter drops still releases its calls", async () => {
+    const { e, batches } = await batching({ spanFilter: (s) => !s.name.startsWith("invoke_agent") });
+    e.event({ type: "run-start", ref: REF, agent: "shopper", adapter: "cloud", at: 1 }, true);
+    for (const ev of callEvents(REF, "c1", 2)) e.event(ev, true);
+    await e.flush();
+    expect(batches).toEqual([["execute_tool search"]]);
+    for (const ev of callEvents(REF, "c2", 3)) e.event(ev, true);
+    e.event({ type: "run-finish", ref: REF, reason: "stop", ms: 10, steps: 1 }, true);
+    await tick();
+    expect(batches).toEqual([["execute_tool search"], ["execute_tool search"]]);
   });
 });
 

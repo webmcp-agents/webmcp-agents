@@ -20,7 +20,15 @@ const KB = 1024;
 const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
 const external = (id) => /^@webmcp-agents\//.test(id) || /^@opentelemetry\//.test(id);
 
-const CHECKS = [{ name: "observeAgents (relay path)", exports: "{ observeAgents }", budget: 3 * KB }];
+const CHECKS = [
+  { name: "observeAgents (relay path)", exports: "{ observeAgents }", budget: 3 * KB },
+  // the app's own events and spans add a forwarding stub up front; building them is the engine chunk's
+  {
+    name: "observeAgents + recordAgentEvent + withAgentSpan",
+    exports: "{ observeAgents, recordAgentEvent, withAgentSpan }",
+    budget: 3 * KB,
+  },
+];
 
 async function size(exports) {
   const dir = await mkdtemp(join(tmpdir(), "web-agents-telemetry-size-"));

@@ -103,6 +103,19 @@ describe("the env table (design §7.2, §7.9; R-EXP-1)", () => {
     expect(r).toMatchObject({ headers: { a: "1", b: "2", c: "target" } });
   });
 
+  test("env headers go only to a target whose URL comes from the env, never to one with its own endpoint", () => {
+    const env = {
+      OTEL_EXPORTER_OTLP_ENDPOINT: "https://vendor.example",
+      OTEL_EXPORTER_OTLP_HEADERS: "x-api-key=vendor-secret",
+      OTEL_EXPORTER_OTLP_TRACES_HEADERS: "x-project=p",
+    };
+    expect(resolveOtlp({}, env)).toMatchObject({ headers: { "x-api-key": "vendor-secret", "x-project": "p" } });
+    const headers = (t: Parameters<typeof resolveOtlp>[0]) => (resolveOtlp(t, env) as { headers: unknown }).headers;
+    expect(headers({ endpoint: "https://other.example", headers: { a: "1" } })).toEqual({ a: "1" });
+    expect(headers({ endpoint: "https://other.example" })).toEqual({});
+    expect(headers({ endpoints: { traces: "https://other.example/t" } })).toEqual({});
+  });
+
   test("protocol and timeout: option › traces variable › general variable › default", () => {
     const env = {
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4317",

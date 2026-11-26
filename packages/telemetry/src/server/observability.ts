@@ -5,12 +5,13 @@
  */
 import { type ChatRequestContext, validTraceparent } from "@webmcp-agents/chat/server";
 import { createRedactor, getRedactor, type Redactor } from "@webmcp-agents/core/redact";
-import type { OtlpTarget, SpanExporter } from "../shared/types";
+import type { CustomAttributes, OtlpTarget, SpanExporter } from "../shared/types";
+import { around } from "../shared/util";
 import { killSwitch, resolveMode } from "./config";
 import { createLog } from "./log";
 import { createRelay } from "./relay";
-import { buildRuntime, globalProvider, type Runtime, timeoutOf } from "./runtime";
-import type { Observability, ObservabilityConfig } from "./types";
+import { buildRuntime, type CustomSpan, globalProvider, type Runtime, timeoutOf } from "./runtime";
+import type { CustomSpanOptions, Observability, ObservabilityConfig } from "./types";
 
 /** The chat's `ChatObservability.exportTimeoutMs` default (how long the handler waits for a flush). */
 const DEFAULT_FLUSH_CAP = 5000;
@@ -20,6 +21,31 @@ const appIntegrations = (): unknown[] => {
   const list = (globalThis as { AI_SDK_TELEMETRY_INTEGRATIONS?: unknown }).AI_SDK_TELEMETRY_INTEGRATIONS;
   return Array.isArray(list) ? list : [];
 };
+
+const quiet = new WeakMap<object, unknown>();
+/**
+ * An app's integration that never records content: every event it hears says `recordInputs` / `recordOutputs`
+ * false. A call's flags reach every integration of the call; this layer's redact what they record, an app's would
+ * export raw prompts (R-EXP-5). Its spans and timings are unchanged.
+ */
+function withoutContent(integration: unknown): unknown {
+  if (typeof integration !== "object" || integration === null) return integration;
+  let out = quiet.get(integration);
+  if (!out) {
+    const strip = (arg: unknown): unknown =>
+      typeof arg === "object" && arg !== null && ("recordInputs" in arg || "recordOutputs" in arg)
+        ? { ...arg, recordInputs: false, recordOutputs: false }
+        : arg;
+    out = new Proxy(integration, {
+      get(target, key, receiver) {
+        const value: unknown = Reflect.get(target, key, receiver);
+        return typeof value === "function" ? (...args: unknown[]) => value.apply(target, args.map(strip)) : value;
+      },
+    });
+    quiet.set(integration, out);
+  }
+  return out;
+}
 
 /**
  * The observability layer for `createChatHandler({ observability })`: every model step as an OpenTelemetry span,
@@ -81,6 +107,19 @@ export function defineObservability(config: ObservabilityConfig = {}): Observabi
         });
     });
 
+  /** The app's own span, or undefined (not recorded, or the layer is not built: it builds on the first chat request). */
+  const custom = (name: string, attributes?: CustomAttributes, options?: CustomSpanOptions): CustomSpan | undefined => {
+    if (typeof name !== "string" || !name) return undefined;
+    try {
+      // a guard on the first request runs before the layer is built: start building it, this span is not recorded
+      if (built === undefined && options?.request) void runtime();
+      return built?.startCustom(name, attributes, options?.request);
+    } catch (err) {
+      log.error("custom", "a custom span or event was skipped (the app is unaffected)", err);
+      return undefined;
+    }
+  };
+
   return {
     get enabled() {
       if (built !== undefined) return built !== null;
@@ -92,9 +131,24 @@ export function defineObservability(config: ObservabilityConfig = {}): Observabi
       // not built (withContext builds it first) or off: leave the handler's settings, and the app's own integrations, alone
       if (!rt) return {};
       const sampled = rt.sampled(ctx);
+      // the app's own spans in this request follow the same decision (one made before by a custom span is replaced)
+      const frame = rt.requests?.getStore();
+      if (frame) frame.state.sampled = sampled;
+      let app = appIntegrations();
+      // the app's own @ai-sdk/otel integration recording into the same provider as ours: every step twice
+      if (sampled && config.appIntegrations !== "keep") {
+        const all = app.length;
+        app = app.filter((x) => !rt.duplicates(x));
+        if (app.length < all)
+          log.info(
+            "dedupe",
+            "the app's own @ai-sdk/otel integration was left out of the chat's model calls: this layer records the same steps into the same tracer provider (pass appIntegrations: \"keep\" to keep both)",
+          );
+      }
       return {
-        // per-call integrations replace the registered ones for that call (ai@7): pass the app's along with ours
-        integrations: [...appIntegrations(), ...(sampled ? rt.integrations(ctx) : [])] as never,
+        // per-call integrations replace the registered ones for that call (ai@7): pass the app's along with ours, the
+        // app's without content (ours redact what they record, an app's would not; the handler's flags may turn it on)
+        integrations: [...app.map(withoutContent), ...(sampled ? rt.integrations(ctx) : [])] as never,
         recordInputs: config.recordInputs ?? false,
         recordOutputs: config.recordOutputs ?? false,
       };
@@ -103,11 +157,43 @@ export function defineObservability(config: ObservabilityConfig = {}): Observabi
       const rt = await runtime();
       if (!rt) return run();
       const go = () => rt.withParent(validTraceparent(req.headers.get("traceparent")) ?? null, run);
-      return rt.requests ? rt.requests.run(req, go) : go();
+      return rt.requests ? rt.requests.run({ state: { request: req } }, go) : go();
     },
     flush: () => settle((rt) => rt.flush()),
     shutdown: () => settle((rt) => rt.shutdown()),
     relay: (options) => createRelay({ runtime, text, flush: () => settle((rt) => rt.flush()), log }, options),
+    event(name, attributes, options) {
+      try {
+        custom(name, attributes, options)?.end(undefined, true);
+      } catch (err) {
+        log.error("custom", "a custom event was skipped (the app is unaffected)", err);
+      }
+    },
+    span(name, fn, attributes, options) {
+      const s = custom(name, attributes, options);
+      if (!s) return fn();
+      let called = false;
+      const end = (error?: unknown): void => {
+        try {
+          s.end(error);
+        } catch (err) {
+          log.error("custom", "a custom span could not be ended; it may be lost (the app is unaffected)", err);
+        }
+      };
+      return around(() => {
+        try {
+          return s.run(() => {
+            called = true;
+            return fn();
+          });
+        } catch (err) {
+          // telemetry failed before fn ran: run it bare
+          if (called) throw err;
+          log.error("custom", "a custom span could not be entered; its code ran without it (the app is unaffected)", err);
+          return fn();
+        }
+      }, end);
+    },
   };
 }
 

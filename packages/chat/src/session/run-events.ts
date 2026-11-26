@@ -25,10 +25,19 @@ export interface RunRef {
   /** For a sub-agent's run: the id of the `delegate_to_<id>` call that started it. */
   parent?: string;
   /**
-   * The run's W3C trace context (`00-<trace id>-<span id>-01`): sent as the `traceparent` header of every step request,
-   * so the server's step spans sit under this run. A sub-agent's run shares its parent's trace id.
+   * The run's W3C trace context (`00-<trace id>-<span id>-<flags>`): sent as the `traceparent` header of every step
+   * request, so the server's step spans sit under this run. A sub-agent's run shares its parent's trace id. The flags
+   * are `01` (sampled) only while {@link RunRef.sampled} is true, else `00`; it is read when each request is sent.
    */
   traceparent?: string;
+  /**
+   * Whether something on the page records this run's span, so the server may hang its step spans under it (the
+   * `traceparent`'s sampled flag). Default false: the server then keeps its own root span, rather than pointing at a
+   * parent no backend will ever receive. A listener that records the run sets it to true when it gets `run-start`,
+   * which is delivered before the run's first step request is built (`@webmcp-agents/telemetry`'s `observeAgents` does,
+   * once consent and its sampling keep the run). A sub-agent's run starts with its parent's value.
+   */
+  sampled?: boolean;
 }
 
 /**
@@ -285,10 +294,15 @@ function traceHex(prefix: "trace" | "span", bytes: number): string {
  */
 export function newRunRef(conversation: string, parent?: { call: string; of: RunRef }): RunRef {
   const traceId = parent?.of.traceparent?.split("-")[1] ?? traceHex("trace", 16);
+  const spanId = traceHex("span", 8);
   return {
     conversation,
     run: runId("run"),
     ...(parent && { parent: parent.call }),
-    traceparent: `00-${traceId}-${traceHex("span", 8)}-01`,
+    sampled: parent?.of.sampled === true,
+    // read on every request: a run-start listener that records the run flips the flag before the first one
+    get traceparent(): string {
+      return `00-${traceId}-${spanId}-${this.sampled ? "01" : "00"}`;
+    },
   };
 }

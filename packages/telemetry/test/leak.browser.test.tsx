@@ -57,7 +57,8 @@ test("the canary strings appear in no sink (§8.5)", async ({ runs, spans }) => 
   // ---------- the server: the chat handler and the relay share one layer, recording everything ----------
   const server = memoryExporter();
   const observability = defineObservability({ exporters: [server], recordInputs: true, recordOutputs: true, env: {} });
-  const relay = observability.relay();
+  // called in-process, the request never goes over the network, so it has no Origin (a script cannot set one)
+  const relay = observability.relay({ allowMissingOrigin: true });
   const shopper = defineWebAgent({ id: "shopper", instructions: "Shop.", tools: [checkout] });
   const chat = mockChatServer({
     steps: [toolCall(checkout.id, { passport: CANARY.passport, card: CANARY.card, password: CANARY.password }), text("Paid.")],
@@ -80,8 +81,12 @@ test("the canary strings appear in no sink (§8.5)", async ({ runs, spans }) => 
       <AgentChat adapter={createCloudAdapter({ fetch: chat.fetch })} agent={shopper} defaultOpen storageKey={false} />,
     );
     const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
+    // the composer stays disabled until the cloud adapter's first request answers: typed before that, the message is
+    // lost and no run starts (seen under a full `pnpm check`, where that request is slow)
+    await until(() => host()?.querySelector("textarea")?.disabled === false, 30_000, "the composer");
     await userEvent.type(host().querySelector("textarea")!, `Pay with ${CANARY.card}, receipt to ${CANARY.email}{Enter}`);
-    await until(() => host().textContent?.includes("Paid.") ?? false, 8000, "the answer");
+    // the first run loads the OpenTelemetry packages cold: ~1 s alone, several under a full `pnpm check`
+    await until(() => host().textContent?.includes("Paid.") ?? false, 30_000, "the answer");
     await until(() => runs.types().includes("run-finish"), 4000, "the run's end");
     await stop.flush();
     await observability.flush();
@@ -114,4 +119,4 @@ test("the canary strings appear in no sink (§8.5)", async ({ runs, spans }) => 
     store.destroy();
     off();
   }
-});
+}, 60_000);

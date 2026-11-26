@@ -27,7 +27,7 @@ const streamOf = (parts: (AgentStreamPart | ((req: Parameters<AgentAdapter["run"
   },
 });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const TRACEPARENT = /^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/;
+const TRACEPARENT = /^00-[0-9a-f]{32}-[0-9a-f]{16}-0[01]$/;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -117,6 +117,20 @@ describe("ids", () => {
     expect(sub.run).not.toBe(root.run);
     expect(sub.traceparent!.split("-")[1]).toBe(root.traceparent!.split("-")[1]);
     expect(sub.traceparent!.split("-")[2]).not.toBe(root.traceparent!.split("-")[2]);
+  });
+
+  test("not sampled until something records the run: -00, then -01 once claimed; a sub-agent's run starts with its parent's flag", () => {
+    const root = newRunRef("c1");
+    expect(root.sampled).toBe(false);
+    expect(root.traceparent).toMatch(/-00$/);
+    expect(newRunRef("c1", { call: "call-1", of: root }).traceparent).toMatch(/-00$/);
+    root.sampled = true;
+    expect(root.traceparent).toMatch(/-01$/);
+    expect(validTraceparent(root.traceparent)).toBe(root.traceparent);
+    const sub = newRunRef("c1", { call: "call-2", of: root });
+    expect(sub.sampled).toBe(true);
+    expect(sub.traceparent).toMatch(/-01$/);
+    expect(sub.traceparent!.split("-")[1]).toBe(root.traceparent!.split("-")[1]);
   });
 
   test.each([
@@ -305,6 +319,34 @@ describe("R-RUN-1: the ids on every step request (the cloud adapter, the real ha
     expect(headers[0]).toMatch(TRACEPARENT);
     expect(new Set(headers).size).toBe(1);
     expect(headers[0]).toBe(runs.events[0]!.ref.traceparent);
+    // nothing on the page records the run: the server must not wait for a parent span that never arrives
+    expect(headers[0]).toMatch(/-00$/);
+  });
+
+  test("a run-start listener that claims the run: every step request (a sub-agent's too) carries the sampled flag", async ({ runs }) => {
+    const helper = defineWebAgent({ id: "helper", instructions: "Help." });
+    const lead = defineWebAgent({ id: "lead", instructions: "Lead.", agents: [helper] });
+    const server = mockChatServer({
+      steps: [toolCall("delegate_to_helper", { task: "Look." }), text("Seen."), text("Done.")],
+      handler: { agents: [lead] },
+    });
+    const off = onAgentRun((e) => {
+      if (e.type === "run-start" && !e.ref.parent) e.ref.sampled = true;
+    });
+    try {
+      await run(createCloudAdapter({ fetch: server.fetch }), { agent: lead });
+    } finally {
+      off();
+    }
+    const posts = server.requests.filter((r) => r.method === "POST");
+    const headers = posts.map((r) => r.headers.traceparent!);
+    expect(headers).toHaveLength(3);
+    for (const h of headers) expect(h).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
+    expect(new Set(headers.map((h) => h.split("-")[1])).size).toBe(1);
+    const starts = runs.events.filter((e) => e.type === "run-start");
+    expect(starts).toHaveLength(2);
+    expect(starts[1]!.ref.sampled).toBe(true);
+    expect(headers[1]).toBe(starts[1]!.ref.traceparent);
   });
 
   test("a second turn of the same chat: the same conversation, a new run", async ({ runs }) => {

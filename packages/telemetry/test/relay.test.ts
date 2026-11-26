@@ -32,7 +32,8 @@ const span = (over: Partial<SpanRecord> = {}): SpanRecord => ({
 const post = (body: unknown, init: { headers?: Record<string, string>; method?: string; raw?: string } = {}) =>
   new Request(URL_, {
     method: init.method ?? "POST",
-    headers: { "content-type": "application/json", ...init.headers },
+    // a browser's POST always carries Origin; the relay refuses one without it
+    headers: { "content-type": "application/json", origin: new URL(URL_).origin, ...init.headers },
     ...(init.method === "GET" ? {} : { body: init.raw ?? JSON.stringify(body) }),
   });
 
@@ -70,6 +71,20 @@ describe("refusals: a 4xx with no detail, nothing forwarded (R-EXP-4)", () => {
     expect(r.memory.getFinishedSpans()).toEqual([]);
   });
 
+  test("a request without Origin (a script, not a browser), unless allowMissingOrigin", async () => {
+    const noOrigin = () => {
+      const req = post(otlpBody({}, [span()]));
+      req.headers.delete("origin");
+      return req;
+    };
+    const r = relayTo();
+    await refused(await r.send(noOrigin()), 403);
+    expect(r.memory.getFinishedSpans()).toEqual([]);
+
+    const allowed = relayTo({}, { allowMissingOrigin: true });
+    expect((await allowed.send(noOrigin())).status).toBe(202);
+  });
+
   test("a method other than POST", async () => {
     await refused(await relayTo().send(post(undefined, { method: "GET" })), 405);
   });
@@ -93,7 +108,7 @@ describe("refusals: a 4xx with no detail, nothing forwarded (R-EXP-4)", () => {
     });
     const chunked = new Request(URL_, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", origin: new URL(URL_).origin },
       body: stream,
       duplex: "half",
     } as RequestInit);
@@ -296,5 +311,163 @@ describe("the kill switch and the same pipeline (R-EXP-7, R-EXP-4)", () => {
     expect(spans.every((s) => s.spanContext().traceId === TRACE_ID)).toBe(true);
     // the provider's resource is the app's: server attributes go on the spans
     expect(run.attributes["service.version"]).toBe("abc123");
+  });
+});
+
+describe("through an app's global provider, across batches (R-EXP-4)", () => {
+  /** The app's provider exporting to memory, and a relay over it. */
+  function appRelay(config: ObservabilityConfig = {}) {
+    const memory = new InMemorySpanExporter();
+    trace.setGlobalTracerProvider(new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter: memory })] }));
+    const observability = defineObservability({ env: {}, ...config });
+    const relay = observability.relay();
+    return { memory, observability, send: (spans: SpanRecord[]) => relay(post(otlpBody({}, spans))) };
+  }
+  const call = span({ name: "execute_tool add_to_cart", spanId: "1111111111111111", parentSpanId: RUN_SPAN });
+
+  test("a tool call sent a batch before its run: it waits, then goes under the run's new span", async () => {
+    const r = appRelay();
+    await r.send([call]);
+    expect(r.memory.getFinishedSpans()).toEqual([]);
+    await r.send([span()]);
+    const spans = r.memory.getFinishedSpans();
+    const run = spans.find((s) => s.name.startsWith("invoke_agent"))!;
+    const tool = spans.find((s) => s.name.startsWith("execute_tool"))!;
+    expect(tool.parentSpanContext?.spanId).toBe(run.spanContext().spanId);
+    expect(spans.every((s) => s.spanContext().traceId === TRACE_ID)).toBe(true);
+  });
+
+  test("a sub-agent's run and its tool call before the delegating call: the whole chain lands under it", async () => {
+    const r = appRelay();
+    const delegate = span({ name: "execute_tool delegate_to_helper", spanId: "2222222222222222", parentSpanId: RUN_SPAN });
+    const sub = span({ name: "invoke_agent helper", spanId: "3333333333333333", parentSpanId: "2222222222222222" });
+    const subCall = span({ name: "execute_tool search", spanId: "4444444444444444", parentSpanId: "3333333333333333" });
+    await r.send([subCall]);
+    await r.send([sub]);
+    await r.send([delegate, span()]);
+    const byName = new Map(r.memory.getFinishedSpans().map((s) => [s.name, s]));
+    const id = (name: string) => byName.get(name)!.spanContext().spanId;
+    expect(byName.get("execute_tool search")!.parentSpanContext?.spanId).toBe(id("invoke_agent helper"));
+    expect(byName.get("invoke_agent helper")!.parentSpanContext?.spanId).toBe(id("execute_tool delegate_to_helper"));
+    expect(byName.get("execute_tool delegate_to_helper")!.parentSpanContext?.spanId).toBe(id("invoke_agent shopper"));
+  });
+
+  test("a parent that never comes: after 30 s the child goes under the browser's parent id, in the same trace", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    try {
+      const r = appRelay();
+      await r.send([call]);
+      expect(r.memory.getFinishedSpans()).toEqual([]);
+      vi.advanceTimersByTime(30_000);
+      const [tool] = r.memory.getFinishedSpans();
+      expect(tool!.name).toBe("execute_tool add_to_cart");
+      expect(tool!.spanContext().traceId).toBe(TRACE_ID);
+      expect(tool!.parentSpanContext?.spanId).toBe(RUN_SPAN);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("shutdown() sends what is still waiting", async () => {
+    const r = appRelay();
+    await r.send([call]);
+    await r.observability.shutdown();
+    expect(r.memory.getFinishedSpans().map((s) => s.name)).toEqual(["execute_tool add_to_cart"]);
+  });
+
+  test("spanFilter runs on relayed spans too; a skipped run hands its parent on to its tool calls", async () => {
+    const r = appRelay({ spanFilter: (s) => !s.name.startsWith("invoke_agent") });
+    await r.send([call, span()]);
+    const spans = r.memory.getFinishedSpans();
+    expect(spans.map((s) => s.name)).toEqual(["execute_tool add_to_cart"]);
+    expect(spans[0]!.parentSpanContext?.spanId).toBe(RUN_SPAN);
+  });
+
+  test("a custom sampler is asked once per trace in a request: a run and its tool calls are kept or dropped together", async () => {
+    let asked = 0;
+    const r = appRelay({ sampling: { type: "custom", sampler: () => ++asked % 2 === 1 } });
+    await r.send([call, span()]);
+    expect(asked).toBe(1);
+    expect(r.memory.getFinishedSpans()).toHaveLength(2);
+  });
+});
+
+describe("through an app's provider with an OTLP target: relayed spans go straight to it, with the browser's ids (R-EXP-4)", () => {
+  const call = span({ name: "execute_tool add_to_cart", spanId: "1111111111111111", parentSpanId: RUN_SPAN });
+
+  test("a tool call in one batch, its run in the next: each exported as it comes, ids and parent links kept, nothing held", async () => {
+    const app = new InMemorySpanExporter();
+    trace.setGlobalTracerProvider(new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter: app })] }));
+    const target = new InMemorySpanExporter();
+    const observability = defineObservability({ tracerProvider: "global", exporters: [target], env: {} });
+    const relay = observability.relay({ attributes: () => ({ "service.version": "abc123" }) });
+    await relay(post(otlpBody({}, [call])));
+    await observability.flush();
+    expect(target.getFinishedSpans().map((s) => [s.spanContext().spanId, s.parentSpanContext?.spanId])).toEqual([
+      ["1111111111111111", RUN_SPAN],
+    ]);
+    await relay(post(otlpBody({}, [span()])));
+    await observability.flush();
+    const spans = target.getFinishedSpans();
+    expect(spans.map((s) => [s.name, s.spanContext().spanId, s.parentSpanContext?.spanId])).toEqual([
+      ["execute_tool add_to_cart", "1111111111111111", RUN_SPAN],
+      ["invoke_agent shopper", RUN_SPAN, undefined],
+    ]);
+    expect(spans.every((s) => s.spanContext().traceId === TRACE_ID)).toBe(true);
+    // server-side attributes are the resource's here, as with a provider this package builds
+    expect(spans[1]!.resource.attributes["service.version"]).toBe("abc123");
+    // the app's provider gets the server's spans, not the relayed ones
+    expect(app.getFinishedSpans()).toEqual([]);
+
+    // the server's step span, through the app's provider, is a child of the relayed run span: one trace
+    const handler = createChatHandler({ model: mockModel([text("ok")]), observability });
+    await readChatStream(
+      await handler(
+        chatRequest(
+          { messages: ["hi"], trace: { conversation: "conv-r", run: "run-r", step: 1 } },
+          { headers: { traceparent: `00-${TRACE_ID}-${RUN_SPAN}-01` } },
+        ),
+      ),
+    );
+    await observability.flush();
+    const [step] = app.getFinishedSpans();
+    expect(step!.name).toBe("chat mock-model-id");
+    expect(step!.spanContext().traceId).toBe(TRACE_ID);
+    expect(step!.parentSpanContext?.spanId).toBe(RUN_SPAN);
+  });
+
+  test("the target from OTEL_EXPORTER_OTLP_ENDPOINT: posted there as OTLP JSON with the browser's ids", async () => {
+    trace.setGlobalTracerProvider(
+      new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter: new InMemorySpanExporter() })] }),
+    );
+    const posted: { url: string; body: string }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+      posted.push({ url: String(url), body: String(init.body) });
+      return new Response(null);
+    });
+    try {
+      const observability = defineObservability({ env: { OTEL_EXPORTER_OTLP_ENDPOINT: "https://c.example" } });
+      await observability.relay()(post(otlpBody({}, [call])));
+      await observability.flush();
+      expect(posted.map((p) => p.url)).toEqual(["https://c.example/v1/traces"]);
+      const sent = JSON.parse(posted[0]!.body).resourceSpans[0].scopeSpans[0].spans[0];
+      expect([sent.spanId, sent.parentSpanId]).toEqual(["1111111111111111", RUN_SPAN]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test('relayThrough: "provider": re-created through the app\'s provider, a child waits for its run', async () => {
+    const app = new InMemorySpanExporter();
+    trace.setGlobalTracerProvider(new TracerProvider({ spanProcessors: [new SimpleSpanProcessor({ exporter: app })] }));
+    const target = new InMemorySpanExporter();
+    const observability = defineObservability({ tracerProvider: "global", exporters: [target], relayThrough: "provider", env: {} });
+    const relay = observability.relay();
+    await relay(post(otlpBody({}, [call])));
+    expect(app.getFinishedSpans()).toEqual([]);
+    await relay(post(otlpBody({}, [span()])));
+    await observability.flush();
+    expect(app.getFinishedSpans().map((s) => s.name)).toEqual(["invoke_agent shopper", "execute_tool add_to_cart"]);
+    expect(target.getFinishedSpans()).toEqual([]);
   });
 });

@@ -15,6 +15,10 @@ exports[`the golden list of span names and attribute keys, per span kind (semcon
     "webmcp.conversation.id",
   ],
   [
+    "ATTR_CUSTOM",
+    "webmcp.custom",
+  ],
+  [
     "ATTR_ERROR_TYPE",
     "error.type",
   ],

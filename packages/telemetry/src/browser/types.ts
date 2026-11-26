@@ -2,14 +2,14 @@ import type { RedactOptions, Redactor } from "@webmcp-agents/core/redact";
 import type { Attributes, OtlpTarget, Sampling, TracerProviderOption } from "../shared/types";
 
 /**
- * A finished browser span: a run (`invoke_agent`), a tool call (`execute_tool`) or, for an on-device run, a model step
- * (`chat`). Times are milliseconds since the epoch. What `spanFilter` and a {@link BrowserSpanExporter} receive,
+ * A finished browser span: a run (`invoke_agent`), a tool call (`execute_tool`), for an on-device run a model step
+ * (`chat`), or the app's own (`withAgentSpan`, named as the app named it, with `webmcp.custom: true`). Times are milliseconds since the epoch. What `spanFilter` and a {@link BrowserSpanExporter} receive,
  * already redacted.
  *
  * @experimental
  */
 export interface SpanRecord {
-  /** `invoke_agent <agent>`, `execute_tool <tool>` or `chat <model>`. */
+  /** `invoke_agent <agent>`, `execute_tool <tool>`, `chat <model>`, or a custom span's own name. */
   name: string;
   /** 32 hex digits: the run's trace, shared with the server's spans of the same run. */
   traceId: string;
@@ -23,9 +23,9 @@ export interface SpanRecord {
   endTime: number;
   /** The span's attributes (names in `semconv`). */
   attributes: Attributes;
-  /** `webmcp.park`, `webmcp.yield`, `webmcp.resume` on a tool call. */
+  /** `webmcp.park`, `webmcp.yield`, `webmcp.resume` on a tool call; the app's own (`recordAgentEvent`) on a run. */
   events: { name: string; time: number; attributes?: Attributes }[];
-  /** `error` for a failed run or call (with `error.type` set), else `unset`. */
+  /** `error` for a failed run, call or custom span (with `error.type` set), else `unset`. */
   status: { code: "unset" | "ok" | "error"; message?: string };
 }
 

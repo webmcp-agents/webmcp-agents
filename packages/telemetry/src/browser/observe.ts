@@ -3,8 +3,10 @@
  * chunk of its own loaded when the first consented run starts. What a page downloads up front is this subscription
  * and a queue; a page where no run happens, or where consent is never given, downloads nothing more.
  */
-import { type AgentRunEvent, onAgentRun } from "@webmcp-agents/chat";
+import { onAgentRun } from "@webmcp-agents/chat";
 import { onAgentEvent } from "@webmcp-agents/core";
+import { isSampled, parseTraceparent } from "../shared/util";
+import { type CustomHook, hooks } from "./custom";
 import type { Engine } from "./engine";
 import type { ObserveAgentsOptions } from "./types";
 
@@ -15,6 +17,9 @@ import type { ObserveAgentsOptions } from "./types";
  * @experimental
  */
 export type StopObserving = (() => void) & { flush(): Promise<void> };
+
+/** Custom events and spans held at most while the engine chunk loads; past it they are dropped. */
+const MAX_QUEUED_CUSTOM = 256;
 
 const noop = Object.assign((): void => {}, { flush: async () => {} });
 
@@ -37,43 +42,101 @@ export function observeAgents(options: ObserveAgentsOptions = {}): StopObserving
   const { enabled = () => true } = options;
   let engine: Engine | undefined | null;
   let loading: Promise<unknown> | undefined;
-  /** Events (and resumes, as `undefined`) that arrived while the engine loads, in order. */
-  const queue: [AgentRunEvent | undefined, boolean | undefined][] = [];
-  const deliver = (e: AgentRunEvent | undefined, consent?: boolean): void => {
-    if (e) engine?.event(e, consent);
-    else engine?.resume();
-  };
-  const take = (e: AgentRunEvent | undefined, consent?: boolean): void => {
+  /** What arrived while the engine loads (run events, resumes, the app's custom ops), in order. */
+  const queue: ((e: Engine) => void)[] = [];
+  /** Custom ops waiting in `queue`: bounded, so an app that records in a loop while the chunk loads holds little. */
+  let customs = 0;
+  /** `start`: a root run's start with consent, which is what loads the engine. */
+  const take = (op: (e: Engine) => void, start?: boolean, custom?: boolean): void => {
     if (engine !== undefined) {
-      deliver(e, consent);
+      if (engine) op(engine);
       return;
     }
     // before the first consented run nothing is kept; after it, everything waits for the engine in order
-    if (!loading && !consent) return;
-    queue.push([e, consent]);
+    if (!loading && !start) return;
+    if (custom && ++customs > MAX_QUEUED_CUSTOM) return;
+    queue.push(op);
     loading ??= import("./engine")
       .then(
         (m) => (engine = m.createEngine(options) ?? null),
         () => (engine = null),
       )
       .then(() => {
-        for (const [q, c] of queue.splice(0)) deliver(q, c);
+        for (const q of queue.splice(0)) if (engine) q(engine);
       });
   };
+  // ---------- the runs this observer records (for the app's custom events and spans) ----------
+  /** Open recorded runs: run id → its top-level run's id. In start order. */
+  const runs = new Map<string, string>();
+  /** Open tool calls of recorded runs: call id → run id. */
+  const calls = new Map<string, string>();
   const stopRuns = onAgentRun((e) => {
     let consent: boolean | undefined;
-    // consent is read when a root run starts, not when the engine gets to it
-    if (e.type === "run-start" && !e.ref.parent)
-      try {
-        consent = enabled() === true;
-      } catch {
-        consent = false;
+    let kept: boolean | undefined;
+    const { run, parent } = e.ref;
+    // consent and sampling are decided when a root run starts, not when the engine gets to it: the run's step requests
+    // carry the sampled flag only if this run span will exist (the engine chunk may still be loading)
+    if (e.type === "run-start") {
+      if (!parent) {
+        try {
+          consent = enabled() === true;
+        } catch {
+          consent = false;
+        }
+        kept =
+          consent &&
+          isSampled(options.sampling, parseTraceparent(e.ref.traceparent)?.[0], { agent: e.agent, conversation: e.ref.conversation });
+        // (an engine that turned out to have nowhere to send records nothing: no flag then)
+        if (kept && engine !== null) {
+          e.ref.sampled = true;
+          runs.set(run, run);
+        }
+      } else {
+        const root = runs.get(calls.get(parent)!);
+        if (root) runs.set(run, root);
       }
-    take(e, consent);
+    } else if (e.type === "run-finish") {
+      runs.delete(run);
+      for (const [c, r] of calls) if (r === run) calls.delete(c);
+    } else if (e.type === "tool-start" && runs.has(run)) calls.set(e.call, run);
+    else if (e.type === "tool-finish") calls.delete(e.call);
+    take((x) => x.event(e, consent, kept), consent);
   });
   const stopVisuals = onAgentEvent((e) => {
-    if (e.type === "resume") take(undefined);
+    if (e.type === "resume") take((x) => x.resume());
   });
+  let seq = 0;
+  const hook: CustomHook = (span, name, attributes, target) => {
+    let run = target;
+    if (run === undefined) {
+      // the most recent top-level run, then the most recent run under it (a sub-agent's, while one runs)
+      let top: string | undefined;
+      for (const [r, root] of runs) if (r === root) top = r;
+      for (const [r, root] of runs) if (root === top) run = r;
+    }
+    if (!run || !runs.has(run) || engine === null) return undefined;
+    const at = performance.now();
+    // copied now: the app may change its object before a queued op reaches the engine
+    const op = { run, name, attributes: attributes && { ...attributes }, at };
+    if (!span) {
+      take((x) => x.custom({ type: "event", ...op }), false, true);
+      return undefined;
+    }
+    let call: string | undefined;
+    let open = 0;
+    for (const [c, r] of calls)
+      if (r === run) {
+        call = c;
+        open++;
+      }
+    const id = ++seq;
+    take((x) => x.custom({ type: "start", id, ...op, call: open === 1 ? call : undefined }), false, true);
+    return (error) => {
+      const at = performance.now();
+      take((x) => x.custom({ type: "end", id, at, error }));
+    };
+  };
+  hooks.add(hook);
   const flushNow = (): Promise<void> => (loading ?? Promise.resolve()).then(() => engine?.flush()).catch(() => {});
   const flush = (): void => void flushNow();
   const onHide = (): void => {
@@ -87,6 +150,7 @@ export function observeAgents(options: ObserveAgentsOptions = {}): StopObserving
     stopped = true;
     stopRuns();
     stopVisuals();
+    hooks.delete(hook);
     removeEventListener("pagehide", flush);
     document.removeEventListener("visibilitychange", onHide);
     flush();

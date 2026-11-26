@@ -16,8 +16,8 @@ import { defineObservability } from "@webmcp-agents/telemetry/server";
 export const observability = defineObservability();
 export const POST = createChatHandler({ agents, observability });
 
-// app/api/telemetry/route.ts: the relay for the browser's spans
-export const POST = observability.relay();
+// app/api/telemetry/route.ts: the relay for the browser's spans (same origin only; add your per-IP limit)
+export const POST = observability.relay({ guard: perIp });
 ```
 
 ```tsx

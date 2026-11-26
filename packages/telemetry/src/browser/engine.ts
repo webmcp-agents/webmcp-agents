@@ -5,7 +5,9 @@
  * tool call is an `execute_tool` child with `webmcp.park` / `webmcp.yield` / `webmcp.resume` events; a sub-agent's run
  * is a child of its delegating call; an on-device run's steps are browser `chat` spans.
  *
- * Every finished span goes through `metadataMapping` → redaction → `spanFilter`, then a batch, then the exporters.
+ * Every finished span goes through `metadataMapping` → redaction → `spanFilter`, then a batch, then the exporters. A
+ * run's spans (its sub-agents' included) are held until the top-level run ends and then sent together, parents first,
+ * so a relay that re-creates them through an app's provider never waits for a parent from a later request.
  */
 import type { AgentRunEvent } from "@webmcp-agents/chat";
 import { createRedactor, getRedactor, type Redactor } from "@webmcp-agents/core/redact";
@@ -13,6 +15,7 @@ import {
   ATTR_ADAPTER,
   ATTR_AGENT_ID,
   ATTR_CONVERSATION_ID,
+  ATTR_CUSTOM,
   ATTR_ERROR_TYPE,
   ATTR_OPERATION_NAME,
   ATTR_PAGE,
@@ -41,8 +44,18 @@ import {
   SPAN_EXECUTE_TOOL,
   SPAN_INVOKE_AGENT,
 } from "../semconv";
-import type { Attributes, TracerProvider } from "../shared/types";
-import { cleanAttributes, isSampled, parseTraceparent, randomHex, registeredGlobalTrace, VERSION, withMappedKeys } from "../shared/util";
+import type { Attributes, CustomAttributes, TracerProvider } from "../shared/types";
+import {
+  appAttributes,
+  cleanAttributes,
+  failure,
+  isSampled,
+  parseTraceparent,
+  randomHex,
+  registeredGlobalTrace,
+  VERSION,
+  withMappedKeys,
+} from "../shared/util";
 import { DEFAULT_RELAY, postExporter, warnOnce } from "./exporters";
 import type { BrowserSpanExporter, ObserveAgentsOptions, SpanRecord } from "./types";
 
@@ -50,10 +63,10 @@ import type { BrowserSpanExporter, ObserveAgentsOptions, SpanRecord } from "./ty
 export interface Sink {
   /** A span began (the bridge needs a parent's start before its first child ends). */
   start?(span: SpanRecord): void;
-  /** A span ended and passed the pipeline. */
-  end(span: SpanRecord): void;
-  /** A started span was filtered out. */
-  drop?(spanId: string): void;
+  /** A span ended and passed the pipeline. `root`: the span id of the top-level run it belongs to. */
+  end(span: SpanRecord, root?: string): void;
+  /** A started span was filtered out. `root`: as for `end`. */
+  drop?(spanId: string, root?: string): void;
   /** Send what is waiting. Never rejects. */
   flush(): Promise<void>;
 }
@@ -61,6 +74,8 @@ export interface Sink {
 /** A span still running, with what its end needs to know. */
 interface Open {
   rec: SpanRecord;
+  /** The span id of the top-level run this span belongs to (a sub-agent's run belongs to its root's). */
+  root?: string;
   parked?: boolean;
   yielded?: boolean;
 }
@@ -70,15 +85,56 @@ const CLOUD_ADAPTER = "cloud";
 
 const noop = (): void => {};
 
-/** Send batches to exporters: at most every `batchMs`, sooner once `batchSize` spans wait. */
+/** Spans of one run held at most; past it, what is held goes early (a body this size stays well under the relay's cap). */
+const RUN_MAX_SPANS = 128;
+/** How long a run's spans are held at most, ms: a run that goes on longer still exports. */
+const RUN_MAX_HOLD_MS = 5 * 60_000;
+/** Top-level runs remembered as sent, so a span that ends after its run (a call still open) is not held again. */
+const MAX_DONE = 100;
+
+/** `spans` with each one after its parent, when the parent is among them. */
+const parentFirst = (spans: readonly SpanRecord[]): SpanRecord[] => {
+  const left = new Map(spans.map((s) => [s.spanId, s]));
+  const out: SpanRecord[] = [];
+  const visit = (s: SpanRecord): void => {
+    if (!left.delete(s.spanId)) return;
+    const parent = s.parentSpanId ? left.get(s.parentSpanId) : undefined;
+    if (parent) visit(parent);
+    out.push(s);
+  };
+  for (const s of spans) visit(s);
+  return out;
+};
+
+/**
+ * Send batches to exporters. A run's spans are held until its top-level run ends, then sent as one batch, parents
+ * first; early, in the same order, once {@link RUN_MAX_SPANS} wait or after {@link RUN_MAX_HOLD_MS}, and on `flush`
+ * (the page hidden). Any other span goes at most every `batchMs`, sooner once `batchSize` wait.
+ */
 function batchSink(exporters: Promise<readonly BrowserSpanExporter[]>, batchMs: number, batchSize: number): Sink {
   const queue: SpanRecord[] = [];
   const inflight = new Set<Promise<unknown>>();
+  const held = new Map<string, { spans: SpanRecord[]; timer: ReturnType<typeof setTimeout> }>();
+  const done = new Set<string>();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const send = (): Promise<unknown> => {
+  /** The run's held spans, parents first, as a batch of their own (and what is queued with them). */
+  const release = (root: string): void => {
+    const group = held.get(root);
+    if (!group) return;
+    held.delete(root);
+    clearTimeout(group.timer);
+    void send([parentFirst(group.spans)]);
+  };
+  /** The top-level run ended: send what it held, and never hold for it again. */
+  const finished = (root: string): void => {
+    done.add(root);
+    if (done.size > MAX_DONE) done.delete(done.values().next().value!);
+    release(root);
+  };
+  const send = (runs: SpanRecord[][] = []): Promise<unknown> => {
     clearTimeout(timer);
     timer = undefined;
-    const batches: SpanRecord[][] = [];
+    const batches = runs.filter((b) => b.length);
     while (queue.length) batches.push(queue.splice(0, batchSize));
     const sent = exporters
       .then((xs) =>
@@ -97,14 +153,35 @@ function batchSink(exporters: Promise<readonly BrowserSpanExporter[]>, batchMs: 
     return sent;
   };
   return {
-    end(span) {
-      queue.push(span);
-      if (queue.length >= batchSize) void send();
-      else timer ??= setTimeout(send, batchMs);
+    end(span, root) {
+      if (!root || done.has(root)) {
+        queue.push(span);
+        if (queue.length >= batchSize) void send();
+        else timer ??= setTimeout(() => send(), batchMs);
+        return;
+      }
+      let group = held.get(root);
+      if (!group) {
+        group = { spans: [], timer: setTimeout(() => release(root), RUN_MAX_HOLD_MS) };
+        held.set(root, group);
+      }
+      group.spans.push(span);
+      if (span.spanId === root) finished(root);
+      else if (group.spans.length >= RUN_MAX_SPANS) release(root);
+    },
+    drop(spanId, root) {
+      // a run the filter dropped still ends: what it held goes now
+      if (spanId === root) finished(root);
     },
     async flush() {
-      // what was sent before, and what is queued now
-      await Promise.all([...inflight, send()]);
+      // every run's spans so far (the page may never come back), what was sent before, and what is queued now
+      const runs = [...held.keys()].map((root) => {
+        const group = held.get(root)!;
+        held.delete(root);
+        clearTimeout(group.timer);
+        return parentFirst(group.spans);
+      });
+      await Promise.all([...inflight, send(runs)]);
       await exporters.then((xs) => Promise.all(xs.map((x) => x.flush?.()))).catch(noop);
     },
   };
@@ -158,12 +235,28 @@ const json = (value: unknown): string | undefined => {
   }
 };
 
+/** The app's own event or span (`recordAgentEvent`, `withAgentSpan`), resolved to a run by `observeAgents()`. */
+export type CustomOp =
+  | { type: "event"; run: string; name: string; attributes?: CustomAttributes; at: number }
+  | { type: "start"; id: number; run: string; call?: string; name: string; attributes?: CustomAttributes; at: number }
+  | { type: "end"; id: number; at: number; error?: unknown };
+
+/** Custom spans open at most; past it the oldest is forgotten (a `withAgentSpan` whose promise never settles). */
+const MAX_CUSTOM_OPEN = 256;
+
 /** What the light `observeAgents()` drives: events in, spans out. */
 export interface Engine {
-  /** A run event; `consent` is what `enabled()` answered when a root run started (read by the caller, at that moment). */
-  event(e: AgentRunEvent, consent?: boolean): void;
+  /**
+   * A run event; `consent` is what `enabled()` answered when a root run started (read by the caller, at that moment).
+   * `kept`: the caller's sampling decision for that root run, when it already made one (`observeAgents` decides at
+   * `run-start`, before this chunk has loaded, so the run's `traceparent` is flagged in time); without it the engine
+   * samples itself.
+   */
+  event(e: AgentRunEvent, consent?: boolean, kept?: boolean): void;
   /** The cursor came back after a yield. */
   resume(): void;
+  /** The app's own event or span: an event on the run's span, or a child span of the run or of its one running call. */
+  custom(op: CustomOp): void;
   /** Send what is waiting. */
   flush(): Promise<void>;
 }
@@ -195,6 +288,7 @@ export function createEngine(options: ObserveAgentsOptions): Engine | undefined 
     at: number,
     attributes: Record<string, unknown>,
     spanId = randomHex(8),
+    root?: string,
   ): Open => {
     const rec = {
       name,
@@ -208,9 +302,9 @@ export function createEngine(options: ObserveAgentsOptions): Engine | undefined 
       status: { code: "unset" },
     } as SpanRecord;
     sink.start?.(rec);
-    return { rec };
+    return { rec, root: root ?? spanId };
   };
-  const finish = ({ rec }: Open, endTime: number): void => {
+  const finish = ({ rec, root }: Open, endTime: number): void => {
     const attributes: Record<string, unknown> = { ...rec.attributes };
     for (const [from, to] of Object.entries(metadataMapping)) if (attributes[from] !== undefined) attributes[to] = attributes[from];
     const base = own ?? getRedactor();
@@ -222,32 +316,40 @@ export function createEngine(options: ObserveAgentsOptions): Engine | undefined 
       name: text(rec.name),
       endTime: Math.max(endTime, rec.startTime),
       attributes: clean(attributes),
-      events: rec.events.map((e) => ({ ...e, attributes: clean(e.attributes ?? {}) })),
+      events: rec.events.map((e) => ({ ...e, name: text(e.name), attributes: clean(e.attributes ?? {}) })),
       status: rec.status.message ? { ...rec.status, message: text(rec.status.message) } : rec.status,
     };
-    if (safe(() => spanFilter?.(out) !== false, false)) sink.end(out);
-    else sink.drop?.(rec.spanId);
+    if (safe(() => spanFilter?.(out) !== false, false)) sink.end(out, root);
+    else sink.drop?.(rec.spanId, root);
   };
 
   // ---------- 2. run events → spans (undefined attributes are left out by the pipeline) ----------
-  const handle = (e: AgentRunEvent, consent?: boolean): void => {
+  const handle = (e: AgentRunEvent, consent?: boolean, kept?: boolean): void => {
     const run = runs.get(e.ref.run);
     const step = "step" in e ? e.step : undefined;
     const call = "call" in e ? calls.get(e.call) : undefined;
     const ids = { [ATTR_CONVERSATION_ID]: e.ref.conversation, [ATTR_RUN_ID]: e.ref.run };
     const child = (name: string, operation: string, at: number, attributes: Record<string, unknown>): Open =>
-      begin(name, run!.span.rec.traceId, run!.span.rec.spanId, at, {
-        [ATTR_OPERATION_NAME]: operation,
-        [ATTR_STEP]: step,
-        ...ids,
-        ...attributes,
-      });
+      begin(
+        name,
+        run!.span.rec.traceId,
+        run!.span.rec.spanId,
+        at,
+        { [ATTR_OPERATION_NAME]: operation, [ATTR_STEP]: step, ...ids, ...attributes },
+        undefined,
+        run!.span.root,
+      );
     if (e.type === "run-start") {
       const parent = e.ref.parent ? calls.get(e.ref.parent) : undefined;
       const ref = parseTraceparent(e.ref.traceparent);
       const traceId = parent?.rec.traceId || ref?.[0] || randomHex(16);
       // a sub-agent's run follows its parent's decision; a root run asks for consent and sampling now
-      if (e.ref.parent ? !parent : !(consent && isSampled(sampling, traceId, { agent: e.agent, conversation: e.ref.conversation }))) return;
+      if (
+        e.ref.parent ? !parent : !(consent && (kept ?? isSampled(sampling, traceId, { agent: e.agent, conversation: e.ref.conversation })))
+      )
+        return;
+      // recorded: the step requests not sent yet carry the sampled flag, so the server's spans join this one
+      e.ref.sampled = true;
       const span = begin(
         `${SPAN_INVOKE_AGENT} ${e.agent ?? DEFAULT_AGENT_NAME}`,
         traceId,
@@ -262,6 +364,7 @@ export function createEngine(options: ObserveAgentsOptions): Engine | undefined 
           [ATTR_PAGE]: location.href,
         },
         ref?.[1],
+        parent?.root,
       );
       runs.set(e.ref.run, { span, adapter: e.adapter, steps: new Map() });
     } else if (!run) return;
@@ -329,8 +432,53 @@ export function createEngine(options: ObserveAgentsOptions): Engine | undefined 
     }
   };
 
+  // ---------- 3. the app's own events and spans (same pipeline; `webmcp.*` keys are this library's) ----------
+  const customs = new Map<number, Open>();
+  const custom = (op: CustomOp): void => {
+    if (op.type === "end") {
+      const open = customs.get(op.id);
+      if (!open) return;
+      customs.delete(op.id);
+      if (op.error !== undefined) {
+        const { type, message } = failure(op.error);
+        open.rec.attributes[ATTR_ERROR_TYPE] = type;
+        open.rec.status = { code: "error", message };
+      }
+      finish(open, epoch(op.at));
+      return;
+    }
+    const run = runs.get(op.run);
+    if (!run) return;
+    if (op.type === "event") {
+      run.span.rec.events.push({ name: op.name, time: epoch(op.at), attributes: appAttributes(op.attributes) as Attributes });
+      return;
+    }
+    const parent = (op.call && calls.get(op.call)) || run.span;
+    const ids = run.span.rec.attributes;
+    customs.set(
+      op.id,
+      begin(
+        op.name,
+        parent.rec.traceId,
+        parent.rec.spanId,
+        op.at,
+        {
+          ...appAttributes(op.attributes),
+          [ATTR_CUSTOM]: true,
+          [ATTR_CONVERSATION_ID]: ids[ATTR_CONVERSATION_ID],
+          [ATTR_RUN_ID]: ids[ATTR_RUN_ID],
+          [ATTR_TOOL_CALL_ID]: parent === run.span ? undefined : op.call,
+        },
+        undefined,
+        run.span.root,
+      ),
+    );
+    if (customs.size > MAX_CUSTOM_OPEN) customs.delete(customs.keys().next().value!);
+  };
+
   return {
-    event: (e, consent) => safe(() => handle(e, consent), undefined),
+    event: (e, consent, kept) => safe(() => handle(e, consent, kept), undefined),
+    custom: (op) => safe(() => custom(op), undefined),
     resume() {
       for (const call of calls.values())
         if (call.yielded) {

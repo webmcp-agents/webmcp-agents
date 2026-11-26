@@ -56,8 +56,8 @@ export function postExporter(url: string, resource: Attributes, headers: Record<
         method: "POST",
         headers: { "content-type": "application/json", ...headers },
         body,
-        // the browser caps keepalive bodies at 64 KB
-        keepalive: body.length < 60_000,
+        // the browser caps keepalive bodies at 64 KB (bytes, not UTF-16 code units: non-ASCII text counts more)
+        keepalive: new TextEncoder().encode(body).byteLength < 60_000,
         credentials: "same-origin",
       }).then(
         (res) => {

@@ -1,6 +1,6 @@
 /**
  * The relay (design §7.6): the app's own endpoint for the browser's spans, so no backend key reaches the page. The
- * browser is not trusted: same-site requests only, a size cap, OTLP JSON from this package's scope only, every value
+ * browser is not trusted: same-site requests only (a request without an `Origin` is refused by default), a size cap, OTLP JSON from this package's scope only, every value
  * redacted again, the server's sampling (never the browser's flag). Spans then go through the same pipeline as the
  * server's. It answers `202` with no body whatever happens upstream, and a refusal carries no detail.
  */
@@ -172,7 +172,8 @@ export function createRelay(
     try {
       // ---------- 1. who may post ----------
       if (req.method !== "POST") return empty(405, { allow: "POST" });
-      if (isCrossSite(req)) return empty(403);
+      // a browser always sends Origin on a POST (fetch, keepalive, sendBeacon): none means a script, refused by default
+      if (isCrossSite(req) || (!options.allowMissingOrigin && !req.headers.get("origin"))) return empty(403);
       if (options.guard) {
         let refused: Response | undefined;
         try {

@@ -10,6 +10,16 @@ export type AttributeValue = string | number | boolean | readonly string[] | rea
 /** Span attributes. */
 export type Attributes = Record<string, AttributeValue>;
 
+/**
+ * Attributes of the app's own event or span (`recordAgentEvent`, `withAgentSpan`, `observability.event` / `.span`).
+ * Keys are free, except that `webmcp.*` is this library's: such keys are dropped (a custom span carries the run's
+ * real ids, and app code must not be able to forge them). Values that are not attribute values (objects, `null`,
+ * `undefined`) are left out. Every value is redacted like the package's own.
+ *
+ * @experimental
+ */
+export type CustomAttributes = Readonly<Record<string, AttributeValue | null | undefined>>;
+
 /** The fields every OTLP target has, whichever way its URL is given. */
 interface OtlpTargetFields {
   /**
@@ -19,7 +29,11 @@ interface OtlpTargetFields {
    * else `"http/json"`.
    */
   protocol?: "http/json" | "http/protobuf" | "grpc";
-  /** Headers sent with every export (an API key, a project). Merged over `OTEL_EXPORTER_OTLP_HEADERS`. Server side only: never put a key in the page. */
+  /**
+   * Headers sent with every export (an API key, a project). Merged over `OTEL_EXPORTER_OTLP_HEADERS` only when the URL
+   * also comes from the env (no `endpoint` / `endpoints`): a target with its own URL gets only these, so the env's key
+   * never reaches another backend. Server side only: never put a key in the page.
+   */
   headers?: Record<string, string>;
   /** How long one export may take before it is dropped, in ms. Default `OTEL_EXPORTER_OTLP_TIMEOUT`, else 30000. */
   timeout?: number;

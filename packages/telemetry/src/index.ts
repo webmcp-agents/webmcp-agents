@@ -9,12 +9,14 @@
  * `<ObserveAgents />` from `@webmcp-agents/telemetry/react`. Everything here is experimental in 0.5.0.
  */
 export { consoleExporter } from "./browser/console";
+export { type AgentSpanOptions, recordAgentEvent, withAgentSpan } from "./browser/custom";
 export { observeAgents, type StopObserving } from "./browser/observe";
 export type { BrowserSpanExporter, ObserveAgentsOptions, SpanRecord } from "./browser/types";
 export * from "./semconv";
 export type {
   Attributes,
   AttributeValue,
+  CustomAttributes,
   OtlpTarget,
   ReadableSpanLike,
   Sampling,

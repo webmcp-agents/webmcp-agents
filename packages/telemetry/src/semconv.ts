@@ -230,3 +230,15 @@ export const EVENT_YIELD = "webmcp.yield";
  * @experimental
  */
 export const EVENT_RESUME = "webmcp.resume";
+
+// ---------- the app's own spans (`withAgentSpan`, `observability.span` / `.event`) ----------
+
+/**
+ * `true` on every span the app created through this package (`withAgentSpan` in the browser, `observability.span` /
+ * `observability.event` on the server), so a `spanFilter` or a backend query can tell them from the library's own.
+ * Their names are the app's, as given; their attribute keys are free except `webmcp.*`, which this library reserves
+ * (an app's `webmcp.*` keys are dropped).
+ *
+ * @experimental
+ */
+export const ATTR_CUSTOM = "webmcp.custom";

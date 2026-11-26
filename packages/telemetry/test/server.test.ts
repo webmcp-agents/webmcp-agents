@@ -442,6 +442,21 @@ describe("any OpenTelemetry instance, as is (R-EXP-2)", () => {
     expect(names(memory.getFinishedSpans()).sort()).toEqual(["chat mock-model-id", "invoke_agent web-agent", "step 1"]);
   });
 
+  test("a traceparent whose sampled flag is unset (the page does not record its run): the AI SDK's tree, in a trace of its own", async () => {
+    const memory = new InMemorySpanExporter();
+    const observability = defineObservability({ exporters: [memory], env: {} });
+    const handler = createChatHandler({ model: mockModel([text("ok")]), observability });
+    const req = chatRequest({ messages: ["hi"], trace: REF }, { headers: { traceparent: `00-${TRACE_ID}-${RUN_SPAN}-00` } });
+    await readChatStream(await handler(req));
+    await observability.flush();
+    const spans = memory.getFinishedSpans();
+    expect(names(spans).sort()).toEqual(["chat mock-model-id", "invoke_agent web-agent", "step 1"]);
+    // no span hangs under a browser span that never arrives
+    expect(spans.some((s) => s.parentSpanContext?.spanId === RUN_SPAN)).toBe(false);
+    expect(spans.find((s) => s.name.startsWith("invoke_agent"))!.parentSpanContext).toBeUndefined();
+    expect(chatSpans(spans)[0]!.attributes).toMatchObject({ "webmcp.run.id": "run-1" });
+  });
+
   test("a SpanProcessor sees each span (start and end) before redaction and export", async () => {
     const seen: string[] = [];
     const memory = new InMemorySpanExporter();
@@ -586,6 +601,26 @@ describe("content only on opt-in, always redacted (R-EXP-5)", () => {
     configureRedaction({ patterns: { codename: { pattern: /Bluebird/g, label: "CODENAME" } } });
     await turn(observability, { message: "Project Bluebird" });
     expect(JSON.stringify(memory.getFinishedSpans().map((s) => s.attributes))).not.toContain("Bluebird");
+  });
+
+  test("recording on: an app's registered integration hears every event with content off (it cannot redact)", async () => {
+    const heard: { recordInputs?: unknown; recordOutputs?: unknown }[] = [];
+    const listen = (e: { recordInputs?: unknown; recordOutputs?: unknown }) => void heard.push(e);
+    (globalThis as { AI_SDK_TELEMETRY_INTEGRATIONS?: unknown[] }).AI_SDK_TELEMETRY_INTEGRATIONS = [
+      { onStart: listen, onStepStart: listen, onLanguageModelCallStart: listen, onFinish: listen },
+    ];
+    try {
+      const memory = new InMemorySpanExporter();
+      await turn(defineObservability({ exporters: [memory], recordInputs: true, recordOutputs: true, env: {} }), {
+        message: "a secret plan",
+      });
+      expect(heard.length).toBeGreaterThan(0);
+      for (const e of heard) expect([e.recordInputs, e.recordOutputs]).toEqual([false, false]);
+      // this layer's own spans still record it
+      expect(JSON.stringify(memory.getFinishedSpans().map((s) => s.attributes))).toContain("secret plan");
+    } finally {
+      (globalThis as { AI_SDK_TELEMETRY_INTEGRATIONS?: unknown }).AI_SDK_TELEMETRY_INTEGRATIONS = undefined;
+    }
   });
 
   test("a spanFilter that returns false: that span is not exported", async () => {

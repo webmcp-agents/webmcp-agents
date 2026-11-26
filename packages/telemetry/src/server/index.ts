@@ -12,11 +12,12 @@
 export { resolveTarget } from "./config";
 export { defineObservability, otlp } from "./observability";
 export { RELAY_MAX_BYTES } from "./relay";
-export type { Observability, ObservabilityConfig, TelemetryRelayOptions } from "./types";
+export type { CustomSpanOptions, Observability, ObservabilityConfig, TelemetryRelayOptions } from "./types";
 export * from "../semconv";
 export type {
   Attributes,
   AttributeValue,
+  CustomAttributes,
   OtlpTarget,
   ReadableSpanLike,
   Sampling,

@@ -83,6 +83,7 @@ export function resolveOtlp(target: OtlpTarget, env: Env, bad: (header: string) 
     return { error: `unknown OTLP protocol "${raw}": use one of "http/json", "http/protobuf" or "grpc"` };
   const protocol = raw as Protocol;
   const base = (url: string): string => (protocol === "grpc" ? url : withTracesPath(url));
+  const fromEnv = !target.endpoints?.traces && !target.endpoint;
   const url =
     target.endpoints?.traces ??
     (target.endpoint ? base(target.endpoint) : undefined) ??
@@ -97,9 +98,11 @@ export function resolveOtlp(target: OtlpTarget, env: Env, bad: (header: string) 
   return {
     url,
     protocol,
+    // the env's headers go only where the env's URL goes: a vendor key in OTEL_EXPORTER_OTLP_HEADERS must never reach
+    // a target that names its own endpoint (another backend)
     headers: {
-      ...parseList(env.OTEL_EXPORTER_OTLP_HEADERS, bad),
-      ...parseList(env.OTEL_EXPORTER_OTLP_TRACES_HEADERS, bad),
+      ...(fromEnv && parseList(env.OTEL_EXPORTER_OTLP_HEADERS, bad)),
+      ...(fromEnv && parseList(env.OTEL_EXPORTER_OTLP_TRACES_HEADERS, bad)),
       ...target.headers,
     },
     timeout:

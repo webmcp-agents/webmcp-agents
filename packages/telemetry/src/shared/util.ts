@@ -4,7 +4,7 @@
  */
 import type { Redactor } from "@webmcp-agents/core/redact";
 import { version } from "../../package.json";
-import type { Attributes, AttributeValue, Sampling, SamplingContext } from "./types";
+import type { Attributes, AttributeValue, CustomAttributes, Sampling, SamplingContext } from "./types";
 
 /** This package's version, on every span's instrumentation scope. Read from package.json, so a release bump keeps it true. */
 export const VERSION: string = version;
@@ -57,6 +57,16 @@ export const parseTraceparent = (header: string | null | undefined): [string, st
 };
 
 /**
+ * Whether a valid `traceparent` has its sampled flag set (the last byte's lowest bit). The server reads it as "the
+ * page records this run span": only then is that span a real parent to hang the server's spans under. It never
+ * decides whether the server exports (its own sampling does).
+ */
+export const traceparentSampled = (header: string | null | undefined): boolean => {
+  if (!parseTraceparent(header)) return false;
+  return (Number.parseInt(header!.trim().slice(-2), 16) & 1) === 1;
+};
+
+/**
  * Whether a trace is kept. `ratio` reads the trace id's last 8 hex digits (random in any W3C id), so every span of one
  * trace gets the same answer on the browser and the server; without an id it draws at random. A throwing `custom`
  * sampler drops the trace.
@@ -89,7 +99,7 @@ export const OTEL_API_KEY = Symbol.for("opentelemetry.js.api.1");
 export const registeredGlobalTrace = (): { getDelegate?: () => unknown } | undefined =>
   (globalThis as { [OTEL_API_KEY]?: { trace?: { getDelegate?: () => unknown } } })[OTEL_API_KEY]?.trace;
 
-const allowing = new WeakMap<Redactor, Redactor>();
+const allowing = new WeakMap<Redactor, Map<string, Redactor>>();
 /**
  * `redactor`, with the `metadataMapping` targets allowed as keys: the app copied one of this library's ids there on
  * purpose (`session.id`, `langsmith.trace.session_id`), and a default sensitive key ("session") must not hide it.
@@ -98,10 +108,62 @@ const allowing = new WeakMap<Redactor, Redactor>();
 export function withMappedKeys(redactor: Redactor, mapping: Record<string, string>): Redactor {
   const targets = Object.values(mapping);
   if (!targets.length) return redactor;
-  let out = allowing.get(redactor);
+  // keyed by the targets too: one redactor shared by two layers with different mappings must not reuse the first's
+  const key = JSON.stringify([...targets].sort());
+  let byMapping = allowing.get(redactor);
+  if (!byMapping) {
+    byMapping = new Map();
+    allowing.set(redactor, byMapping);
+  }
+  let out = byMapping.get(key);
   if (!out) {
     out = redactor.extend({ allowKeys: targets });
-    allowing.set(redactor, out);
+    byMapping.set(key, out);
   }
   return out;
 }
+
+/** An app's attributes without the keys this library reserves (`webmcp.*`: app code must not forge a run's ids). */
+export const appAttributes = (a: CustomAttributes = {}): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(a)) if (!k.startsWith("webmcp.")) out[k] = v;
+  return out;
+};
+
+/**
+ * `fn()`, with `end` called once it returned, threw, or its promise settled (with what it failed with). What `fn`
+ * returns, throws or rejects with is passed on unchanged; a promise is followed, so the result is a new promise of
+ * the same value. `end` must not throw.
+ */
+export function around<T>(fn: () => T, end: (error?: unknown) => void): T {
+  let out: T;
+  try {
+    out = fn();
+  } catch (err) {
+    end(err ?? new Error("thrown"));
+    throw err;
+  }
+  const thenable = out as unknown as PromiseLike<unknown> | undefined;
+  if (thenable && typeof thenable.then === "function")
+    return thenable.then(
+      (value) => {
+        end();
+        return value;
+      },
+      (err: unknown) => {
+        end(err ?? new Error("rejected"));
+        throw err;
+      },
+    ) as T;
+  end();
+  return out;
+}
+
+/** `error.type` and the status message of a custom span that failed: the error's name and message (redacted later). */
+export const failure = (error: unknown): { type: string; message?: string } => {
+  const e = error as { name?: unknown; message?: unknown } | null;
+  return {
+    type: typeof e?.name === "string" && e.name ? e.name : "error",
+    message: typeof e?.message === "string" && e.message ? e.message : undefined,
+  };
+};

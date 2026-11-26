@@ -4,8 +4,9 @@
  *
  * - **Parent.** A span started with no active parent is put under the request's `traceparent` (the browser's run
  *   span), passed explicitly, so no global context manager is needed.
- * - **Shape.** With a browser parent, the AI SDK's own `invoke_agent` and `agent_step` wrapper spans are passed
- *   through (not recorded), so each `chat <model>` span is a direct child of the browser's `invoke_agent` (§7.5).
+ * - **Shape.** With a browser parent (a `traceparent` whose sampled flag says the page records it), the AI SDK's own
+ *   `invoke_agent` and `agent_step` wrapper spans are passed through (not recorded), so each `chat <model>` span is a
+ *   direct child of the browser's `invoke_agent` (§7.5).
  * - **Ids.** Every span gets the request's `webmcp.*` ids.
  * - **Redaction.** Every attribute, event and status message is mapped (`metadataMapping`) and redacted before it
  *   reaches the provider, so a provider this package does not own (the app's global one) never sees raw values.
@@ -26,6 +27,8 @@ export interface RequestScope {
   text(value: string): string;
   /** Through a provider this package does not own, `spanFilter` runs when a span starts; false skips it. */
   filter?: (name: string, attributes: Attributes) => boolean;
+  /** Told of each span recorded without a parent (the request's root, for the app's own spans to join). */
+  root?: (span: Api.SpanContext) => void;
 }
 
 /** The AI SDK's wrapper spans (`invoke_agent`, `agent_step`), dropped when the browser's run span is the parent. */
@@ -107,7 +110,9 @@ export function requestTracer(api: typeof Api, base: Api.Tracer, scope: RequestS
       // a skipped span hands its parent on, so its children still join the trace
       if (!keep) return api.trace.wrapSpanContext(parentSpan ?? api.INVALID_SPAN_CONTEXT);
     }
-    return redactingSpan(base.startSpan(scope.text(name), { ...options, attributes }, parent), scope);
+    const span = base.startSpan(scope.text(name), { ...options, attributes }, parent);
+    if (!parentSpan) scope.root?.(span.spanContext());
+    return redactingSpan(span, scope);
   };
   const tracer = {
     startSpan,

@@ -76,6 +76,27 @@ describe("failures and refusals (R-EXP-4, R-EXP-7)", () => {
     }
   });
 
+  test("the sampled flag: step requests say -01 only for a run the page records (consent and sampling), from the first run on", async () => {
+    stubFetch();
+    const flags = async (): Promise<string[]> => {
+      const chat = mockChatServer({ steps: [text("Hi.")], handler: { agents: [agent] } });
+      await agent.invoke("Hi.", { adapter: createCloudAdapter({ fetch: chat.fetch }) });
+      return chat.requests.filter((r) => r.method === "POST").map((r) => r.headers.traceparent!.slice(-2));
+    };
+    expect(await flags()).toEqual(["00"]); // nothing observes
+    let consent = false;
+    const stop = observeAgents({ enabled: () => consent });
+    const never = observeAgents({ sampling: { type: "never" } });
+    try {
+      expect(await flags()).toEqual(["00"]); // no consent; the other observer samples it out
+      consent = true;
+      expect(await flags()).toEqual(["01"]); // the engine chunk may still be loading: decided at run-start
+    } finally {
+      stop();
+      never();
+    }
+  });
+
   test("an enabled() that throws counts as no consent", async () => {
     const calls = stubFetch();
     const stop = observeAgents({
@@ -168,17 +189,36 @@ describe("where spans go (R-EXP-4)", () => {
     expect(calls.map((c) => c.url).sort()).toEqual(["/telemetry", "https://collector.example/v1/traces"]);
   });
 
-  test("leaving the page: buffered spans are sent on pagehide, before the 2 s batch", async () => {
+  test("a run's spans go together when it ends; leaving the page mid-run sends what it has so far on pagehide", async () => {
     const calls = stubFetch();
+    let finish: (() => void) | undefined;
+    const wait = defineWebTool({
+      id: uniqueName("wait"),
+      description: "Wait for the person.",
+      inputSchema: { type: "object", properties: {} },
+      execute: () =>
+        new Promise<string>((resolve) => {
+          finish = () => resolve("Done waiting.");
+        }),
+    });
+    const off = registerWebTool(wait);
+    const waiter = defineWebAgent({ id: "waiter", instructions: "Wait.", tools: [wait] });
     const stop = observeAgents();
     try {
-      await hi();
-      await until(() => document.readyState === "complete", 1000, "the page");
-      expect(calls).toEqual([]); // still in the 2 s batch
+      const run = waiter.invoke("Wait.", { adapter: mockAdapter([toolCall(wait.id, {}), text("Done.")]) });
+      await until(() => finish !== undefined, 3000, "the tool call");
+      await new Promise((r) => setTimeout(r, 50));
+      expect(calls).toEqual([]); // held until the run ends
       dispatchEvent(new PageTransitionEvent("pagehide"));
       await until(() => calls.length === 1, 3000, "the pagehide flush");
+      expect(names(calls[0]!.body)).toEqual(["chat mock/model"]);
+      finish!();
+      await run;
+      await until(() => calls.length === 2, 3000, "the run's end");
+      expect(names(calls[1]!.body)[0]).toBe("invoke_agent waiter");
     } finally {
       stop();
+      off();
     }
   });
 

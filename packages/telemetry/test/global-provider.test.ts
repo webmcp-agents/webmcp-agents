@@ -183,3 +183,63 @@ describe("only this library is switched off (R-EXP-7)", () => {
     expect(app.memory.getFinishedSpans()).toEqual([]);
   });
 });
+
+describe("the app's own @ai-sdk/otel integration and this layer's are not both recorded (one chat span per step)", () => {
+  /** The app's `registerTelemetry(new OpenTelemetry())`, undone after `run`. */
+  async function withAppIntegration(run: () => Promise<void>) {
+    const { OpenTelemetry } = await import("@ai-sdk/otel");
+    const g = globalThis as { AI_SDK_TELEMETRY_INTEGRATIONS?: unknown[] };
+    g.AI_SDK_TELEMETRY_INTEGRATIONS = [new OpenTelemetry()];
+    try {
+      await run();
+    } finally {
+      g.AI_SDK_TELEMETRY_INTEGRATIONS = undefined;
+    }
+  }
+  const chats = (spans: readonly { name: string }[]) => spans.filter((s) => s.name.startsWith("chat ")).map((s) => s.name);
+
+  test("global mode: the app's is left out of the call, logged once; only this layer's spans exist", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const app = registerAppProvider();
+    await withAppIntegration(async () => {
+      const observability = defineObservability({ env: {} });
+      await turn(observability);
+      await turn(observability);
+    });
+    const spans = app.memory.getFinishedSpans();
+    expect(chats(spans)).toEqual(["chat mock-model-id", "chat mock-model-id"]);
+    expect(spans.every((s) => s.instrumentationScope.name === "@webmcp-agents/telemetry")).toBe(true);
+    expect(info.mock.calls.filter(([m]) => String(m).includes("@ai-sdk/otel integration was left out"))).toHaveLength(1);
+  });
+
+  test("a provider passed in that is the registered one counts as the same provider", async () => {
+    const app = registerAppProvider();
+    await withAppIntegration(() => turn(defineObservability({ tracerProvider: app.provider, env: {} })).then(() => {}));
+    expect(chats(app.memory.getFinishedSpans())).toEqual(["chat mock-model-id"]);
+  });
+
+  test('appIntegrations: "keep": both record (the previous behaviour)', async () => {
+    const app = registerAppProvider();
+    await withAppIntegration(() => turn(defineObservability({ appIntegrations: "keep", env: {} })).then(() => {}));
+    const scopes = new Set(app.memory.getFinishedSpans().map((s) => s.instrumentationScope.name));
+    expect(scopes.size).toBeGreaterThan(1);
+    expect(chats(app.memory.getFinishedSpans()).length).toBeGreaterThan(1);
+  });
+
+  test("private mode (exporters given): the app's integration is kept, its spans go to the app's provider", async () => {
+    const app = registerAppProvider();
+    const mine = new InMemorySpanExporter();
+    await withAppIntegration(() => turn(defineObservability({ exporters: [mine], env: {} })).then(() => {}));
+    expect(chats(mine.getFinishedSpans())).toEqual(["chat mock-model-id"]);
+    expect(app.memory.getFinishedSpans().length).toBeGreaterThan(0);
+    expect(app.memory.getFinishedSpans().some((s) => s.instrumentationScope.name === "@webmcp-agents/telemetry")).toBe(false);
+  });
+
+  test("a request this layer does not sample: the app's integration is kept (it is the only one recording)", async () => {
+    const app = registerAppProvider();
+    await withAppIntegration(() => turn(defineObservability({ sampling: { type: "never" }, env: {} })).then(() => {}));
+    const spans = app.memory.getFinishedSpans();
+    expect(spans.length).toBeGreaterThan(0);
+    expect(spans.some((s) => s.instrumentationScope.name === "@webmcp-agents/telemetry")).toBe(false);
+  });
+});
