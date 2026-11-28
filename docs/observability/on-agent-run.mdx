@@ -1,0 +1,80 @@
+---
+title: onAgentRun
+description: "Count runs, failed tool calls and tokens in your own analytics with onAgentRun: no telemetry package, no OpenTelemetry, redacted by default."
+sidebar:
+  label: "onAgentRun"
+related:
+  - /observability/observe-agents
+  - /reference/chat/on-agent-run
+---
+
+Not every question needs a tracing backend. How many runs end in an error? Which tool fails most? How long do people
+take to confirm? `onAgentRun` from `@webmcp-agents/chat` gives you each run's events as plain objects, and you send
+what you need to the analytics you already have. It is what `observeAgents` builds its spans from, and it needs no
+telemetry package.
+
+:::note[Experimental]
+`onAgentRun` is new in 0.5.0, and its event fields may still change in a minor release.
+:::
+
+## Example
+
+Call it once, when the page starts. It returns a function that stops listening.
+
+<include meta='title="agent-analytics.ts"'>/_examples/observability/on-agent-run.ts</include>
+
+## Options
+
+`onAgentRun(listener, options?)`:
+
+<AutoTypeTable path="../../packages/chat/src/session/run-events.ts" name="OnAgentRunOptions" />
+
+## The events
+
+A run is a sequence, in this order:
+
+<Steps>
+  <Step title="The run starts">
+    `run-start`. Every event carries the conversation and run ids.
+  </Step>
+  <Step title="Each model step">
+    `step-start` and `step-finish`, with the model and the token counts the server reported.
+  </Step>
+  <Step title="That step's tool calls">
+    `tool-start`, then `tool-park` when it waits for the person, `tool-yield` when the cursor got out of their way,
+    and `tool-finish`.
+  </Step>
+  <Step title="The run ends">
+    `run-finish`, with how the run ended.
+  </Step>
+</Steps>
+
+The full list, with every field, is on [`onAgentRun`](/reference/chat/on-agent-run#the-events).
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="Redacted by default">
+    Tool inputs, results and a parked call's prompt pass through the page's redactor and the tool's `sensitive` fields
+    before your listener sees them.
+  </AccordionItem>
+  <AccordionItem title="A listener that throws">
+    Never breaks a run.
+  </AccordionItem>
+</Accordion>
+
+:::warning[`raw: true` is for your own trusted code]
+`onAgentRun(listener, { raw: true })` gives the values as they are. Never use it for anything that sends them off the
+page.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Custom events" href="/observability/custom-events" icon="sparkles">
+    Your own events and spans in the same trace, from the page and the server.
+  </Card>
+  <Card title="Reference: onAgentRun" href="/reference/chat/on-agent-run" icon="book-open">
+    Every event and its fields.
+  </Card>
+</CardGroup>

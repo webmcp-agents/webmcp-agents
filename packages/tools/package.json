@@ -32,9 +32,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mustafaskyer/web-agents.git",
+    "url": "git+https://github.com/webmcp-agents/webmcp-agents.git",
     "directory": "packages/tools"
   },
+  "homepage": "https://webmcp-agents.dev",
   "publishConfig": {
     "access": "public"
   }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanupFixtures, fixture, modelContext, resultText, uniqueName, until } from "./test-utils";
+import { cleanupFixtures, fixture, modelContext, resultText, uniqueName, until } from "@webmcp-agents/testing";
 import { createWebAgents, currentAgentVisuals, type WebAgents, watchPathname } from "./web-agents";
 import { defineWebTool, type WebTool, type WebToolConfig } from "./web-tool";
 

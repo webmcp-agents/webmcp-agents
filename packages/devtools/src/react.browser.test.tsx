@@ -5,7 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { WebAgentsDevtools, webAgentsDevtoolsPlugin } from "./react";
-import { byText, deepText, devtoolsRoot, modelContext, until } from "./test-utils";
+import { byText, deepText, uiRoot, modelContext, until } from "@webmcp-agents/testing";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -33,8 +33,8 @@ describe("@webmcp-agents/devtools/react", () => {
     expect(document.querySelectorAll("[data-web-agents-ui]")).toHaveLength(1);
     expect(window.agent).toBeDefined();
 
-    await userEvent.click(byText(devtoolsRoot(), '[role="tab"]', "Settings") as HTMLElement);
-    const spotlight = devtoolsRoot().querySelector<HTMLButtonElement>('[role="switch"]') as HTMLButtonElement;
+    await userEvent.click(byText(uiRoot("devtools"), '[role="tab"]', "Settings") as HTMLElement);
+    const spotlight = uiRoot("devtools").querySelector<HTMLButtonElement>('[role="switch"]') as HTMLButtonElement;
     expect(spotlight.disabled).toBe(false);
     await userEvent.click(spotlight);
     expect(setSpotlight).toHaveBeenCalledWith(true);
@@ -49,8 +49,8 @@ describe("@webmcp-agents/devtools/react", () => {
   it("disables the cursor switches with nothing started", async () => {
     const screen = await render(<WebAgentsDevtools initialOpen eventClient={false} />);
     await until(() => !!document.querySelector("[data-web-agents-ui]")?.shadowRoot?.querySelector('[role="dialog"]'), 3000, "panel");
-    await userEvent.click(byText(devtoolsRoot(), '[role="tab"]', "Settings") as HTMLElement);
-    expect(devtoolsRoot().querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(true);
+    await userEvent.click(byText(uiRoot("devtools"), '[role="tab"]', "Settings") as HTMLElement);
+    expect(uiRoot("devtools").querySelector<HTMLButtonElement>('[role="switch"]')?.disabled).toBe(true);
     await screen.unmount();
   });
 

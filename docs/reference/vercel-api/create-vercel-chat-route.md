@@ -31,6 +31,7 @@ The route file of an example app, with the agents the page passes to `<AgentChat
 | `agents` | `readonly WebAgent[]` | none | The page's agents ([`defineWebAgent`](../chat/define-web-agent.md)): the same list the page passes to `<AgentChat>`, so the server knows each agent's instructions. With agents, a request must name one (`requireAgent`). |
 | `tools` | `readonly (string \| WebTool)[]` | every tool the page sends | The tools the page may offer the model: the app's `defineWebTool` tools (pinned) and the ids of tools defined inline in components. See [`createChatHandler`](../chat/create-chat-handler.md)'s `tools`. |
 | `session` | `false \| ChatSessionOptions` | `{}` (on) | Chat sessions; Turnstile gates them when `TURNSTILE_SECRET_KEY` is set, and `verify` adds any other check. The secret is `WEB_AGENTS_SESSION_SECRET`. See [Sessions](../chat/create-chat-handler.md#sessions). |
+| `observability` | `Observability` | the instance's shared layer | The layer that exports the chat's spans (`defineObservability()` from `@webmcp-agents/telemetry/server`), when the app owns it to share with its own `/api/telemetry` route (`examples/nextjs`). Default: one layer per function instance, off without the `OTEL_*` variables. |
 
 ### Environment variables
 

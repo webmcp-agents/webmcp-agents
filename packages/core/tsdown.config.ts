@@ -3,7 +3,14 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   // The polyfill is its own entry: `loadWebMCPPolyfill` reaches it by dynamic import, so it is a separate chunk that
   // browsers with WebMCP never download, and `@webmcp-agents/core/polyfill` imports it directly.
-  entry: { index: "src/index.ts", "polyfill/index": "src/polyfill/index.ts", "polyfill/auto": "src/polyfill/auto.ts" },
+  // `redact` too: telemetry, the chat and the devtools import it; the main entry never does (only the control check and
+  // `mask`, which the visuals share with it).
+  entry: {
+    index: "src/index.ts",
+    "polyfill/index": "src/polyfill/index.ts",
+    "polyfill/auto": "src/polyfill/auto.ts",
+    "redact/index": "src/redact/index.ts",
+  },
   format: "esm",
   platform: "browser",
   dts: true,

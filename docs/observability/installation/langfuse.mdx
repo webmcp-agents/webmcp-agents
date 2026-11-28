@@ -1,0 +1,153 @@
+---
+title: Send traces to Langfuse
+description: "Six steps to agent traces and sessions in Langfuse, through its span processor or the environment alone."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: Langfuse
+---
+
+<RememberBackend name="Langfuse" />
+
+:::note[Not run by us]
+Written from Langfuse's docs and its `@langfuse/otel` package (6.1.1) on 2026-11-25. The span processor was type-checked against this library; nothing was sent.
+:::
+
+Six steps, from the packages to one trace per turn in Langfuse: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus Langfuse's span processor.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @langfuse/otel
+```
+
+## Set the environment
+
+The processor reads `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and `LANGFUSE_BASE_URL` (version 6 no longer reads `LANGFUSE_HOST`):
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/langfuse.env</include>
+
+Regions: EU `https://cloud.langfuse.com`, US `https://us.cloud.langfuse.com`, Japan `https://jp.cloud.langfuse.com`, HIPAA `https://hipaa.cloud.langfuse.com`, or your own host.
+
+<Expandable title="Without the package">
+
+Langfuse accepts OTLP over HTTP as JSON or protobuf (not gRPC), so the environment alone is enough; skip `@langfuse/otel` and use the [generic layer](/observability/installation/otlp#add-the-server-layer). The key is `base64("<public key>:<secret key>")`:
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/langfuse-otlp.env</include>
+
+</Expandable>
+
+## Add the server layer
+
+Langfuse's span processor, and the key Langfuse groups sessions by. The processor exports only spans that carry a `gen_ai.*` attribute or come from a known instrumentation; every span of this library carries `gen_ai.operation.name`, so all of them pass.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/langfuse.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in Langfuse
+
+Start the app and send one message in the chat. The trace appears in Langfuse, in a session keyed by `langfuse.session.id` (or `session.id`); people go by `langfuse.user.id` (or `user.id`).
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry integration](https://langfuse.com/integrations/native/opentelemetry): endpoints, auth, protocols, attributes
+- [Vercel AI SDK integration](https://langfuse.com/integrations/frameworks/vercel-ai-sdk): `LangfuseSpanProcessor`, environment
+
+Not confirmed: whether Langfuse maps the AI SDK's `ai.*` attributes when they arrive over plain OTLP (keep the default `genai`).
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=langfuse" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for Langfuse.
+</Card>

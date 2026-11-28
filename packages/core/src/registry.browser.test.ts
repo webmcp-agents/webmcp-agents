@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createToolRegistry, type ToolRegistry } from "./registry";
-import { modelContext, resultText, uniqueName, until } from "./test-utils";
+import { modelContext, resultText, uniqueName, until } from "@webmcp-agents/testing";
 import { defineWebTool, type WebTool } from "./web-tool";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

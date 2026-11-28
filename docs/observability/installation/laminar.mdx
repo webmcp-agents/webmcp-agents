@@ -1,0 +1,143 @@
+---
+title: Send traces to Laminar
+description: "Six steps to agent traces in Laminar, with the environment alone and one key for sessions."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: Laminar
+---
+
+<RememberBackend name="Laminar" />
+
+:::note[Not run by us]
+Written from Laminar's docs on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in Laminar: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages. Laminar takes OTLP over HTTP, JSON or protobuf, on port 443, so the built-in exporter needs nothing more (gRPC, which Laminar recommends, is on port 8443).
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel
+```
+
+## Set the environment
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/laminar.env</include>
+
+## Add the server layer
+
+The endpoint and key come from the environment; the layer adds the key Laminar groups sessions by (on the root span; people by `…user_id`).
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/laminar.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in Laminar
+
+Start the app and send one message in the chat. The trace shows as a tree, grouped into a session by `lmnr.association.properties.session_id`.
+
+:::note[Laminar's LLM views]
+Laminar reads `gen_ai.*` attributes, but its LLM views (and cost) need `lmnr.span.type` set to `LLM`, which this library does not set. To fill them, add the attribute to `chat` spans in a Collector `transform` processor. We have not tried it.
+:::
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry](https://laminar.sh/docs/tracing/otel): endpoints, ports, auth
+- [Span attribute reference](https://laminar.sh/docs/tracing/structure/span-attribute-reference)
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=laminar" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for Laminar.
+</Card>

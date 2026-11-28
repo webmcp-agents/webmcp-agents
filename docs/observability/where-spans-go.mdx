@@ -1,0 +1,230 @@
+---
+title: Where spans go
+description: "How the layer picks a destination: five rules in order, the OTEL_* variables it reads, and how to switch backend without changing code."
+sidebar:
+  label: "Where spans go"
+related:
+  - /observability/define-observability
+  - /observability/otlp
+  - /observability/spans
+---
+
+The layer decides once, on the first request, where its spans go: the first rule that matches wins. Read this page
+when spans do not arrive where you expect, or before you add code where an environment variable would do.
+
+1. **You pass `tracerProvider`**: that provider, as is.
+2. **You pass `exporters` or `spanProcessors`**: a private provider built from them.
+3. **The app registered a global provider** (Sentry, `@vercel/otel`, Datadog, a `NodeSDK`): that provider.
+4. **`OTEL_EXPORTER_OTLP_ENDPOINT` or `…_TRACES_ENDPOINT` is set**: one OTLP exporter built from the environment.
+5. **None of these**: nowhere. The layer is off, and says so once in development.
+
+Rule 3 is what makes "any backend that follows the standard" work: if your app already sends traces somewhere, the
+chat's spans join them with no configuration here. The layer never registers a provider itself and never shuts down
+one it did not build.
+
+## Example
+
+Everything the environment says can be written in code instead, for a second target or values from your own config:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/explicit.ts</include>
+
+## Options
+
+The environment the layer reads. All names are the standard OpenTelemetry ones, except the last three.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | none | Base URL, `/v1/traces` appended |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | none | Exact traces URL |
+| `OTEL_EXPORTER_OTLP_HEADERS` | none | `key=value` pairs, percent-encoded |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/json` | `http/json`, `http/protobuf` or `grpc` |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | `30000` | One export, in milliseconds |
+| `OTEL_SERVICE_NAME` | `web-agents` | Your service's name |
+| `OTEL_RESOURCE_ATTRIBUTES` | none | `key=value` resource pairs |
+| `OTEL_TRACES_SAMPLER` | `always_on` | Plus `OTEL_TRACES_SAMPLER_ARG` |
+| `OTEL_SDK_DISABLED` | | `true`: everything off |
+| `WEB_AGENTS_OTEL_ENABLED` | | `false`: this library's spans off |
+| `WEB_AGENTS_OTEL_DEBUG` | | `true`: print each span |
+| `RATE_LIMIT_TELEMETRY_PER_MINUTE` | | The relay's per-IP limit |
+
+<Accordion>
+  <AccordionItem title="`…_TRACES_…` variants and the headers">
+    Each `OTEL_EXPORTER_OTLP_*` variable has a `…_TRACES_…` variant (`OTEL_EXPORTER_OTLP_TRACES_HEADERS`,
+    `…_TRACES_PROTOCOL`, `…_TRACES_TIMEOUT`), which wins over the general one, as the OpenTelemetry specification
+    says. For `grpc`, the endpoint is used as given. Headers are sent only to a target whose URL is the env's: an
+    `otlp()` with its own `endpoint` never gets them. A space in a header value is `%20`.
+  </AccordionItem>
+  <AccordionItem title="Protocols and their packages">
+    `http/json` is built in: it needs no package and runs on any runtime with `fetch`, edge functions included. For
+    `http/protobuf` install `@opentelemetry/exporter-trace-otlp-proto`, for `grpc` install
+    `@opentelemetry/exporter-trace-otlp-grpc`; a missing package is one error naming it. Any other protocol value
+    turns telemetry off with one error. Several backends accept only protobuf: their installation pages say which.
+  </AccordionItem>
+  <AccordionItem title="Sampling, the resource and the off switches">
+    `OTEL_TRACES_SAMPLER` takes `always_on`, `always_off` or `traceidratio` with a ratio in `OTEL_TRACES_SAMPLER_ARG`
+    such as `0.2`; the `parentbased_*` forms are read the same way. `OTEL_RESOURCE_ATTRIBUTES` holds pairs such as
+    `deployment.environment=production`. `OTEL_SDK_DISABLED=true` also makes the relay accept and drop what pages
+    send. `WEB_AGENTS_OTEL_ENABLED=false` leaves the app's own spans alone. `RATE_LIMIT_TELEMETRY_PER_MINUTE` is read
+    by `@webmcp-agents/vercel-api`.
+  </AccordionItem>
+  <AccordionItem title="Why the export timeout is 30 seconds">
+    The OpenTelemetry specification's default is 10 seconds. This layer waits 30, because the export runs after the
+    answer has been sent (through the host's `waitUntil` where there is one), so the person never waits for it.
+  </AccordionItem>
+</Accordion>
+
+## Check a deployment: `resolveTarget`
+
+`resolveTarget` answers where an OTLP target goes once the environment fills it in: the exact URL, or `"off"`. Use it
+in a health check or a startup log to see what a deployment's env resolves to, without sending anything.
+
+```ts
+import { resolveTarget } from "@webmcp-agents/telemetry/server";
+
+resolveTarget({}, process.env); // the traces URL, or "off"
+```
+
+It takes a target ([`otlp`](/observability/otlp); `{}` for the env alone) and the variables, and returns a `string`:
+`"off"` when there is no endpoint, a kill switch is set (`OTEL_SDK_DISABLED=true`, `WEB_AGENTS_OTEL_ENABLED=false`),
+or the target cannot be used (both endpoint forms, an unknown protocol, an invalid URL).
+
+| Env | Result |
+|---|---|
+| none | `"off"` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT=https://c.example` | `https://c.example/v1/traces` |
+| and `…_TRACES_ENDPOINT=https://t.example/x?y=1` | `https://t.example/x?y=1` |
+| and `OTEL_SDK_DISABLED=true` | `"off"` |
+
+## Your backend
+
+Which rule your backend's [installation](/observability/installation) uses, and the protocol it needs:
+
+<RememberBackend />
+
+<Tabs dropdown param="backend" syncKey="backend">
+<Tab title="Any OTLP backend" id="otlp">
+
+Rule 4: the `OTEL_EXPORTER_OTLP_*` variables. Protocol: as the backend says. Honeycomb, Axiom, Jaeger and a Collector
+accept JSON; Grafana Cloud recommends protobuf beyond testing; SigNoz does not state JSON, so use protobuf.
+
+</Tab>
+<Tab title="Arize" id="arize">
+
+Rule 2: `spanProcessors`, OpenInference's processor around a protobuf exporter. Protocol: protobuf (Phoenix accepts
+nothing else).
+
+</Tab>
+<Tab title="Braintrust" id="braintrust">
+
+Rule 2 with `@braintrust/otel`'s span processor, or rule 4 with the environment alone. Protocol: JSON.
+
+</Tab>
+<Tab title="Datadog" id="datadog">
+
+Rule 4 with the agentless intake's environment, or rule 3 when `dd-trace` registers its provider. Protocol: JSON or
+protobuf over HTTP; not gRPC.
+
+</Tab>
+<Tab title="Helicone" id="helicone">
+
+None: Helicone is the chat's model, not a place for spans. The layer, if you use one, follows whichever rule its own
+setup matches.
+
+</Tab>
+<Tab title="IBM Instana" id="instana">
+
+Rule 4 with the environment, or rule 2 when written out with `exporters`. Protocol: protobuf (JSON is not stated).
+
+</Tab>
+<Tab title="Laminar" id="laminar">
+
+Rule 4. Protocol: JSON or protobuf over HTTP on port 443; gRPC on 8443.
+
+</Tab>
+<Tab title="Langfuse" id="langfuse">
+
+Rule 2 with `@langfuse/otel`'s span processor, or rule 4 with the environment alone. Protocol: JSON or protobuf over
+HTTP; not gRPC.
+
+</Tab>
+<Tab title="LangSmith" id="langsmith">
+
+Rule 4. Protocol: protobuf (JSON is not confirmed).
+
+</Tab>
+<Tab title="LangWatch" id="langwatch">
+
+Rule 2: `exporters`, LangWatch's own exporter, which sends protobuf. Its OTLP endpoint also takes JSON; not gRPC.
+
+</Tab>
+<Tab title="New Relic" id="new-relic">
+
+Rule 4. Protocol: protobuf (New Relic recommends it and does not say JSON is accepted).
+
+</Tab>
+<Tab title="PostHog" id="posthog">
+
+Rule 4 with the exact `…_TRACES_ENDPOINT`, or rule 2 with PostHog's exporter. Protocol: JSON or protobuf.
+
+</Tab>
+<Tab title="Sentry" id="sentry">
+
+Rule 3: Sentry's provider, once `enableOpenTelemetrySetup` registers it. Sentry's provider sends; there is no protocol
+to set.
+
+</Tab>
+<Tab title="Traceloop" id="traceloop">
+
+Rule 4. Protocol: protobuf (JSON is not stated).
+
+</Tab>
+<Tab title="Vercel" id="vercel">
+
+Rule 3: the provider `registerOTel` registers. Its own exporter defaults to `http/protobuf` and has no gRPC.
+
+</Tab>
+<Tab title="W&B Weave" id="weave">
+
+Rule 4. Protocol: protobuf only.
+
+</Tab>
+</Tabs>
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="Ignore or require the app's provider">
+    Pass `tracerProvider: "own"` to ignore a provider the app registered, or `"global"` to require it: the layer is
+    then off, with one error naming the fix, when there is none.
+  </AccordionItem>
+  <AccordionItem title="The browser's spans under rules 1 and 3">
+    The [relay](/observability/relay) sends what pages post to the same place as the server's spans. Under rules 1
+    and 3, when an OTLP target resolves too (`exporters`, or the `OTEL_EXPORTER_OTLP_*` variables your app's own
+    setup often reads already), relayed spans go straight to it with the browser's own span ids, while the server's
+    spans keep going through the app's provider as children of the browser's run span: one trace either way. With no
+    target they are re-created through the app's provider, with new ids. [`relayThrough`](/observability/relay-through)
+    chooses between the two.
+  </AccordionItem>
+  <AccordionItem title="One `chat` span per step">
+    An app that registered `@ai-sdk/otel` itself would record every model step a second time into the same provider
+    under rules 1 and 3. For the chat's own calls the layer leaves that integration out and says so once;
+    [`appIntegrations`](/observability/app-integrations) changes that.
+  </AccordionItem>
+  <AccordionItem title="On serverless hosts">
+    Spans are exported after the answer has streamed. The chat handler and the relay hand the export to the host's
+    `waitUntil` when they find one (an argument with `waitUntil`, such as a Worker's `ctx`, or Vercel's request
+    context), so the function stays alive until the batch is sent. On a host without it, the batch is sent by a
+    timer or with the next request.
+  </AccordionItem>
+</Accordion>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="otlp" href="/observability/otlp" icon="send">
+    One OTLP destination in code: a URL, a protocol, headers.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

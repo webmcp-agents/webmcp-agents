@@ -1,6 +1,16 @@
 import { userEvent } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanupFixtures, cursorVisible, fixture, modelContext, recordEvents, resultText, toolForm, uniqueName, until } from "./test-utils";
+import {
+  cleanupFixtures,
+  cursorVisible,
+  fixture,
+  modelContext,
+  recordEvents,
+  resultText,
+  toolForm,
+  uniqueName,
+  until,
+} from "@webmcp-agents/testing";
 import { UI_HOST_ATTR } from "./user-yield";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
 
@@ -41,12 +51,12 @@ describe("yield to the user", () => {
     cleanupFixtures();
   });
 
-  /** Start a run that types LONG into a text field (~1 s of animation). */
-  async function startTyping(): Promise<{ form: HTMLFormElement; run: Promise<unknown> }> {
+  /** Start a run that types `text` (default LONG) into a text field (~1 s of animation for LONG). */
+  async function startTyping(text = LONG): Promise<{ form: HTMLFormElement; run: Promise<unknown> }> {
     const name = uniqueName("t_type");
     const form = toolForm(name, { fields: '<input name="note" type="text">', answer: "typed" });
     await tick();
-    const run = modelContext().executeTool(name, { note: LONG });
+    const run = modelContext().executeTool(name, { note: text });
     await until(cursorVisible, 3000, "cursor visible");
     return { form, run };
   }
@@ -71,7 +81,8 @@ describe("yield to the user", () => {
   it("by default keeps the cursor while the pointer only moves, and yields to a click", async () => {
     visuals.setYieldToUser({ resumeAfter: RESUME_AFTER });
     const rec = recordEvents();
-    const { run } = await startTyping();
+    // far longer than the hover can take, even on a loaded machine: the run must still be typing when it is checked
+    const { run } = await startTyping(LONG.repeat(8));
     await userEvent.hover(t.farB);
     await sleep(60);
     expect(cursorVisible()).toBe(true);

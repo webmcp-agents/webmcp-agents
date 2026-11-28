@@ -73,10 +73,10 @@ export function ToolRunner({ store, tool, initial, gone = false, id, onRun }: To
           </button>
         </fieldset>
         <span className="grow" />
-        <CopyButton text={() => toAgentInvokeCode(tool.name, args)} label="Copy as agent.invoke()">
+        <CopyButton text={() => toAgentInvokeCode(tool.name, store.shown(tool.name, args))} label="Copy as agent.invoke()">
           agent.invoke()
         </CopyButton>
-        <CopyButton text={() => toExecuteToolCode(tool.name, args)} label="Copy as executeTool()">
+        <CopyButton text={() => toExecuteToolCode(tool.name, store.shown(tool.name, args))} label="Copy as executeTool()">
           executeTool()
         </CopyButton>
       </div>

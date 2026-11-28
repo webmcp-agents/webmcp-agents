@@ -9,7 +9,7 @@
     "registry": "shadcn build registry/registry.json --cwd ../.. --output apps/docs/public/r",
     "build": "pnpm run registry && blume build",
     "preview": "blume preview",
-    "test": "blume validate && node scripts/check-docs.mjs",
+    "test": "blume validate && node scripts/check-docs.mjs && node scripts/generate-partials.mjs --check",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

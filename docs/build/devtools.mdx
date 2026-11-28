@@ -122,6 +122,8 @@ Open `/orders`, press **Alt+Shift+A**, and find `list_orders`: **Match** shows `
 set `limit` to 1 and press **Run**: the answer appears under the form and on the Timeline. Go back to `/`: the tool is
 listed **off here**.
 
+The same calls from a Playwright test: [End to end](/testing/end-to-end).
+
 ## Options you'll use most
 
 The provider's `devtools` prop: `false` turns the panel off, an object configures it (still in development only).
@@ -143,7 +145,21 @@ Every option: [`<WebAgentsProvider devtools>`](/reference/react/web-agents-provi
 
 ## Next
 
-That is the whole path. From here, learn why it works and what else the packages do:
+That is the whole path. Before it goes online, lock the chat's endpoint, test what you built and watch it run:
+
+<CardGroup cols={3}>
+  <Card title="Security" href="/security" icon="shield">
+    Sessions, a tool allowlist, a bot check and limits, so `/api/chat` serves only your page.
+  </Card>
+  <Card title="Testing" href="/testing" icon="flask-conical">
+    Tools, confirmations, agents, the chat and the endpoint, with no model and no key.
+  </Card>
+  <Card title="Observability" href="/observability" icon="activity">
+    Every agent turn as one OpenTelemetry trace, in the backend you already use.
+  </Card>
+</CardGroup>
+
+And to learn why it works and what else the packages do:
 
 <CardGroup cols={2}>
   <Card title="Concepts" href="/concepts/how-it-works" icon="lightbulb">

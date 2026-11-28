@@ -1,0 +1,18 @@
+# The Collector in front of Phoenix for `pnpm capture:backend phoenix`: OTLP over HTTP in (JSON, as the app sends it),
+# protobuf out to Phoenix, which accepts nothing else.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  batch: {}
+exporters:
+  otlp_http:
+    endpoint: http://host.docker.internal:6006
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_http]

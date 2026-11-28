@@ -1,0 +1,208 @@
+---
+title: Send traces to IBM Instana
+description: "Six steps to agent traces in IBM Instana and its GenAI views, agentless or through the host agent."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: IBM Instana
+---
+
+<RememberBackend name="IBM Instana" />
+
+:::note[Not run by us]
+No Instana tenant and no host agent. Written from IBM's Instana docs on 2026-11-25. The generic path it uses (`http/protobuf` with headers from the environment, resource attributes) was run against a local Collector.
+:::
+
+Six steps, from the packages to one trace per turn in IBM Instana: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus the protobuf exporter: IBM's docs do not say whether OTLP JSON is accepted, so this setup sends protobuf. There is no Instana code, type or package in this library.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @opentelemetry/exporter-trace-otlp-proto
+```
+
+## Set the environment
+
+<Tabs sync={false}>
+<Tab title="Agentless">
+
+Straight to the Instana backend's OTLP acceptor:
+
+**`.env`**
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/instana-agentless.env</include>
+
+</Tab>
+<Tab title="Through the host agent">
+
+The agent's own OTLP receiver (4318 for HTTP, 4317 for gRPC) holds the key. In Kubernetes its service is `instana-agent` in the namespace `instana-agent`; the Helm chart and the Operator turn OTLP ingestion on by default.
+
+**`.env`**
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/instana-agent.env</include>
+
+</Tab>
+</Tabs>
+
+<Accordion>
+  <AccordionItem title="Endpoint forms">
+
+  The current SaaS table lists `https://otlp-http-<region>-saas.instana.io:443` (and `otlp-grpc-<region>-saas.instana.io:443`) for the regions blue, red, green, orange, coral, teal, mizu and pumpkin. The same page's examples also use `https://otlp-<region>-saas.instana.io:4318`. Self-hosted Instana uses `otlp-http.<base domain>` on 443.
+
+  </AccordionItem>
+  <AccordionItem title="Identity">
+
+  Agentless data must be tied to an entity: the `x-instana-key` header (the agent key) plus a `host.id`, `faas.id` or `device.id` resource attribute, or else the `x-instana-host` header. IBM's page is not consistent on whether `host.name` also counts. On serverless hosts set one explicitly, as both examples do.
+
+  </AccordionItem>
+  <AccordionItem title="On an edge runtime">
+
+  Where the protobuf package does not load, send to a Collector or to the host agent instead.
+
+  </AccordionItem>
+</Accordion>
+
+## Add the server layer
+
+The layer reads the environment from step 2.
+
+<View title="Vite">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/shared/lib/observability.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/lib/observability.ts"'>/_examples/astro/src/lib/observability.ts</include>
+
+</View>
+
+The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+<Expandable title="Written out in code">
+
+The agentless setup without the environment:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/instana.ts</include>
+
+</Expandable>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in IBM Instana
+
+Start the app and send one message in the chat. Instana's GenAI views are built on OpenLLMetry and need the resource attribute `INSTANA_PLUGIN=genai`, which both examples set; they read `gen_ai.*` attributes, so keep the default `conventions: "genai"`. A `403` usually means a host for another region than your tenant's; data that is accepted but never shows up is the usual sign of a missing identity. Instana's own website monitoring (EUM) is separate and can run beside the relay.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [Sending OpenTelemetry data to the Instana backend](https://www.ibm.com/docs/en/instana-observability/saas?topic=instana-backend): endpoints, regions, headers, identity
+- [IBM Community: OTLP 403 on /v1/traces](https://community.ibm.com/community/user/discussion/otlp-error-403-forbidden-v1traces)
+
+Not confirmed: OTLP JSON acceptance; what happens without an identity; which attributes each GenAI view reads (if one stays empty, map what it needs in a Collector `transform` processor rather than in the app).
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=instana" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for IBM Instana.
+</Card>

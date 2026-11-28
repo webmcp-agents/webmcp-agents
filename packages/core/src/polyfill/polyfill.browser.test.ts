@@ -1,19 +1,10 @@
 import { userEvent } from "vitest/browser";
 import { afterEach, describe, expect, it } from "vitest";
+import { fixture as mount, uniqueName as unique } from "@webmcp-agents/testing";
 import { installWebMCPPolyfill } from "./index";
 
 const mc = installWebMCPPolyfill() as ModelContext;
 const tick = () => new Promise((r) => setTimeout(r, 0));
-let uid = 0;
-const unique = (base: string) => `${base}_${++uid}`;
-
-function mount(html: string): HTMLElement {
-  const root = document.createElement("div");
-  root.className = "test-fixture";
-  root.innerHTML = html;
-  document.body.append(root);
-  return root;
-}
 
 /** A form that answers agent submits with `answer` and never navigates. */
 function answering(form: HTMLFormElement, answer = "ok"): HTMLFormElement {
@@ -211,6 +202,7 @@ describe("imperative tools", () => {
       },
     });
     const res = (await mc.executeTool(name, {})) as ModelContextToolResult;
+    mc.unregisterTool?.(name);
     expect(res.isError).toBe(true);
     expect(text(res)).toBe("nope");
   });

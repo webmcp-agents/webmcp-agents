@@ -15,7 +15,7 @@ beforeAll(async () => {
     configFile: false,
     root: mkdtempSync(join(tmpdir(), "wa-chat-")),
     logLevel: "silent",
-    server: { port: 0 },
+    server: { port: 0, host: "127.0.0.1" },
     plugins: [
       webAgentsChatDev({
         handler: async (req) => {
@@ -45,7 +45,7 @@ beforeAll(async () => {
     ],
   });
   await server.listen();
-  base = `http://localhost:${(server.httpServer!.address() as AddressInfo).port}`;
+  base = `http://127.0.0.1:${(server.httpServer!.address() as AddressInfo).port}`;
 });
 
 afterAll(() => server.close());
@@ -86,7 +86,7 @@ describe("webAgentsChatDev secret guard", () => {
       configFile: false,
       root,
       logLevel: "silent",
-      server: { port: 0 },
+      server: { port: 0, host: "127.0.0.1" },
       plugins: [webAgentsChatDev({ handler: async () => new Response("ok"), secretGuard })],
     });
 
@@ -110,12 +110,12 @@ describe("webAgentsChatDev default handler", () => {
       configFile: false,
       root,
       logLevel: "silent",
-      server: { port: 0 },
+      server: { port: 0, host: "127.0.0.1" },
       plugins: [webAgentsChatDev({ agents: [defineWebAgent({ id: "shopper", instructions: "s" })] })],
     });
     await dev.listen();
     const port = (dev.httpServer!.address() as AddressInfo).port;
-    expect(await (await fetch(`http://localhost:${port}/api/chat`)).json()).toEqual({
+    expect(await (await fetch(`http://127.0.0.1:${port}/api/chat`)).json()).toEqual({
       enabled: true,
       model: "openai/gpt-5.5",
       provider: "openai",

@@ -1,0 +1,43 @@
+---
+title: Confirmations and yielding
+description: "Test that a confirm-gated tool waits for the person's click, runs once they click, and is cancelled when they move on."
+sidebar:
+  label: Confirmations and yielding
+related:
+  - /build/confirm-before-it-runs
+  - /testing/test-a-tool-on-the-page
+---
+
+A tool with `requireConfirmation` parks: the cursor points at the button and waits for the person to click it. Three
+things are worth a test: nothing happens before the click, the tool runs after it, and the call ends cleanly when the
+person does something else.
+
+## A complete example
+
+The checkout button, whose tool waits for the person:
+
+<include meta='title="components/checkout.tsx"'>/_examples/testing/app/checkout.tsx</include>
+
+Its tests:
+
+<include meta='title="checkout.browser.test.tsx"'>/_examples/testing/confirmation.browser.test.tsx</include>
+
+Start the call without awaiting it, wait until it has parked, then act as the person. `user.confirm("Place order")`
+is a trusted click on the parked control (with no name, it clicks whatever control the call waits on).
+`user.moveOn()` is a trusted click somewhere else on the page.
+
+## What each matcher checks
+
+- `toHaveParked("place_order")`: the call reached its waiting state. Use it with `expect.poll`, since parking happens
+  after the cursor has moved.
+- `toBeToolResult()` on the awaited call: it ran after the click.
+- `toBeToolError("cancelled")`: the person moved on, and the agent was told so. A gate nobody answers ends with
+  `needs_user` after ten seconds.
+- `toHaveYielded("pointer")`: the cursor got out of the way of the person. The reason is `pointer`, `keyboard`,
+  `wheel` or `touch`.
+
+## See also
+
+- [Confirm before it runs](/build/confirm-before-it-runs)
+- [`toHaveParked`](/reference/testing/to-have-parked), [`toHaveYielded`](/reference/testing/to-have-yielded),
+  [`user`](/reference/testing/user)

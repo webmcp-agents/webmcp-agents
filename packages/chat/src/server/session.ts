@@ -11,6 +11,7 @@
  * rest. Web Crypto only, so it runs in Node 22+, edge runtimes and `vite dev`.
  */
 
+import type { Redactor } from "@webmcp-agents/core/redact";
 import { type TurnstileOptions, turnstileVerify } from "./turnstile";
 
 /** Options for chat sessions (`createChatHandler({ session })`). */
@@ -89,7 +90,11 @@ export interface SessionKeeper {
 }
 
 /** Make a `SessionKeeper`. Throws when `secret` is shorter than 32 characters (a typo'd env var fails loudly). */
-export function createSessionKeeper(options: ChatSessionOptions, env: Record<string, string | undefined>): SessionKeeper {
+export function createSessionKeeper(
+  options: ChatSessionOptions,
+  env: Record<string, string | undefined>,
+  redact?: Redactor,
+): SessionKeeper {
   const ttl = options.ttl ?? 1800;
   const maxAge = options.maxAge ?? 86_400;
   const name = options.cookie ?? DEFAULT_COOKIE;
@@ -97,7 +102,7 @@ export function createSessionKeeper(options: ChatSessionOptions, env: Record<str
   if (configured !== undefined && configured.length < MIN_SECRET) {
     throw new TypeError(`[web-agents/chat] the session secret must be at least ${MIN_SECRET} characters (WEB_AGENTS_SESSION_SECRET).`);
   }
-  const turnstile = options.turnstile ? turnstileVerify(options.turnstile === true ? {} : options.turnstile, env) : undefined;
+  const turnstile = options.turnstile ? turnstileVerify(options.turnstile === true ? {} : options.turnstile, env, redact) : undefined;
   const allowed = async (req: Request): Promise<boolean> =>
     (!options.verify || (await options.verify(req))) && (!turnstile || (await turnstile(req)));
   // no secret configured: one random key for this process (dev, a single server)

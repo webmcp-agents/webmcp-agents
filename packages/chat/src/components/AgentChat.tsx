@@ -9,23 +9,39 @@
  * here never counts as "the user took over" for the agent cursor.
  */
 import { UI_HOST_ATTR } from "@webmcp-agents/core";
-import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal, flushSync } from "react-dom";
 import type { WebAgent } from "../agent";
 import { useAgentChat } from "../session/use-agent-chat";
 import type { ChatRestoreSnapshots } from "../session/restore-snapshot";
 import type { AgentAdapter } from "../types";
-import { AdapterSwitcher } from "./AdapterSwitcher";
 import { Composer } from "./Composer";
 import { ResizeHandle, useDock } from "./dock";
 import { DownloadCard } from "./DownloadCard";
-import { ChatIcon, CloseIcon, ResetIcon } from "./icons";
+import { type ChatContextValue, ChatProvider, partAttrs, SR_ONLY, slotProps } from "../customize/context";
+import { chatErrorCode } from "../customize/errors";
+import { isSchemedTheme, schemedThemeCss, themeToCssVars } from "../customize/theme";
+import { directionOf, safeLocale } from "../customize/translate";
+import type { ChatCustomization, ChatTheme } from "../customize/types";
+import { AdapterSwitcher, adapterLabel, unavailableReason } from "./AdapterSwitcher";
+import { Icon } from "./icons";
 import { MessageList } from "./MessageList";
 import { ModelPicker } from "./ModelPicker";
 import { Suggestions } from "./Suggestions";
 
-/** Props of `<AgentChat>`. */
-export interface AgentChatProps extends ChatRestoreSnapshots {
+/** Props of `<AgentChat>`: what it runs, where it sits, and how it looks and reads (`ChatCustomization`). */
+export interface AgentChatProps extends ChatRestoreSnapshots, ChatCustomization {
   /** What runs the model. Default: one shared `createCloudAdapter()` (your `/api/chat`), when `adapters` is not given either. */
   adapter?: AgentAdapter;
   /** Several agents: the panel shows a switcher (cloud, in-browser…). The first is the default. */
@@ -35,7 +51,7 @@ export interface AgentChatProps extends ChatRestoreSnapshots {
    * the same definition on the server (`createChatHandler({ agents })`). Default: every page tool, no instructions.
    */
   agent?: WebAgent;
-  /** Panel title. Default "Assistant". */
+  /** Panel title. Default: the catalog's `title` ("Assistant"). Wins over `messages.title`. */
   title?: string;
   /** Open on first render. Default false. */
   defaultOpen?: boolean;
@@ -48,7 +64,7 @@ export interface AgentChatProps extends ChatRestoreSnapshots {
   layout?: "docked" | "floating";
   /** Starter prompts for an empty conversation; default: derived from the page's tools. `false` hides them. */
   suggestions?: string[] | false;
-  /** Extra class on the host element (theme with the `--wa-chat-*` properties). */
+  /** Extra class on the host element (theme with the `--wa-chat-*` properties). Same as `classNames.root`. */
   className?: string;
   /**
    * sessionStorage key for the conversation; `false` keeps it in memory. Default "web-agents:chat". Whether the panel
@@ -90,7 +106,16 @@ function useOpen(defaultOpen: boolean, key: string | false): [boolean, (open: bo
   return [open, change];
 }
 
-function useHost(className: string | undefined, position: string): HTMLElement | null {
+/** The page's language and direction (`<html lang>`, `<html dir>`), read in the browser. */
+function pageLanguage(): { lang?: string; dir?: "ltr" | "rtl" } {
+  if (typeof document === "undefined") return {};
+  const html = document.documentElement;
+  const dir = html.getAttribute("dir")?.toLowerCase();
+  return { lang: html.lang || undefined, dir: dir === "rtl" || dir === "ltr" ? dir : undefined };
+}
+
+/** The body-level host the chat renders into (so it sits above the page, outside its layout). */
+function useHost(): HTMLElement | null {
   const [host, setHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
     const el = document.createElement("div");
@@ -99,12 +124,67 @@ function useHost(className: string | undefined, position: string): HTMLElement |
     setHost(el);
     return () => el.remove();
   }, []);
-  useEffect(() => {
-    if (!host) return;
-    host.className = ["wa-chat", className].filter(Boolean).join(" ");
-    host.dataset.position = position;
-  }, [host, className, position]);
   return host;
+}
+
+/** CSS properties whose numbers take no unit (React's list, cut to what a chat root plausibly sets). */
+const UNITLESS = new Set(["opacity", "zIndex", "flex", "flexGrow", "flexShrink", "order", "fontWeight", "lineHeight", "zoom"]);
+
+/** What the host carries: classes, hooks, direction, scheme and the theme's variables. */
+interface HostAttributes {
+  className: string;
+  position: string;
+  layout: string;
+  dir: "ltr" | "rtl";
+  lang: string;
+  colorScheme: ChatCustomization["colorScheme"];
+  themeId?: string;
+  vars: Record<string, string>;
+  style?: CSSProperties;
+}
+
+/**
+ * Keep the host's attributes in sync, before paint (a layout effect), so the first frame already has the theme. Only
+ * what this chat set is removed again: an app's own attributes on the host are left alone.
+ */
+function useHostAttributes(host: HTMLElement | null, attrs: HostAttributes): void {
+  const applied = useRef<string[]>([]);
+  const forced = useRef(false);
+  const { className, position, layout, dir, lang, colorScheme, themeId, vars, style } = attrs;
+  useLayoutEffect(() => {
+    if (!host) return;
+    host.className = className;
+    if (!host.className) host.removeAttribute("class");
+    host.setAttribute("data-wa-part", "root");
+    host.dataset.position = position;
+    host.dataset.layout = layout;
+    host.dir = dir;
+    host.lang = lang;
+    // "auto" leaves `data-theme` to the page (0.4.0); only a value this chat set is taken back
+    if (colorScheme === "light" || colorScheme === "dark") {
+      host.dataset.theme = colorScheme;
+      forced.current = true;
+    } else if (forced.current) {
+      delete host.dataset.theme;
+      forced.current = false;
+    }
+    if (themeId) host.dataset.waTheme = themeId;
+    else delete host.dataset.waTheme;
+    // inline: the theme's variables, then the page's `styles.root`
+    for (const name of applied.current) host.style.removeProperty(name);
+    const set: string[] = [];
+    for (const [name, value] of Object.entries(vars)) {
+      host.style.setProperty(name, value);
+      set.push(name);
+    }
+    for (const [key, value] of Object.entries(style ?? {})) {
+      if (value === undefined || value === null) continue;
+      const name = key.startsWith("--") ? key : key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+      host.style.setProperty(name, typeof value === "number" && !UNITLESS.has(key) && !key.startsWith("--") ? `${value}px` : String(value));
+      set.push(name);
+    }
+    applied.current = set;
+  }, [host, className, position, layout, dir, lang, colorScheme, themeId, vars, style]);
 }
 
 /** The chat launcher and panel. Render it inside `<WebAgentsProvider>` so the agent sees the tools the page has on. */
@@ -112,7 +192,7 @@ export function AgentChat({
   adapter,
   adapters,
   agent,
-  title = "Assistant",
+  title: titleProp,
   defaultOpen = false,
   position = "bottom-right",
   layout = "docked",
@@ -121,18 +201,69 @@ export function AgentChat({
   storageKey,
   getSnapshot,
   applySnapshot,
+  theme,
+  colorScheme,
+  messages,
+  locale: localeProp,
+  dir: dirProp,
+  classNames,
+  styles,
+  components,
+  unstyled = false,
 }: AgentChatProps) {
-  // one state source, shared with custom UIs: the adapter choice, the session, the adapter's status and models
-  const chat = useAgentChat({ adapter, adapters, agent, storageKey, getSnapshot, applySnapshot });
-  const { adapters: all, adapter: current, selectAdapter: choose, session } = chat;
+  // ---------- 1. language and direction: the props, else the page's ----------
+  const [page, setPage] = useState<{ lang?: string; dir?: "ltr" | "rtl" }>({});
+  useLayoutEffect(() => setPage(pageLanguage()), []);
+  const locale = safeLocale(localeProp ?? page.lang);
+  const dir = dirProp ?? (localeProp ? directionOf(locale) : (page.dir ?? (page.lang ? directionOf(locale) : "ltr")));
 
-  const host = useHost(className, position);
-  const side = position === "bottom-left" ? "left" : "right";
+  // one state source, shared with custom UIs: the adapter choice, the session, the adapter's status and models
+  const chat = useAgentChat({ adapter, adapters, agent, storageKey, getSnapshot, applySnapshot, messages, locale });
+  const { adapters: all, adapter: current, selectAdapter: choose, session, t } = chat;
+  const title = titleProp ?? t("title");
+
+  // ---------- 2. the context every part reads ----------
+  const ctx = useMemo<ChatContextValue>(
+    () => ({
+      t,
+      messages: t.messages,
+      locale: t.locale,
+      dir,
+      classNames: classNames ?? {},
+      styles: styles ?? {},
+      components: components ?? {},
+      unstyled,
+    }),
+    [t, dir, classNames, styles, components, unstyled],
+  );
+  const part = (name: Parameters<typeof partAttrs>[1], builtIn?: string, style?: CSSProperties) => partAttrs(ctx, name, builtIn, style);
+
+  // ---------- 3. the host: classes, hooks, theme ----------
+  const host = useHost();
+  const themeKey = useId().replace(/[^\w-]/g, "");
+  const schemed = !unstyled && theme ? isSchemedTheme(theme) : false;
+  const themeCss = useMemo(
+    () =>
+      schemed && theme ? schemedThemeCss(theme as { light?: ChatTheme; dark?: ChatTheme }, `.wa-chat[data-wa-theme="${themeKey}"]`) : "",
+    [schemed, theme, themeKey],
+  );
+  const vars = useMemo(() => (!unstyled && theme && !schemed ? themeToCssVars(theme as ChatTheme) : {}), [unstyled, theme, schemed]);
+  // the physical side the dock takes: `position` read in the chat's own direction
+  const side = (position === "bottom-left") === (dir === "rtl") ? "right" : "left";
+  useHostAttributes(host, {
+    className: [unstyled ? undefined : "wa-chat", className, classNames?.root].filter(Boolean).join(" "),
+    position,
+    layout,
+    dir,
+    lang: t.locale,
+    colorScheme,
+    themeId: themeCss ? themeKey : undefined,
+    vars,
+    style: styles?.root,
+  });
+
   const [open, setOpen] = useOpen(defaultOpen, storageKey === false ? false : `${storageKey ?? "web-agents:chat"}:open`);
-  const dock = useDock(open && layout === "docked", side);
-  useEffect(() => {
-    if (host) host.dataset.layout = layout;
-  }, [host, layout]);
+  const dock = useDock(open && layout === "docked", side, host);
   const panelId = useId();
   const titleId = useId();
   const launcherRef = useRef<HTMLButtonElement>(null);
@@ -210,21 +341,23 @@ export function AgentChat({
     }
   }
 
+  // ---------- 4. the adapter's state, worded ----------
   const status = session.adapterStatus;
+  const percent = (progress: number) => ({ percent: Math.round(progress * 100), formatted: t.format.percent(progress) });
   const unavailable =
     status.state === "ready"
       ? null
       : status.state === "unavailable"
-        ? status.reason
+        ? unavailableReason(status, t)
         : status.state === "error"
-          ? status.error
+          ? status.error || t("errors.unknown")
           : status.state === "loading"
             ? status.progress === undefined
-              ? "Connecting to the assistant…"
-              : `Loading the model… ${Math.round(status.progress * 100)}%`
+              ? t("status.connecting")
+              : t("download.loading", percent(status.progress))
             : status.state === "downloading"
-              ? `Downloading the model… ${Math.round(status.progress * 100)}%`
-              : "Download the model to start.";
+              ? t("download.downloading", percent(status.progress))
+              : t("status.needsDownload");
 
   // ---------- model download (opt-in, cancellable) ----------
   const download = useRef<AbortController | null>(null);
@@ -239,8 +372,8 @@ export function AgentChat({
   const other = all.find((a) => a.id !== current.id);
   // ---------- model picker (adapters that offer several models) ----------
   const models = chat.models;
-  const busy =
-    session.status === "streaming" || status.state === "downloading" || (status.state === "loading" && status.progress !== undefined);
+  const streaming = session.status === "streaming";
+  const busy = streaming || status.state === "downloading" || (status.state === "loading" && status.progress !== undefined);
   const picker =
     models.length > 1 ? (
       <ModelPicker models={models} disabled={busy} onSelect={(id) => void chat.selectModel?.(id).catch(() => {})} />
@@ -258,87 +391,149 @@ export function AgentChat({
         onDownload={startDownload}
         onCancel={() => download.current?.abort()}
         onUseOther={other ? () => choose(other.id) : undefined}
-        otherLabel={other?.label}
+        otherLabel={other ? adapterLabel(other, t) : undefined}
       />
     ) : null;
 
   const last = session.messages.at(-1);
   const busyTool = last?.parts.some((p) => p.type === "tool" && (p.state === "running" || p.state === "awaiting-confirmation"));
-  const thinking = session.status === "streaming" && !busyTool && !(last?.role === "assistant" && last.parts.at(-1)?.type === "text");
+  const thinking = streaming && !busyTool && !(last?.role === "assistant" && last.parts.at(-1)?.type === "text");
   const chips = suggestions === false ? [] : (suggestions ?? chat.suggestions);
+  // a tool parked on the page for the person's click: said once for screen readers (the card changes in place)
+  const parked = last?.parts.find((p) => p.type === "tool" && p.state === "awaiting-confirmation");
+  const announcement = parked?.type === "tool" ? t("live.waitingForYou", { tool: parked.name }) : "";
+  const errorCode = session.status === "error" && session.error ? chatErrorCode(session.error.code) : undefined;
 
   if (!host) return null;
-  return createPortal(
+
+  // ---------- 5. the parts, each replaceable ----------
+  const C = ctx.components;
+  const header = C.Header ? (
+    <C.Header
+      {...slotProps(ctx, "header", "wa-chat__header")}
+      title={title}
+      titleId={titleId}
+      close={close}
+      reset={reset}
+      canReset={session.messages.length > 0}
+    />
+  ) : (
+    <header {...part("header", "wa-chat__header")}>
+      <h2 {...part("title")} id={titleId}>
+        {title}
+      </h2>
+      {session.messages.length > 0 && (
+        <button
+          type="button"
+          {...part("newChat", "wa-chat__icon")}
+          onClick={reset}
+          aria-label={t("header.newChat")}
+          title={t("header.newChat")}
+        >
+          <Icon name="reset" />
+        </button>
+      )}
+      <button type="button" {...part("close", "wa-chat__icon")} onClick={close} aria-label={t("header.close")}>
+        <Icon name="close" />
+      </button>
+    </header>
+  );
+
+  const emptyChildren: ReactNode = (
     <>
+      {chips.length > 0 && !unavailable && <Suggestions items={chips} onPick={send} />}
+      {downloadCard}
+    </>
+  );
+  const emptyTitle = t("empty.title");
+  const empty = C.Empty ? (
+    <C.Empty {...slotProps(ctx, "empty", "wa-chat__empty", emptyChildren)} />
+  ) : (
+    <div {...part("empty", "wa-chat__empty")}>
+      {emptyTitle && <h3 {...part("emptyTitle", "wa-chat__empty-title")}>{emptyTitle}</h3>}
+      <p {...part("emptyHint")}>{t("empty.hint")}</p>
+      {emptyChildren}
+    </div>
+  );
+
+  const retry = errorCode && errorCode !== "chat_disabled" ? session.retry : undefined;
+  const error = !errorCode ? null : C.Error ? (
+    <C.Error {...slotProps(ctx, "error", "wa-chat__error")} code={errorCode} retry={retry} />
+  ) : (
+    <div {...part("error", "wa-chat__error")} role="alert" data-state={errorCode}>
+      <p {...part("errorText")}>{t(`errors.${errorCode}`)}</p>
+      {retry && (
+        <button type="button" {...part("retry", "wa-chat__link")} onClick={retry}>
+          {t("retry")}
+        </button>
+      )}
+    </div>
+  );
+
+  const toggle = () => (open ? close() : setOpen(true));
+  const launcherLabel = t(open ? "launcher.close" : "launcher.open", { title });
+  const launcher = C.Launcher ? (
+    <C.Launcher {...slotProps(ctx, "launcher", "wa-chat__launcher")} open={open} toggle={toggle} busy={streaming} />
+  ) : (
+    <button
+      ref={launcherRef}
+      type="button"
+      {...part("launcher", "wa-chat__launcher")}
+      aria-expanded={open}
+      aria-controls={panelId}
+      aria-label={launcherLabel}
+      onClick={toggle}
+      data-open={open}
+      data-busy={streaming || undefined}
+    >
+      <Icon name={open ? "close" : "chat"} />
+    </button>
+  );
+
+  return createPortal(
+    <ChatProvider value={ctx}>
+      {themeCss && <style data-wa-part="root">{themeCss}</style>}
       <div
         id={panelId}
-        className="wa-chat__panel"
+        {...part("panel", "wa-chat__panel", layout === "docked" ? ({ "--wa-chat-width": `${dock.width}px` } as CSSProperties) : undefined)}
         role="dialog"
         aria-modal="false"
         aria-labelledby={titleId}
         data-state={open ? "open" : "closed"}
+        data-open={open}
+        data-busy={streaming || undefined}
         hidden={!open}
         onKeyDown={onKeyDown}
-        style={layout === "docked" ? ({ "--wa-chat-width": `${dock.width}px` } as CSSProperties) : undefined}
       >
         {dock.active && <ResizeHandle side={side} width={dock.width} onResize={dock.setWidth} />}
-        <header className="wa-chat__header">
-          <h2 id={titleId}>{title}</h2>
-          {session.messages.length > 0 && (
-            <button type="button" className="wa-chat__icon" onClick={reset} aria-label="New chat" title="New chat">
-              <ResetIcon />
-            </button>
-          )}
-          <button type="button" className="wa-chat__icon" onClick={close} aria-label="Close assistant">
-            <CloseIcon />
-          </button>
-        </header>
-        {all.length > 1 && (
-          <AdapterSwitcher adapters={all} value={current.id} disabled={session.status === "streaming"} onChange={choose} />
-        )}
+        {header}
+        {all.length > 1 && <AdapterSwitcher adapters={all} value={current.id} disabled={streaming} onChange={choose} />}
         {picker}
 
         {session.messages.length === 0 ? (
-          <div className="wa-chat__empty">
-            <p>
-              Ask me to do something on this page. You'll see each step happen, and anything that orders, books or deletes waits for your
-              click.
-            </p>
-            {chips.length > 0 && !unavailable && <Suggestions items={chips} onPick={send} />}
-            {downloadCard}
-          </div>
+          empty
         ) : (
           <>
-            <MessageList
-              messages={session.messages}
-              thinking={thinking}
-              busy={session.status === "streaming"}
-              onRestore={(id) => void restore(id)}
-            />
+            <MessageList messages={session.messages} thinking={thinking} busy={streaming} onRestore={(id) => void restore(id)} />
             {downloadCard}
           </>
         )}
 
-        {session.status === "error" && session.error && (
-          <div className="wa-chat__error" role="alert">
-            <p>{session.error.message}</p>
-            {session.error.code !== "chat_disabled" && (
-              <button type="button" className="wa-chat__link" onClick={session.retry}>
-                Try again
-              </button>
-            )}
-          </div>
-        )}
+        {error}
 
         {restoredNote && (
-          <p className="wa-chat__restored" role="status">
-            Restored — edit and send again.
+          <p {...part("restored", "wa-chat__restored")} role="status">
+            {t("restore.done")}
           </p>
         )}
 
+        <p {...part("announcer", "wa-chat__sr", unstyled ? SR_ONLY : undefined)} aria-live="polite">
+          {announcement}
+        </p>
+
         <Composer
           inputRef={inputRef}
-          streaming={session.status === "streaming"}
+          streaming={streaming}
           unavailable={unavailable}
           value={draft}
           onChange={setDraft}
@@ -347,19 +542,8 @@ export function AgentChat({
         />
       </div>
 
-      <button
-        ref={launcherRef}
-        type="button"
-        className="wa-chat__launcher"
-        aria-expanded={open}
-        aria-controls={panelId}
-        aria-label={open ? `Close ${title.toLowerCase()}` : `Open ${title.toLowerCase()}`}
-        onClick={() => (open ? close() : setOpen(true))}
-        data-busy={session.status === "streaming" || undefined}
-      >
-        {open ? <CloseIcon /> : <ChatIcon />}
-      </button>
-    </>,
+      {launcher}
+    </ChatProvider>,
     host,
   );
 }

@@ -1,0 +1,85 @@
+---
+title: otlp
+description: "One OTLP destination in code for defineObservability's exporters: a base or exact URL, a protocol, headers and a timeout."
+sidebar:
+  label: "otlp"
+related:
+  - /observability/where-spans-go
+  - /observability/collector
+  - /observability/spans
+---
+
+`otlp()` describes one OTLP destination for `defineObservability`'s `exporters`. You need it only when the environment
+is not enough: a second destination, a URL with a tenant in its path, or values that come from your own config. For a
+single backend, the `OTEL_EXPORTER_OTLP_*` variables describe the same thing with no code.
+
+## Import
+
+```ts
+import { otlp } from "@webmcp-agents/telemetry/server";
+import type { OtlpTarget } from "@webmcp-agents/telemetry/server";
+```
+
+## Example
+
+Two destinations, each with its own URL and key:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/otlp.ts</include>
+
+Give a base `endpoint` (`/v1/traces` is appended) or exact `endpoints.traces` (used as given, query string and tenant
+path included), never both. What a target leaves out comes from the environment.
+
+## Options
+
+<AutoTypeTable path="../../packages/telemetry/src/shared/types.ts" name="OtlpTargetFields" />
+
+| Option | Type | Default |
+|---|---|---|
+| `endpoint` | `string` | `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| `endpoints` | `{ traces: string }` | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` |
+
+## Returns
+
+The `OtlpTarget`, as given (copied).
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="Headers stay with their own URL">
+    `headers` are merged over `OTEL_EXPORTER_OTLP_HEADERS` only when the URL also comes from the environment. A target
+    with its own `endpoint` or `endpoints` gets only its own headers, so the environment's key never reaches another
+    backend.
+  </AccordionItem>
+  <AccordionItem title="A protocol needs its package">
+    `http/json` needs nothing and runs on the edge. `http/protobuf` loads `@opentelemetry/exporter-trace-otlp-proto`,
+    `grpc` loads `@opentelemetry/exporter-trace-otlp-grpc`. A protocol whose package is not installed turns that target
+    off with one error naming the package; the other targets still export.
+  </AccordionItem>
+  <AccordionItem title="`endpoint` and `endpoints` together">
+    A type error. At run time that target is off with an error, and the other targets still export.
+  </AccordionItem>
+  <AccordionItem title="In the browser">
+    [`observeAgents`](/observability/observe-agents) takes an OTLP target too, `http/json` only, with no environment
+    to fall back on: whatever headers it carries are in the page.
+  </AccordionItem>
+  <AccordionItem title="More than one backend">
+    Each exporter adds a request at the end of every turn, and its key lives in your app. To send to two backends,
+    prefer one [Collector](/observability/collector) that fans out.
+  </AccordionItem>
+</Accordion>
+
+:::warning[Never in the page]
+`observeAgents` takes an OTLP target too (`http/json` only, with no environment to fall back on), but whatever headers
+it carries are in the page. Keep keys on the server and let the page post to the relay.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="The relay" href="/observability/relay" icon="arrow-right-left">
+    The endpoint the page's spans go through, with the guard that limits it.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

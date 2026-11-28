@@ -1,0 +1,62 @@
+{
+  "now": "Change archived, specs synced; opening the PR",
+  "waiting": "",
+  "phases": {
+    "0": {
+      "state": "done",
+      "model": "Sonnet 5.5 / medium",
+      "session": "phase-0-tooling",
+      "gate": "pass (lead)",
+      "commit": "235964c, 3cfd546"
+    },
+    "1": {
+      "state": "done",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-1-data-redaction",
+      "gate": "pass (lead)",
+      "commit": "a4fd2cd, 5d0d3de"
+    },
+    "2": {
+      "state": "done",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-2-testing-kit",
+      "gate": "pass (lead)",
+      "commit": "d8a7fb7..4584c9d"
+    },
+    "3": {
+      "state": "done",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-3-chat",
+      "gate": "pass (lead, after loosening one timing test)",
+      "commit": "a2cca10..574a92f"
+    },
+    "4": {
+      "state": "done",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-4-run-telemetry",
+      "gate": "pass (lead)",
+      "commit": "2484bfb..ccdd23d"
+    },
+    "5": {
+      "state": "done",
+      "model": "Opus 5.5 / medium",
+      "session": "phase-5-telemetry",
+      "gate": "pass (lead)",
+      "commit": "ae1da9c..acab5bb"
+    },
+    "6": {
+      "state": "done",
+      "model": "Opus 5.5 (docs) + Sonnet 5.5 (examples) / medium",
+      "session": "phase-6a-docs, phase-6b-examples",
+      "gate": "pass (lead): check, check-exports, e2e",
+      "commit": "aa37fa6..2ce5d67"
+    }
+  },
+  "decisions": [
+    "redact entry budget 1.5 -> 2.75 KB (full feature set kept)",
+    "core budgets: visuals 10.45 -> 10.55 KB, whole 18.5 -> 18.6 KB (sensitive-control check in the cursor)",
+    "events.ts listener-error log stays unredacted (not tool data)",
+    "backends without credentials (LangSmith, LangWatch, Langfuse, Sentry, Instana) ship as unverified recipes; local Collector verified over json, protobuf and grpc",
+    "ecommerce: Arabic toggle moved out of the footer bottom row (the devtools launcher covered it)"
+  ]
+}

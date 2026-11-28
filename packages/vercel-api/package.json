@@ -25,6 +25,7 @@
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.41.0",
     "@webmcp-agents/chat": "workspace:*",
+    "@webmcp-agents/telemetry": "workspace:*",
     "ai": "^7.0.163"
   },
   "devDependencies": {

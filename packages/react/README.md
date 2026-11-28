@@ -196,7 +196,7 @@ A `<form toolname tooldescription>` is a tool as soon as it is in the DOM, with 
 browser. The package types the attributes for JSX (`toolname`, `tooldescription`, `toolautosubmit`,
 `toolparamdescription`), and `useToolAnswer()` keeps a form that hides itself after its own action rendered until the
 agent has its answer. See the
-[Declarative forms guide](https://github.com/mustafaskyer/web-agents/blob/main/docs/more/declarative-forms.mdx).
+[Declarative forms guide](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/declarative-forms.mdx).
 
 ## Writing tool descriptions
 
@@ -212,12 +212,12 @@ Parameters say where a value comes from, with an example: `.describe('The slug a
 "ocean-tee"')`, not "the product". Errors say how to fix the call:
 `throw new WebToolError("invalid_input", 'No product "x". Try search_products.')`. Tell the agent to ask for what the
 person did not give rather than invent it. Full guide:
-[Writing tool descriptions](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/tool-descriptions.mdx).
+[Writing tool descriptions](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/tool-descriptions.mdx).
 
 ## Docs
 
-- [Installation](https://github.com/mustafaskyer/web-agents/blob/main/docs/(get-started)/installation/index.mdx)
-- [Define a tool](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/define-a-tool.mdx): how the cursor finds the control, `target`, what the agent reads
-- [Tools with input](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/tools-with-input.mdx): React Hook Form, TanStack Form, `fill`
-- [Tool lifecycle](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/tool-lifecycle.mdx): StrictMode, routes and calls in flight
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/react/README.md)
+- [Installation](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/(get-started)/installation/index.mdx)
+- [Define a tool](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/define-a-tool.mdx): how the cursor finds the control, `target`, what the agent reads
+- [Tools with input](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/tools-with-input.mdx): React Hook Form, TanStack Form, `fill`
+- [Tool lifecycle](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/tool-lifecycle.mdx): StrictMode, routes and calls in flight
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/react/README.md)

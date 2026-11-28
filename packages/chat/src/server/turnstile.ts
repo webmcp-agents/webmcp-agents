@@ -6,6 +6,7 @@
  * session cookie. A token is single-use and lives 300 s, so it starts exactly one session. Fails closed: no token, a
  * network error, a timeout or a non-success answer start no session.
  */
+import { getRedactor, type Redactor } from "@webmcp-agents/core/redact";
 
 /** Options for `turnstileVerify` (and `session.turnstile`). */
 export interface TurnstileOptions {
@@ -39,11 +40,13 @@ interface SiteverifyAnswer {
 
 /**
  * A `session.verify` that accepts a GET carrying a valid Turnstile token. Throws when no secret is given or found in
- * `env` (a deployment that meant to require Turnstile must not start without it).
+ * `env` (a deployment that meant to require Turnstile must not start without it). A failed check is logged through
+ * `redact` (default: the process's redactor, `getRedactor()`), since a network error can echo the request.
  */
 export function turnstileVerify(
   options: TurnstileOptions = {},
   env: Record<string, string | undefined> = {},
+  redact?: Redactor,
 ): (req: Request) => Promise<boolean> {
   const secret = options.secret ?? env.TURNSTILE_SECRET_KEY;
   if (!secret) throw new TypeError("[web-agents/chat] Turnstile needs its secret key: set TURNSTILE_SECRET_KEY on the server.");
@@ -67,7 +70,7 @@ export function turnstileVerify(
       if (options.action !== undefined && answer.action !== options.action) return false;
       return true;
     } catch (err) {
-      console.warn("[web-agents/chat] Turnstile verification failed:", err);
+      console.warn("[web-agents/chat] Turnstile verification failed:", (redact ?? getRedactor()).error(err));
       return false;
     }
   };

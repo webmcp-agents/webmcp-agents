@@ -12,6 +12,9 @@ import { getDefaultAdapter } from "../adapter/cloud";
 import { toUIMessages } from "../adapter/wire";
 import type { WebAgent } from "../agent";
 import { suggestionsFor } from "../components/Suggestions";
+import { chatErrorCode } from "../customize/errors";
+import { createTranslator } from "../customize/translate";
+import type { ChatErrorCode, ChatMessagesInput, Translate } from "../customize/types";
 import type { AdapterStatus, AgentAdapter, AgentMessage, AgentPart, ModelChoice, ToolDescriptor } from "../types";
 import { canRestoreTo, type SessionError } from "./reducer";
 import type { RestoreResult } from "./restore-journal";
@@ -31,6 +34,21 @@ export interface UseAgentChatOptions extends ChatRestoreSnapshots {
   agent?: WebAgent;
   /** sessionStorage key for the conversation; `false` keeps it in memory. Default "web-agents:chat". */
   storageKey?: string | false;
+  /**
+   * Overrides of the message catalog, for the text this hook words: `error.text` and the built-in suggestion. Missing
+   * keys stay English. Default: English.
+   */
+  messages?: ChatMessagesInput;
+  /** BCP 47, for plurals and number formatting in that text. Default "en" (an invalid tag is "en"). */
+  locale?: string;
+}
+
+/** The last run's failure, worded: the session's error with its catalog code and the catalog's text for it. */
+export interface AgentChatError extends SessionError {
+  /** The failure as a catalog code (`unknown` when the adapter gave none or one the catalog does not have). */
+  code: ChatErrorCode;
+  /** `errors[code]` from the catalog in `messages` and `locale`: what to show the person. */
+  text: string;
 }
 
 /** Where a tool call is, in web-agents terms, for a part that `UIMessage` can't express on its own. */
@@ -48,7 +66,10 @@ export interface AgentChat {
   messages: UIMessage[];
   /** AI SDK `ChatStatus` names: `submitted` while the first part is awaited, `streaming`, `ready`, `error`. */
   status: "submitted" | "streaming" | "ready" | "error";
-  error?: SessionError;
+  /** The last run's failure: `text` is what to show (from the catalog, by code); `message` is the adapter's own words. */
+  error?: AgentChatError;
+  /** The translate function for `messages` and `locale`, for a custom UI's own strings. */
+  t: Translate;
   sendMessage(input: { text: string }): void;
   stop(): void;
   /** Retry: resume the interrupted turn from its last finished tool call (nothing is done twice). */
@@ -109,7 +130,17 @@ function indexToolParts(messages: readonly AgentMessage[], into = new Map<string
 }
 
 /** A conversation with one of `adapters` about this page, as AI SDK UI messages (what `<AgentChat>` renders; use it for your own UI). */
-export function useAgentChat({ adapter, adapters, agent, storageKey, getSnapshot, applySnapshot }: UseAgentChatOptions = {}): AgentChat {
+export function useAgentChat({
+  adapter,
+  adapters,
+  agent,
+  storageKey,
+  getSnapshot,
+  applySnapshot,
+  messages: catalog,
+  locale,
+}: UseAgentChatOptions = {}): AgentChat {
+  const t = useMemo(() => createTranslator(catalog, locale), [catalog, locale]);
   const all = useMemo(() => (adapters?.length ? adapters : [adapter ?? getDefaultAdapter()]), [adapter, adapters]);
   // the person's last choice, when that adapter is still offered
   const [adapterId, setAdapterId] = useState(() => {
@@ -153,13 +184,19 @@ export function useAgentChat({ adapter, adapters, agent, storageKey, getSnapshot
 
   const sendMessage = useCallback((input: { text: string }) => session.send(input.text), [session.send]);
   const canRestore = useCallback((messageId: string) => canRestoreTo(session.messages, messageId), [session.messages]);
-  const suggestions = useMemo(() => suggestionsFor(session.tools), [session.tools]);
+  const suggestions = useMemo(() => suggestionsFor(session.tools, t("suggestions.fallback")), [session.tools, t]);
+  const error = useMemo((): AgentChatError | undefined => {
+    if (!session.error) return undefined;
+    const code = chatErrorCode(session.error.code);
+    return { ...session.error, code, text: t(`errors.${code}`) };
+  }, [session.error, t]);
   const models = current.models?.() ?? [];
 
   return {
     messages,
     status,
-    error: session.error,
+    error,
+    t,
     sendMessage,
     stop: session.stop,
     regenerate: session.retry,

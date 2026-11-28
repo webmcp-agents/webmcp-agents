@@ -8,11 +8,14 @@ The source of the docs site (`apps/docs`, built with [Blume](https://github.com/
 | [`(get-started)/`](<(get-started)>) | The docs home (`index.mdx`, opened by the "Get started" heading: its own sidebar row is hidden) and `installation/`: the card grid and one page per framework (Vite, Next.js, TanStack Start, Astro, No framework). The parentheses group the pages in the sidebar without a URL segment. |
 | [`build/`](build) | The path, in order: define a tool, tools with input, confirm before it runs, tools across your app, common tools, call a tool, define an agent, add the chat, call an agent, devtools |
 | [`concepts/`](concepts) | Framework-free: how it works, the agent cursor, tool lifecycle, errors, writing tool descriptions |
+| [`security/`](security) | Locking `/api/chat` to your page: overview, sessions, tool allowlist, Turnstile, limits and budgets, redaction |
+| [`testing/`](testing) | Testing what you build with `@webmcp-agents/testing`, one page per layer, in the order you would add tests |
+| [`observability/`](observability) | Agent runs as OpenTelemetry traces: the overview, Installation (one page per backend), the APIs one page each, privacy, the Collector |
 | [`more/`](more) | On-device agent, shadcn chat blocks, declarative forms (the alternative to the Build path), polyfill, deploy |
 | [`examples/`](examples) | The playground, Field Store, Skyline and Field Store on Next.js apps |
 | [`reference/`](reference/README.md) | One page per public API, per package (the "Reference" tab) |
 | `_examples/` | The code the pages show, as real files that type-check (`@webmcp-agents/docs-examples`, part of `pnpm check`) |
-| `_partials/` | Prose shared by several pages (the framework cards) |
+| `_partials/` | Prose shared by several pages (the framework cards, the backend cards) |
 
 This README is left out of the site (`content.exclude` in `apps/docs/blume.config.ts`). Folders starting with `_` are
 never routed.
@@ -174,6 +177,66 @@ checklist, then one page per layer (sessions, tool allowlist, Turnstile, limits 
 block only where the code differs by framework. Each page says what its layer stops and what it doesn't. A change to
 `createChatHandler`'s `session` / `tools` / `requireAgent`, the cloud adapter's `sessionHeaders` or
 `@webmcp-agents/vercel-api`'s guards updates these pages with the reference.
+
+### Testing
+
+Vitest is the same in every framework, so the section has no views: the overview installs and configures the kit once,
+then each page is one layer (a tool alone, a tool on the page, confirmations, an agent, the chat, the endpoint,
+privacy and telemetry, end to end, CI) on the same shape: a sentence on what the layer catches, `## A complete example`
+(the code under test and its test, both files in `docs/_examples/testing/`, which run in `pnpm check`), one or two
+`##` sections on what to check, and `## See also` with the reference pages of the helpers it used. Snippet titles are the
+reader's file names (`tools/add-to-cart.ts`, `add-to-cart.test.ts`).
+
+### Observability
+
+The section is a path, in the order of `meta.ts` and with no numbers in the sidebar (only Build numbers its path):
+the overview (`index.mdx`, what you get and how it works, shaped like the docs home, handing off to Installation),
+**Installation**, then **The telemetry APIs** (`apis.mdx`, a map of cards), one page per API (`defineObservability`,
+where spans go, `otlp`, the relay, `relayThrough`, `appIntegrations`, `observeAgents`, `onAgentRun`, sampling,
+`metadataMapping`), privacy and redaction, span names and types, and the Collector and troubleshooting.
+
+Each telemetry API has exactly one page, here: there are no `docs/reference/telemetry/<api>.md` pages.
+`reference/telemetry/README.md` stays as the package's entry in the Reference tab (konsistent wants it), one line per
+API linking to its page in this section; the old reference URLs redirect to those pages.
+
+**Installation** mirrors Get started's: `installation/` is a group (`display: "group"`, open) whose row opens
+`installation/index.mdx` (hidden from the list: the backend cards, `_partials/backends.mdx`, shared with the overview),
+then one page per backend. Every backend page is the same six `##` steps in `<div class="install-steps">` (numbered by
+`apps/docs/theme.css`; not Blume's `<Steps>`, whose body drops a code block's file name): **Install the packages**,
+**Set the environment**, **Add the server layer**, **Add the relay route**, **Observe the page**, **Check it in
+<backend>**. A step the backend has no use for says so and stays (Helicone's relay and observer). The routes are in the
+four framework views inside the steps; the page opens with `<RememberBackend name="<title>" />` (it saves the backend,
+as `<RememberFramework>` saves the framework), a `:::note[Not run by us]` or `:::tip[Verified]` callout saying what we
+ran and when the vendor's docs were read, and ends with an `<Expandable>` of sources and what was not confirmed, then
+`## Next` to `/observability/apis?backend=<id>`. A backend that runs locally in Docker (Jaeger and Grafana on
+the OTLP page, Phoenix on Arize's) shows a real trace still in its last step, made by `pnpm capture:backend <name>`
+(`docs/media/README.md`); a SaaS-only backend has none, and never a vendor's marketing image. The shared wording of a step (the relay, the observer, the routes in
+four views) is the same on all sixteen pages: change it on every page at once.
+
+**An API page** has one skeleton: a paragraph (what it is, when to use it), `## Import` (on a page about an export),
+`## Example` (a real file; framework code only in the four views), `## Options` (`<AutoTypeTable>` on the real type in `packages/telemetry/src`, so the options
+come from the TSDoc; a `<TypeTable>` with one row on a page about one option), `## Returns` (on a page about an
+export), `## Your backend` where a backend
+changes something, `## Notes` (`<Accordion>` items, `:::warning` for warnings), `## Next` (the next page and one
+related page, as cards). Tables hold only short scalar facts; anything longer is a list, an accordion item, a
+callout or a card.
+
+**The backend carries across pages** like the framework. The backend groups are `<Tabs dropdown param="backend"
+syncKey="backend">`, one `<Tab>` per backend with a fixed `title` and `id` (`Any OTLP backend`/`otlp`, `Arize`/`arize`,
+`Braintrust`, `Datadog`, `Helicone`, `IBM Instana`/`instana`, `Laminar`, `Langfuse`, `LangSmith`, `LangWatch`,
+`New Relic`/`new-relic`, `PostHog`, `Sentry`, `Traceloop`, `Vercel`, `W&B Weave`/`weave`); a group for a few backends
+starts with `Any other backend`/`other`. `<RememberBackend />` (`apps/docs/components/docs/remember-backend.astro`) goes
+once on every page with a backend group: it saves a pick (`localStorage["webmcp-backend"]`) and selects it on the next
+page, unless the URL has `?backend=`. Their select is styled like the Framework picker (`apps/docs/theme.css`: a native
+`<select>`, the open list styled where the browser supports a customizable select). A fact about one backend goes on
+the page about the API it concerns, under that backend's tab, or on its installation page; never on a page of its own.
+A backend card's icon is the backend's Simple Icons mark (current release, CC0, inline `currentColor` SVG) where
+Simple Icons has one, else a Lucide name; never a drawn logo. The reference README (`.md`) cannot hold tabs: it links
+to these pages.
+
+`lib/observability.ts` is the layer's file everywhere (a Vite app has it under `src/`), so shared snippets keep that
+title. Experimental APIs say so once, in a `:::note[Experimental]` at the top of the page that introduces them. The old
+`/observability/backends/<id>` recipes redirect to `/observability/installation/<id>`.
 
 ### More
 

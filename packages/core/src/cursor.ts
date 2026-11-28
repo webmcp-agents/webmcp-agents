@@ -64,9 +64,7 @@ export const wait = (ms: number): Promise<void> =>
 const HOTSPOT: Vec = { x: 4, y: 4 };
 const ARROW_PATH = "M5.1 3.4 20.2 9.5c.8.3.8 1.4 0 1.7l-6.3 2.5-2.5 6.3c-.3.8-1.4.8-1.7 0L3.4 5.1c-.3-.9.8-2 1.7-1.7z";
 
-const CURSOR_HTML = `
-  <span class="agent-cursor__halo"></span>
-  <svg class="agent-cursor__arrow" width="24" height="24" viewBox="0 0 24 24"><path d="${ARROW_PATH}"/></svg>`;
+const CURSOR_HTML = `<span class="agent-cursor__halo"></span><svg class="agent-cursor__arrow" width="24" height="24" viewBox="0 0 24 24"><path d="${ARROW_PATH}"/></svg>`;
 
 /** Name tag offset from the tip. */
 const TAG_OFFSET: Vec = { x: 20, y: 18 };

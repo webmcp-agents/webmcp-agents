@@ -11,6 +11,8 @@
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
     "noEmit": true,
+    // Vitest configs import the testing kit's config helper from source (`../testing/src/vitest.ts`)
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
 
     "strict": true,

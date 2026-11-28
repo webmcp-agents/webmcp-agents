@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { MAX_TOOL_TEXT, readParts, toUIMessages } from "../src/adapter/wire";
 import { createChatHandler } from "../src/server/handler";
 import type { AgentMessage, AgentStreamPart } from "../src/types";
-import { scriptedModel } from "./mock-model";
+import { mockModel } from "@webmcp-agents/testing/server";
 
 const out = (text: string) => ({ content: [{ type: "text", text }] });
 
@@ -49,7 +49,7 @@ describe("toUIMessages", () => {
 
 describe("readParts", () => {
   it("turns a real handler's stream into text deltas, signed reasoning and complete tool calls", async () => {
-    const model = scriptedModel([
+    const model = mockModel([
       { reasoning: { text: "thinking", signature: "abc" }, text: "On it. ", calls: [{ id: "c1", name: "add_to_cart", input: { qty: 2 } }] },
     ]);
     const res = await createChatHandler({ model })(

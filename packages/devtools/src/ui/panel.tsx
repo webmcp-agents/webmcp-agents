@@ -47,6 +47,17 @@ function hotkeyMatcher(hotkey: string): (e: globalThis.KeyboardEvent) => boolean
     (code ? e.code === code : e.key.toLowerCase() === key);
 }
 
+/** A redacted value's token, index token (`[EMAIL_1]`) or mask (`42••••42`, `••••`). A custom `token` is not known here. */
+const MASKED = /\[[A-Z0-9_]+\]|•/;
+
+/** `value` with every string that carries a redaction token or mask blanked, so a re-run asks for it again. */
+function unmasked<T>(value: T): T {
+  if (typeof value === "string") return (MASKED.test(value) ? "" : value) as T;
+  if (Array.isArray(value)) return value.map(unmasked) as T;
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, unmasked(v)])) as T;
+}
+
 const isEditable = (target: EventTarget | undefined): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || target.matches("input, textarea, select"));
 
@@ -114,7 +125,11 @@ export function Panel({ store, embedded = false, hotkey = DEFAULT_HOTKEY }: Pane
 
   // Stable, so memoised timeline rows don't re-render for it.
   const onRerun = useCallback(
-    (call: CallRecord) => {
+    (recorded: CallRecord) => {
+      // The values as they were (development builds); otherwise the redacted ones, with each masked value left blank:
+      // a run must never send "[REDACTED]" or "••••" to the tool as if it were the value.
+      const raw = store.raw(recorded.id);
+      const call = raw ? { ...recorded, ...raw } : { ...recorded, args: unmasked(recorded.args), fills: unmasked(recorded.fills) };
       let args = call.args;
       if (args === undefined) {
         // A declarative form run by an agent: rebuild its arguments from the fields it typed.

@@ -1,0 +1,89 @@
+---
+/**
+ * Carries the reader's observability backend from page to page: `<RememberBackend />` once on every page that has a
+ * backend picker.
+ *
+ * Blume's view picker holds one choice per page (the framework), so the backend is a second picker made of Blume's
+ * own tabs: `<Tabs dropdown param="backend" syncKey="backend">`, one `<Tab>` per backend, titled the same on every
+ * page. Tabs sync within a page and deep-link (`?backend=sentry`), but remember nothing across pages. This element
+ * saves a pick (Blume's "blume-tabs-change" event for the "backend" key) in localStorage["webmcp-backend"] and, on the
+ * next page, selects the saved title in every backend group, unless the URL names one. A group without that title
+ * keeps its first tab ("Any other backend").
+ *
+ * On a backend's installation page, `<RememberBackend name="Sentry" />` also saves that backend, as
+ * `<RememberFramework>` saves the framework on a framework's installation page, so the pages after it open on it.
+ *
+ * A custom element, not an inline script: Blume's client router runs an inline script once per session, and this
+ * must run on every page visit.
+ */
+interface Props {
+  /** On a backend's installation page: the backend to save, exactly a backend `<Tab>` title ("Sentry"). */
+  name?: string;
+}
+
+const { name } = Astro.props;
+---
+
+<webmcp-remember-backend data-name={name} hidden></webmcp-remember-backend>
+
+<script>
+  const KEY = "webmcp-backend";
+  const GROUP = "backend";
+
+  interface BlumeTabsElement extends HTMLElement {
+    activateByTitle(title: string, sync: boolean): void;
+  }
+
+  const save = (event: Event) => {
+    const detail = (event as CustomEvent<{ key?: string; title?: string }>).detail;
+    if (detail?.key !== GROUP || !detail.title) return;
+    try {
+      localStorage.setItem(KEY, detail.title);
+    } catch {
+      // Storage can be off; the URL still carries ?backend=.
+    }
+  };
+
+  const restore = () => {
+    if (new URL(window.location.href).searchParams.has(GROUP)) return;
+    let title: string | null = null;
+    try {
+      title = localStorage.getItem(KEY);
+    } catch {
+      return;
+    }
+    if (!title) return;
+    for (const group of document.querySelectorAll<BlumeTabsElement>(`blume-tabs[data-sync-key="${GROUP}"]`)) {
+      group.activateByTitle(title, false);
+    }
+  };
+
+  class RememberBackend extends HTMLElement {
+    connectedCallback() {
+      const { name } = this.dataset;
+      if (name) {
+        try {
+          localStorage.setItem(KEY, name);
+        } catch {
+          // Storage can be off; the "Next" link still carries ?backend=.
+        }
+      }
+      document.addEventListener("blume-tabs-change", save);
+      // The tabs may be defined after this element: whenDefined resolves once they are, upgraded with their panels.
+      // No animation frame: a background tab paints none, and the pick must still apply.
+      customElements.whenDefined("blume-tabs").then(restore);
+      // On a client-side navigation the new page connects before its URL is set, and Blume then re-selects every tabs
+      // group from that URL on `astro:after-swap` (its first tab, with no `?backend=`). Its listener may be added only
+      // now, when the first page with tabs loads their script, so restore on `astro:page-load`, which comes after.
+      document.addEventListener("astro:page-load", restore, { once: true });
+    }
+
+    disconnectedCallback() {
+      document.removeEventListener("blume-tabs-change", save);
+    }
+  }
+
+  if (!customElements.get("webmcp-remember-backend")) {
+    customElements.define("webmcp-remember-backend", RememberBackend);
+  }
+</script>

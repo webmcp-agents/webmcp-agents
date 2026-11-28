@@ -1,0 +1,149 @@
+---
+title: Span names and types
+description: "Every span and attribute name the telemetry layer writes, as constants you import, and the OpenTelemetry types its options take."
+sidebar:
+  label: "Span names and types"
+related:
+  - /observability/metadata-mapping
+  - /observability/observe-agents
+  - /testing/privacy-and-telemetry
+---
+
+Every name the layer writes is a constant exported from both entries, so a `spanFilter`, a `metadataMapping` or a test
+never retypes a string. The GenAI names follow the OpenTelemetry GenAI semantic conventions as they stood in November
+2026; those conventions are still in Development, so a name may change in a minor release when they do. The
+`webmcp.*` names are this library's own. The option types are structural, so any exporter, processor or provider from
+the OpenTelemetry SDK, or from a vendor's package built on it, fits them as is.
+
+## Import
+
+```ts
+import { ATTR_CONVERSATION_ID, SPAN_EXECUTE_TOOL } from "@webmcp-agents/telemetry";
+import { ATTR_CONVERSATION_ID, SCOPE_NAME } from "@webmcp-agents/telemetry/server";
+import type {
+  OtlpTarget,
+  ReadableSpanLike,
+  Sampling,
+  SpanExporter,
+  SpanProcessor,
+  TracerProvider,
+} from "@webmcp-agents/telemetry/server";
+```
+
+## Example
+
+Group conversations in a backend that groups by `session.id`, without retyping the name:
+
+```ts
+defineObservability({
+  metadataMapping: { [ATTR_CONVERSATION_ID]: "session.id" },
+});
+```
+
+## The span tree
+
+One turn, from the page's run down:
+
+```text
+invoke_agent <agent>           browser · one per run
+├── chat <model>               server · one per model step (browser, for an on-device run)
+├── execute_tool <tool>        browser · one per tool call, events park / yield / resume
+│   └── invoke_agent <sub>     browser · a delegate_to_* call's sub-agent run
+└── chat <model>
+```
+
+A span is named `<operation> <subject>`; a run without an agent has the subject `web-agent` (`DEFAULT_AGENT_NAME`).
+The server's `chat` spans also carry what the AI SDK's integration sets (`gen_ai.*` by default, `ai.*` with
+`conventions: "legacy"`).
+
+## Names
+
+| Constant | Name | On |
+|---|---|---|
+| `SPAN_INVOKE_AGENT` | `invoke_agent` | the run |
+| `SPAN_CHAT` | `chat` | a model step |
+| `SPAN_EXECUTE_TOOL` | `execute_tool` | a tool call |
+| `ATTR_OPERATION_NAME` | `gen_ai.operation.name` | every span |
+| `ATTR_CONVERSATION_ID` | `webmcp.conversation.id` | every span |
+| `ATTR_RUN_ID` | `webmcp.run.id` | every span |
+| `ATTR_STEP` | `webmcp.step` | `chat`, `execute_tool` |
+| `ATTR_AGENT_ID` | `gen_ai.agent.id` | `invoke_agent` |
+| `ATTR_WEBMCP_AGENT_ID` | `webmcp.agent.id` | server spans |
+| `ATTR_PARENT_CALL_ID` | `webmcp.parent.call.id` | a sub-agent's run |
+| `ATTR_SESSION_ID` | `webmcp.session.id` | server spans |
+| `ATTR_ADAPTER` | `webmcp.adapter` | `invoke_agent` |
+| `ATTR_RUN_REASON` | `webmcp.run.reason` | `invoke_agent` |
+| `ATTR_RUN_STEPS` | `webmcp.run.steps` | `invoke_agent` |
+| `ATTR_PAGE` | `webmcp.page` | `invoke_agent` |
+| `ATTR_TOOL_NAME` | `gen_ai.tool.name` | `execute_tool` |
+| `ATTR_TOOL_CALL_ID` | `gen_ai.tool.call.id` | `execute_tool` |
+| `ATTR_TOOL_STATE` | `webmcp.tool.state` | `execute_tool` |
+| `ATTR_TOOL_ERROR_CODE` | `webmcp.tool.error.code` | `execute_tool` |
+| `ATTR_TOOL_WAITED_MS` | `webmcp.tool.waited_ms` | `execute_tool` |
+| `ATTR_TOOL_CONFIRM` | `webmcp.tool.confirm` | `execute_tool` |
+| `ATTR_TOOL_CALL_ARGUMENTS` | `gen_ai.tool.call.arguments` | `execute_tool` |
+| `ATTR_TOOL_CALL_RESULT` | `gen_ai.tool.call.result` | `execute_tool` |
+| `ATTR_REQUEST_MODEL` | `gen_ai.request.model` | `chat` |
+| `ATTR_USAGE_INPUT_TOKENS` | `gen_ai.usage.input_tokens` | `chat` |
+| `ATTR_USAGE_OUTPUT_TOKENS` | `gen_ai.usage.output_tokens` | `chat` |
+| `ATTR_CUSTOM` | `webmcp.custom` | the app's own spans |
+| `ATTR_ERROR_TYPE` | `error.type` | a failed run or call |
+| `EVENT_PARK` | `webmcp.park` | `execute_tool` event |
+| `EVENT_YIELD` | `webmcp.yield` | `execute_tool` event |
+| `EVENT_RESUME` | `webmcp.resume` | `execute_tool` event |
+| `SCOPE_NAME` | `@webmcp-agents/telemetry` | instrumentation scope |
+| `SCOPE_NAME_LEGACY` | `@webmcp-agents/telemetry/legacy` | instrumentation scope |
+
+<Accordion>
+  <AccordionItem title="What the run and tool attributes hold">
+    - `webmcp.run.reason`: how the run ended, `stop`, `max-steps`, `aborted` or `error`.
+    - `webmcp.page`: the page's origin and path, with query values redacted.
+    - `webmcp.step`: the model step, from 1.
+    - `webmcp.tool.state`: `done`, `error` or `cancelled`; `webmcp.tool.error.code` is a failed call's code.
+    - `webmcp.tool.waited_ms`: the time spent waiting for the person.
+    - `webmcp.tool.confirm`: only on a call that waited, `accepted`, `cancelled` or `timeout`.
+    - `gen_ai.tool.call.arguments` and `.result`: only with `recordInputs` / `recordOutputs`, as redacted JSON.
+    - `error.type`: on a failed run or call, whose status is `error`.
+  </AccordionItem>
+  <AccordionItem title="The events on a tool call">
+    `webmcp.park` when the call waits for the person (with its `prompt`), `webmcp.yield` when the cursor gets out of
+    their way (with its `reason`), and `webmcp.resume` when it comes back.
+  </AccordionItem>
+  <AccordionItem title="`webmcp.session.id` is redacted">
+    It is set on server spans when chat sessions are on, and redacted by default: "session" is a sensitive key. Map
+    it with `metadataMapping` only if you mean to export it.
+  </AccordionItem>
+  <AccordionItem title="The scopes">
+    `SCOPE_NAME` is the instrumentation scope of the browser's spans and the server's `gen_ai` ones, and the only scope
+    the relay accepts. `SCOPE_NAME_LEGACY` is the scope of the `ai.*` model spans (`conventions: "legacy"` or
+    `"both"`).
+  </AccordionItem>
+</Accordion>
+
+## Types
+
+The shapes the options take. This package's public types import nothing from `@opentelemetry/*`, so adding a backend
+never needs a change here: pass a vendor's processor or exporter as it comes.
+
+- `SpanExporter`: `{ export(spans, done), shutdown(), forceFlush?() }`. Its `export` is capped by the target timeout;
+  a throw, a failure result or a hang drops that batch for it alone, logged once.
+- `SpanProcessor`: `{ onStart, onEnd, forceFlush, shutdown }`. Runs before the mapping, redaction and the filter.
+- `TracerProvider`: `{ getTracer(name, version?) }`. Used as is, never shut down by this package.
+  `TracerProviderOption` is `TracerProvider | "global" | "own"`, the `tracerProvider` option.
+- `ReadableSpanLike`: a finished span, as a `spanFilter` reads it (`name`, `kind`, `spanContext()`,
+  `parentSpanContext?`, `startTime`, `endTime`, `status`, `attributes`, `events`, `instrumentationScope`,
+  `resource`). A real `ReadableSpan` has these fields and more.
+- `Sampling`: `always`, `never`, `ratio` or `custom` ([Sampling](/observability/sampling)).
+- `OtlpTarget`: an OTLP destination ([`otlp`](/observability/otlp)).
+- `Attributes`, `AttributeValue`: span attributes, a record of strings, numbers, booleans and arrays of them.
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="Collector and troubleshooting" href="/observability/collector" icon="wrench">
+    Several backends at once, and spans that do not arrive.
+  </Card>
+  <Card title="Test privacy and telemetry" href="/testing/privacy-and-telemetry" icon="flask-conical">
+    Assert the span tree, and that no secret reaches a span.
+  </Card>
+</CardGroup>

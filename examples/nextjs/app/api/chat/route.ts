@@ -7,10 +7,13 @@ import { createVercelChatRoute } from "@webmcp-agents/vercel-api";
 import { shopper } from "@/webmcp-agents/agents";
 import { allowedTools } from "@/webmcp-agents/tools";
 import { env } from "@/lib/env.server";
+import { observability } from "@/lib/observability";
 
 export const { GET, POST, OPTIONS } = createVercelChatRoute({
   app: "nextjs",
   agents: [shopper],
   tools: allowedTools,
   model: env.model,
+  // off unless OTEL_* is set; the same layer relays the page's spans (app/api/telemetry/route.ts)
+  observability,
 });

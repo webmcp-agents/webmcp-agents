@@ -7,7 +7,7 @@ import { userEvent } from "vitest/browser";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agentCursor } from "./cursor";
 import { locate } from "./locate";
-import { cleanupFixtures, cursorVisible, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "./test-utils";
+import { cleanupFixtures, cursorVisible, fixture, modelContext, recordEvents, resultText, uniqueName, until } from "@webmcp-agents/testing";
 import { toolErrorCode } from "./result";
 import { type AgentVisuals, installAgentVisuals } from "./visuals";
 import { defineWebTool, registerWebTool, type WebToolConfig } from "./web-tool";

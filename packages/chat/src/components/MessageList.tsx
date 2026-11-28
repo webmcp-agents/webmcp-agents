@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { SR_ONLY, slotProps, useChatContext, usePart } from "../customize/context";
+import type { Translate } from "../customize/types";
 import { canRestoreTo } from "../session/reducer";
 import { messageText } from "../session/restore-journal";
 import type { AgentMessage } from "../types";
-import { CancelIcon, CheckIcon, DownIcon, RestoreIcon } from "./icons";
+import { Icon } from "./icons";
 import { Text } from "./Text";
 import { delegateAnswer, ToolCallCard } from "./ToolCallCard";
 
@@ -10,12 +12,13 @@ const normalize = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 /**
  * The parts to show. A reply that only repeats, word for word, what a sub-agent just answered (already shown in its
- * card) is left out: models relay a delegate's answer even when told not to.
+ * card) is left out: models relay a delegate's answer even when told not to. Reasoning shows only through a page's
+ * own `Reasoning` part.
  */
-function visibleParts(message: AgentMessage): AgentMessage["parts"] {
+function visibleParts(message: AgentMessage, reasoning: boolean): AgentMessage["parts"] {
   const answers = new Set<string>();
   return message.parts.filter((p) => {
-    if (p.type === "reasoning") return false;
+    if (p.type === "reasoning") return reasoning && !!p.text.trim();
     if (p.type === "tool") {
       const answer = delegateAnswer(p);
       if (answer) answers.add(answer);
@@ -26,16 +29,86 @@ function visibleParts(message: AgentMessage): AgentMessage["parts"] {
 }
 
 /** Short label for a restore control (the user message, cut to fit an accessible name). */
-function stageLabel(message: AgentMessage): string {
+function stageLabel(message: AgentMessage, t: Translate): string {
   const text = messageText(message).trim();
-  if (!text) return "Message";
+  if (!text) return t("restore.untitled");
   return text.length > 42 ? `${text.slice(0, 41)}…` : text;
 }
 
-const CONFIRM_RESTORE = "Remove this turn and everything after";
+/** The restore control under one user message: ask, then confirm or cancel. `components.Restore` replaces it. */
+function Restore({
+  message,
+  confirming,
+  ask,
+  confirm,
+  cancel,
+}: {
+  message: AgentMessage;
+  confirming: boolean;
+  ask(): void;
+  confirm(): void;
+  cancel(): void;
+}) {
+  const ctx = useChatContext();
+  const part = usePart();
+  const { t } = ctx;
+  const Custom = ctx.components.Restore;
+  if (Custom) {
+    const props = slotProps(ctx, "restore", "wa-chat__stage");
+    return (
+      <Custom
+        {...props}
+        partProps={{ ...props.partProps, ...{ "data-state": confirming ? "confirming" : "idle" } }}
+        message={message}
+        confirming={confirming}
+        ask={ask}
+        confirm={confirm}
+        cancel={cancel}
+      />
+    );
+  }
+  return (
+    // icon-only: the tooltips (`title`) and accessible names carry the words
+    <div {...part("restore", "wa-chat__stage")} data-state={confirming ? "confirming" : "idle"}>
+      {confirming ? (
+        <fieldset {...part("restoreActions", "wa-chat__stage-actions")} aria-label={t("restore.confirmQuestion")}>
+          <button
+            type="button"
+            {...part("restoreConfirm", "wa-chat__stage-go")}
+            aria-label={t("restore.confirm")}
+            title={t("restore.confirm")}
+            onClick={confirm}
+          >
+            <Icon name="check" />
+          </button>
+          <button
+            type="button"
+            {...part("restoreCancel", "wa-chat__stage-cancel")}
+            aria-label={t("restore.cancel")}
+            title={t("restore.cancel")}
+            onClick={cancel}
+          >
+            <Icon name="cancel" />
+          </button>
+        </fieldset>
+      ) : (
+        <button
+          type="button"
+          {...part("restoreAsk", "wa-chat__stage-ask")}
+          aria-label={t("restore.button", { message: stageLabel(message, t) })}
+          title={t("restore.hint")}
+          onClick={ask}
+        >
+          <Icon name="restore" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 function Message({
   message,
+  streaming,
   restorable,
   confirming,
   onAskRestore,
@@ -43,66 +116,60 @@ function Message({
   onCancelRestore,
 }: {
   message: AgentMessage;
+  streaming: boolean;
   restorable?: boolean;
   confirming?: boolean;
   onAskRestore?: () => void;
   onConfirmRestore?: () => void;
   onCancelRestore?: () => void;
 }) {
-  const visible = visibleParts(message);
+  const ctx = useChatContext();
+  const part = usePart();
+  const Reasoning = ctx.components.Reasoning;
+  const visible = visibleParts(message, !!Reasoning);
   if (visible.length === 0) return null;
-  const label = restorable ? stageLabel(message) : "";
-  return (
-    <div className="wa-chat__message" data-role={message.role} data-confirming={confirming || undefined}>
-      <div className="wa-chat__message-body">
-        {visible.map((part, i) =>
-          part.type === "tool" ? (
-            <ToolCallCard key={part.id} part={part} />
-          ) : part.type === "text" ? (
-            // biome-ignore lint/suspicious/noArrayIndexKey: a message's parts only grow at the end
-            <div key={i} className="wa-chat__bubble">
-              <Text text={part.text} />
-            </div>
-          ) : null,
-        )}
-        {restorable && (
-          // icon-only: the tooltips (`title`) and accessible names carry the words
-          <div className="wa-chat__stage">
-            {confirming ? (
-              <fieldset className="wa-chat__stage-actions" aria-label={`${CONFIRM_RESTORE}?`}>
-                <button
-                  type="button"
-                  className="wa-chat__stage-go"
-                  aria-label={CONFIRM_RESTORE}
-                  title={CONFIRM_RESTORE}
-                  onClick={onConfirmRestore}
-                >
-                  <CheckIcon />
-                </button>
-                <button type="button" className="wa-chat__stage-cancel" aria-label="Cancel" title="Cancel" onClick={onCancelRestore}>
-                  <CancelIcon />
-                </button>
-              </fieldset>
-            ) : (
-              <button
-                type="button"
-                className="wa-chat__stage-ask"
-                aria-label={`Restore to before: ${label}`}
-                title="Restore to before this message"
-                onClick={onAskRestore}
-              >
-                <RestoreIcon />
-              </button>
-            )}
+  const body = (
+    <div {...part("messageBody", "wa-chat__message-body")}>
+      {visible.map((p, i) =>
+        p.type === "tool" ? (
+          <ToolCallCard key={p.id} part={p} />
+        ) : p.type === "text" ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: a message's parts only grow at the end
+          <div key={i} {...part("bubble", "wa-chat__bubble")}>
+            <Text text={p.text} streaming={streaming && i === visible.length - 1} />
           </div>
-        )}
-      </div>
+        ) : p.type === "reasoning" && Reasoning ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: a message's parts only grow at the end
+          <Reasoning key={i} {...slotProps(ctx, "reasoning")} text={p.text} />
+        ) : null,
+      )}
+      {restorable && (
+        <Restore
+          message={message}
+          confirming={!!confirming}
+          ask={() => onAskRestore?.()}
+          confirm={() => onConfirmRestore?.()}
+          cancel={() => onCancelRestore?.()}
+        />
+      )}
+    </div>
+  );
+  const attrs = { "data-role": message.role, "data-confirming": confirming || undefined };
+  const Custom = ctx.components.Message;
+  if (Custom) {
+    const props = slotProps(ctx, "message", "wa-chat__message", body);
+    return <Custom {...props} partProps={{ ...props.partProps, ...attrs }} message={message} />;
+  }
+  return (
+    <div {...part("message", "wa-chat__message")} {...attrs}>
+      {body}
     </div>
   );
 }
 
 const NEAR_BOTTOM = 48;
 
+/** The conversation: a live log of messages, the "working" indicator, and a way back to the newest message. */
 export function MessageList({
   messages,
   thinking,
@@ -115,6 +182,8 @@ export function MessageList({
   busy?: boolean;
   onRestore?: (messageId: string) => void;
 }) {
+  const { t, unstyled } = useChatContext();
+  const part = usePart();
   const ref = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
   const [behind, setBehind] = useState(false);
@@ -146,15 +215,17 @@ export function MessageList({
     if (confirmingId && !restorable.has(confirmingId)) setConfirmingId(null);
   }, [confirmingId, restorable]);
 
+  const lastId = messages.at(-1)?.id;
   return (
-    <div className="wa-chat__scroll">
+    <div {...part("scroll", "wa-chat__scroll")}>
       <div
         ref={ref}
-        className="wa-chat__log"
+        {...part("messages", "wa-chat__log")}
         role="log"
         aria-live="polite"
         aria-relevant="additions"
-        aria-label="Conversation"
+        aria-label={t("conversation.label")}
+        data-busy={busy || undefined}
         onScroll={(e) => {
           const el = e.currentTarget;
           setPinned(el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM);
@@ -166,6 +237,7 @@ export function MessageList({
             <Message
               key={m.id}
               message={m}
+              streaming={busy && m.id === lastId}
               restorable={canRestore}
               confirming={confirmingId === m.id}
               onAskRestore={canRestore ? () => setConfirmingId(m.id) : undefined}
@@ -182,25 +254,27 @@ export function MessageList({
           );
         })}
         {thinking && (
-          <div className="wa-chat__typing" role="status">
-            <span />
-            <span />
-            <span />
-            <span className="wa-chat__sr">The assistant is working</span>
+          <div {...part("working", "wa-chat__typing")} role="status">
+            <span {...part("workingDot")} />
+            <span {...part("workingDot")} />
+            <span {...part("workingDot")} />
+            <span {...part("workingLabel", "wa-chat__sr", unstyled ? SR_ONLY : undefined)}>{t("conversation.working")}</span>
           </div>
         )}
       </div>
       {behind && (
         <button
           type="button"
-          className="wa-chat__jump"
+          {...part("jumpToLatest", "wa-chat__jump")}
           onClick={() => {
             const el = ref.current;
             if (el) el.scrollTop = el.scrollHeight;
             setPinned(true);
           }}
         >
-          <DownIcon /> Jump to latest
+          <Icon name="down" />
+          {/* one text node with its leading space, as in 0.4.0 */}
+          {` ${t("conversation.jumpToLatest")}`}
         </button>
       )}
     </div>

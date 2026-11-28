@@ -1,6 +1,25 @@
+import type { ReactNode } from "react";
+import { slotProps, useChatContext, usePart } from "../customize/context";
+import type { MessageKey, Translate } from "../customize/types";
 import type { AdapterStatus } from "../types";
 
-const mb = (bytes: number): string => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`);
+/**
+ * `key` filled with `value` for `name`, as text nodes split where the value goes ("Use ", "Claude (cloud)", " instead"),
+ * the nodes 0.4.0 rendered: a node boundary changes how a line is shaped, so the default chat stays pixel-identical. A
+ * message that does not place the value once (a function, a translation without it) is one node.
+ */
+function around(t: Translate, key: MessageKey, name: string, value: string): ReactNode {
+  const mark = "\u0000";
+  const parts = t(key, { [name]: mark }).split(mark);
+  if (parts.length !== 2) return t(key, { [name]: value });
+  return (
+    <>
+      {parts[0]}
+      {value}
+      {parts[1]}
+    </>
+  );
+}
 
 /** Props of the download card. */
 export interface DownloadCardProps {
@@ -13,73 +32,99 @@ export interface DownloadCardProps {
   onCancel(): void;
   /** Switch to another assistant (shown when there is one). */
   onUseOther?: () => void;
+  /** The other assistant's name, already worded for the page. */
   otherLabel?: string;
 }
 
 /**
  * Consent before a model download (never automatic), then determinate progress with Cancel, or Retry after a failure.
- * A model already on the device shows as loading from disk, never as a download.
+ * A model already on the device shows as loading from disk, never as a download. `components.DownloadCard` replaces it.
  */
 export function DownloadCard({ status, bytes, onDownload, onCancel, onUseOther, otherLabel }: DownloadCardProps) {
+  const ctx = useChatContext();
+  const part = usePart();
+  const { t } = ctx;
+  const Custom = ctx.components.DownloadCard;
+  if (Custom) {
+    const props = slotProps(ctx, "downloadCard", "wa-chat__download");
+    return (
+      <Custom
+        {...props}
+        partProps={{ ...props.partProps, ...{ "data-state": status.state } }}
+        status={status}
+        bytes={bytes}
+        start={onDownload}
+        cancel={onCancel}
+        useOther={onUseOther}
+        otherLabel={otherLabel}
+      />
+    );
+  }
   if (status.state === "downloading" || status.state === "loading") {
     const progress = status.state === "downloading" ? status.progress : (status.progress ?? 0);
     const fromDisk = status.state === "loading";
     const pct = Math.round(progress * 100);
+    const percent = { percent: pct, formatted: t.format.percent(progress) };
     // the files are in; loading them into the GPU (or WASM) can take a while the first time, with nothing to count
     const starting = progress >= 1;
     return (
-      <div className="wa-chat__download">
-        <p className="wa-chat__download-title">
-          {starting ? "Starting the model on this device…" : fromDisk ? "Loading the model from this device…" : "Downloading the model…"}
+      <div {...part("downloadCard", "wa-chat__download")} data-state={status.state}>
+        <p {...part("downloadTitle", "wa-chat__download-title")}>
+          {starting ? t("download.starting") : fromDisk ? t("download.loadingTitle") : t("download.title")}
         </p>
         <div
-          className="wa-chat__progress"
+          {...part("progress", "wa-chat__progress")}
           role="progressbar"
-          aria-label={fromDisk ? "Model loading" : "Model download"}
+          aria-label={fromDisk ? t("download.loadingLabel") : t("download.label")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={pct}
+          aria-valuetext={percent.formatted}
         >
-          <span style={{ transform: `scaleX(${progress})` }} />
+          <span {...part("progressBar")} style={{ transform: `scaleX(${progress})` }} />
         </div>
-        <p className="wa-chat__download-meta">
+        <p {...part("downloadMeta", "wa-chat__download-meta")}>
           {starting
             ? fromDisk
-              ? "Nothing to download: the files are already here."
-              : "The first start can take a few minutes."
-            : `${pct}%${bytes ? ` · ${mb(bytes * progress)} of ${mb(bytes)}` : ""}`}
+              ? t("download.alreadyHere")
+              : t("download.firstStart")
+            : bytes
+              ? t("download.progressBytes", { ...percent, done: t.format.bytes(bytes * progress), total: t.format.bytes(bytes) })
+              : t("download.progress", percent)}
         </p>
-        <button type="button" className="wa-chat__button" onClick={onCancel}>
-          Cancel
+        <button type="button" {...part("downloadButton", "wa-chat__button")} data-action="cancel" onClick={onCancel}>
+          {t("download.cancel")}
         </button>
       </div>
     );
   }
   if (status.state === "error") {
     return (
-      <div className="wa-chat__download" role="alert">
-        <p className="wa-chat__download-title">The download didn't finish</p>
-        <p>{status.error}</p>
-        <button type="button" className="wa-chat__button" data-primary="" onClick={onDownload}>
-          Try again
+      <div {...part("downloadCard", "wa-chat__download")} data-state="error" role="alert">
+        <p {...part("downloadTitle", "wa-chat__download-title")}>{t("download.failed")}</p>
+        <p {...part("downloadText")}>{status.error}</p>
+        <button type="button" {...part("downloadButton", "wa-chat__button")} data-action="retry" data-primary="" onClick={onDownload}>
+          {t("download.retry")}
         </button>
       </div>
     );
   }
   return (
-    <div className="wa-chat__download">
-      <p className="wa-chat__download-title">Run the assistant on this device</p>
-      <p>
-        {status.bytes ? `Downloads ${mb(status.bytes)} once.` : "Needs a one-time download."} Nothing you type leaves your browser.
+    <div {...part("downloadCard", "wa-chat__download")} data-state="needs-download">
+      <p {...part("downloadTitle", "wa-chat__download-title")}>{t("download.offer")}</p>
+      <p {...part("downloadText")}>
+        {/* the same text nodes as 0.4.0 (a node boundary changes how the line is shaped) */}
+        {status.bytes ? t("download.size", { size: t.format.bytes(status.bytes) }) : t("download.sizeUnknown")}
+        {` ${t("download.privacy")}`}
         {status.note ? ` ${status.note}` : ""}
       </p>
-      <div className="wa-chat__download-actions">
-        <button type="button" className="wa-chat__button" data-primary="" onClick={onDownload}>
-          Download
+      <div {...part("downloadActions", "wa-chat__download-actions")}>
+        <button type="button" {...part("downloadButton", "wa-chat__button")} data-action="start" data-primary="" onClick={onDownload}>
+          {t("download.start")}
         </button>
         {onUseOther && (
-          <button type="button" className="wa-chat__button" onClick={onUseOther}>
-            Use {otherLabel ?? "another assistant"} instead
+          <button type="button" {...part("downloadButton", "wa-chat__button")} data-action="use-other" onClick={onUseOther}>
+            {around(t, "download.useOther", "adapter", otherLabel ?? t("download.otherFallback"))}
           </button>
         )}
       </div>

@@ -7,6 +7,7 @@
  */
 import { createCloudAdapter, turnstileHeaders } from "@webmcp-agents/chat";
 import { WebAgentsProvider } from "@webmcp-agents/react";
+import { ObserveAgents } from "@webmcp-agents/telemetry/react";
 import type { ReactNode } from "react";
 import { shopper } from "@/webmcp-agents/agents";
 import { Header } from "@/components/header";
@@ -30,6 +31,8 @@ export function Providers({ children }: { children: ReactNode }) {
   // window.agent, which the e2e tests drive.
   return (
     <WebAgentsProvider tools={tools}>
+      {/* the page's runs become spans, posted to /api/telemetry (a no-op until the server has OTEL_* set) */}
+      <ObserveAgents />
       <Header />
       <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
         {children}

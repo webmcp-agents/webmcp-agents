@@ -1,0 +1,29 @@
+---
+title: Run tests in CI
+description: "A GitHub Actions job that runs the Node and browser tests, and every fixture, matcher and mock of @webmcp-agents/testing in one table."
+sidebar:
+  label: CI and reference
+related:
+  - /testing
+  - /reference/testing
+---
+
+The Node tests need nothing but Node. The browser tests need Playwright's Chromium, installed once per job.
+
+## A complete example
+
+<include meta='title=".github/workflows/test.yml"'>/_examples/testing/ci.yml</include>
+
+No test reaches a model or the network: `mockAdapter` and `mockModel` stand in for the model, so the job needs no
+secret. End-to-end tests need the app running; add Playwright's `webServer` and a `playwright test` step for them.
+
+## If a test fails only in CI
+
+- **"left a tool call running"**: a call was started and never awaited. Await it, or abort it.
+- **"left a tool registered"**: a tool registered with `registerWebTool` or `tools.mock` outside a component was not
+  unregistered. Mocks are removed for you; your own registrations are yours.
+- **Timing**: wait with `expect.poll` or `until`, never a fixed sleep. Motion is already reduced.
+
+## Every fixture, matcher and mock
+
+<include>/_partials/testing-reference.mdx</include>

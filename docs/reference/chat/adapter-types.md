@@ -9,18 +9,9 @@ The contract between the chat widget and the agent that drives it. An adapter ow
 ## Import
 
 ```ts
-import type {
-  AdapterStatus,
-  AgentAdapter,
-  AgentMessage,
-  AgentPart,
-  AgentRunRequest,
-  AgentStreamPart,
-  ModelChoice,
-  ToolCallState,
-  ToolDescriptor,
-  ToolOutput,
-} from "@webmcp-agents/chat";
+import type { AdapterStatus, AgentAdapter, AgentMessage, AgentPart, AgentRunRequest, AgentStreamPart } from "@webmcp-agents/chat";
+import type { ModelChoice, ToolCallState, ToolDescriptor, ToolOutput } from "@webmcp-agents/chat";
+import type { RunRef, StepUsage } from "@webmcp-agents/chat"; // run telemetry (0.5.0, experimental)
 ```
 
 ## Example
@@ -41,6 +32,7 @@ An agent the chat can talk to: the model and tool loop behind a stream of parts.
 |---|---|---|---|
 | `id` | `string` | required | Stable id; the widget remembers the chosen adapter by it. |
 | `label` | `string` | required | Shown in the adapter switcher, for example "Claude (cloud)". |
+| `labelParts` | `{ kind: "cloud" \| "on-device"; model?: string }` | — | What a built-in adapter is, so the chat words its name in the page's language ([`adapterLabel`](./adapter-label.md)) instead of showing `label`. Leave it out when you give an explicit `label`. |
 | `run` | `(req: AgentRunRequest) => AsyncIterable<AgentStreamPart>` | required | Handle one user message: yield stream parts and call `req.callTool()` for each tool call. |
 | `status` | `() => AdapterStatus` | always ready | Current availability. |
 | `subscribe` | `(listener: () => void) => () => void` | not set | Called on status changes (a download progressing, the cloud check finishing). Returns an unsubscribe function. |
@@ -67,7 +59,7 @@ Whether an adapter can run right now. The composer explains any state but `ready
 | State | Members | Description |
 |---|---|---|
 | `ready` | | It can run. |
-| `unavailable` | `reason: string` | It cannot, and why. |
+| `unavailable` | `reason: string`, `code?: ChatErrorCode` | It cannot, and why. With a `code`, the chat words it from its catalog; `reason` is the adapter's own words. |
 | `needs-download` | `bytes?: number`, `note?: string` | A download must start first. `note` is a caveat for the download card, for example "No WebGPU here: a smaller, slower model runs on the CPU." |
 | `downloading` | `progress: number` | Downloading; `progress` is 0 to 1. |
 | `loading` | `progress?: number` | Starting up. Without `progress` it is a connection check (the cloud adapter); with `progress` it is a model already on this device being read from disk, which the widget words as a load, never as a download. |
@@ -84,6 +76,7 @@ What an adapter gets for one run: one user message, possibly many model steps.
 | `signal` | `AbortSignal` | required | Aborts when the person presses Stop. |
 | `callTool` | `(call: { id: string; name: string; input: unknown }) => Promise<ToolOutput>` | required | Run a tool on the page, cursor and all. Never rejects: failures come back as `isError` results. See [`callModelContextTool`](./call-model-context-tool.md). |
 | `agent` | `WebAgent` | not set | The page's agent ([`defineWebAgent`](./define-web-agent.md)), when set. In-browser adapters read its `instructions` and `maxSteps`; the cloud adapter sends only its `id`. |
+| `ref` | `RunRef` | set by the chat, `useWebAgent` and `agent.invoke` | Experimental. The run's ids: `conversation`, `run`, `parent` (the delegate call of a sub-agent's run) and `traceparent`. The cloud adapter sends them with every step (`trace` in the body, the `traceparent` header) so the server's spans join the browser's [run events](./on-agent-run.md). Absent when you drive an adapter yourself. |
 
 ### `AgentStreamPart`
 
@@ -97,9 +90,10 @@ What an adapter reports while it runs, in order. Start each assistant message wi
 | `tool-call` | `messageId`, `id`, `name`, `input`, `providerMetadata?` | The model calls a tool. `providerMetadata` is provider data that must travel with the call (Gemini thought signatures, OpenAI item ids). |
 | `tool-result` | `id`, `output` | The call finished. |
 | `tool-error` | `id`, `error` | The call failed. A text starting `Error [cancelled]` shows as cancelled, not failed. |
-| `step-finish` | `step` | One model step (and its tool calls) is done. |
+| `step-start` | `step` | Optional (0.5.0). A model step is about to start, before its request goes out. Without it, run events open the step at its first part. |
+| `step-finish` | `step`, `usage?: StepUsage`, `model?` | A model step's reply is complete, before its tool calls run. `usage` and `model` are what the server reported for the step (absent on device). Run events report them on `step-finish`; one sent after the tool calls (0.4.0's place) still works, without its usage. |
 | `finish` | `reason: "stop" \| "max-steps" \| "aborted"` | The run is over. |
-| `error` | `error`, `code?: "chat_disabled" \| "rate_limited" \| "bad_request" \| "network"` | The run failed; `code` lets the widget explain it. |
+| `error` | `error`, `code?: ChatErrorCode` | The run failed. The chat shows the catalog's text for `code` ([error codes](./chat-error-codes.md)); no code reads as `unknown`. `error` is the English text for callers that are not the UI. |
 
 ### `AgentMessage` and `AgentPart`
 
@@ -137,6 +131,7 @@ An adapter's `run` returns an `AsyncIterable<AgentStreamPart>`: the parts above,
 - Yield `tool-result` or `tool-error` for every `tool-call`, with the same `id`.
 - Create an adapter once, at module scope, not during render: the session and the status hook key on the adapter object.
 - An adapter without `status()` is always `ready`. With `subscribe()`, the widget re-reads `status()` whenever you call the listener.
+- For accurate [run events](./on-agent-run.md), frame each model step with `step-start` and `step-finish`, and yield a step's `tool-call` parts before its `step-finish` and before calling `req.callTool`. An adapter that does not still gets events: a step opens at its first part and closes when its first tool call starts.
 
 ## See also
 
@@ -144,3 +139,4 @@ An adapter's `run` returns an `AsyncIterable<AgentStreamPart>`: the parts above,
 - [`createCloudAdapter`](./create-cloud-adapter.md) and [`createLocalAdapter`](../local-agent/create-local-adapter.md)
 - [`sessionReducer`](./session-reducer.md)
 - [`callModelContextTool`](./call-model-context-tool.md)
+- [`onAgentRun`](./on-agent-run.md)

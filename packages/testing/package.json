@@ -1,0 +1,136 @@
+{
+  "name": "@webmcp-agents/testing",
+  "version": "0.4.0",
+  "type": "module",
+  "description": "Test WebMCP tools, confirmations, agents, the chat endpoint and privacy with Vitest: fixtures, worded matchers and model-free mocks.",
+  "license": "MIT",
+  "sideEffects": [
+    "./src/index.ts",
+    "./src/matchers.ts",
+    "./src/setup.ts",
+    "./dist/index.js",
+    "./dist/matchers.js",
+    "./dist/matchers-*.js",
+    "./dist/setup.js"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "@webmcp-agents/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./matchers": {
+      "@webmcp-agents/source": "./src/matchers.ts",
+      "types": "./dist/matchers.d.ts",
+      "import": "./dist/matchers.js"
+    },
+    "./setup": {
+      "@webmcp-agents/source": "./src/setup.ts",
+      "types": "./dist/setup.d.ts",
+      "import": "./dist/setup.js"
+    },
+    "./vitest": {
+      "@webmcp-agents/source": "./src/vitest.ts",
+      "types": "./dist/vitest.d.ts",
+      "import": "./dist/vitest.js"
+    },
+    "./chat": {
+      "@webmcp-agents/source": "./src/chat/index.ts",
+      "types": "./dist/chat.d.ts",
+      "import": "./dist/chat.js"
+    },
+    "./server": {
+      "@webmcp-agents/source": "./src/server/index.ts",
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./telemetry": {
+      "@webmcp-agents/source": "./src/telemetry/index.ts",
+      "types": "./dist/telemetry.d.ts",
+      "import": "./dist/telemetry.js"
+    },
+    "./playwright": {
+      "@webmcp-agents/source": "./src/playwright/index.ts",
+      "types": "./dist/playwright.d.ts",
+      "import": "./dist/playwright.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "check-exports": "publint && attw --pack . --profile esm-only"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.50",
+    "@vitest/browser-playwright": ">=4",
+    "@webmcp-agents/chat": "workspace:^",
+    "@webmcp-agents/telemetry": "workspace:^",
+    "ai": ">=7",
+    "react": ">=18",
+    "react-dom": ">=18",
+    "vitest": ">=4",
+    "vitest-browser-react": ">=1"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    },
+    "@vitest/browser-playwright": {
+      "optional": true
+    },
+    "@webmcp-agents/chat": {
+      "optional": true
+    },
+    "@webmcp-agents/telemetry": {
+      "optional": true
+    },
+    "ai": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    },
+    "vitest-browser-react": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@webmcp-agents/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@ai-sdk/provider": "^4.0.36",
+    "@playwright/test": "^1.65.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.2.1",
+    "@vitest/browser-playwright": "^5.1.0",
+    "@webmcp-agents/chat": "workspace:^",
+    "@webmcp-agents/telemetry": "workspace:^",
+    "ai": "^7.0.163",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tsdown": "^0.23.7",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0",
+    "zod": "^4.6.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/webmcp-agents/webmcp-agents.git",
+    "directory": "packages/testing"
+  },
+  "homepage": "https://webmcp-agents.dev",
+  "publishConfig": {
+    "access": "public"
+  }
+}

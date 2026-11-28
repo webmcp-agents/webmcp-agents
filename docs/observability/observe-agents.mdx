@@ -1,0 +1,160 @@
+---
+title: observeAgents
+description: "The page's side of a trace: observeAgents() and <ObserveAgents> turn each run and tool call into spans and post them to your relay."
+sidebar:
+  label: "observeAgents"
+related:
+  - /observability/relay
+  - /observability/privacy
+  - /observability/spans
+---
+
+The run and its tool calls happen in the browser: the cursor moving, the person confirming, a call cancelled because
+they scrolled away. Only the page can time those, so the page records them. `<ObserveAgents>` (or `observeAgents()`
+without React) subscribes to the run events, turns each run into an `invoke_agent` span and each tool call into an
+`execute_tool` span, and posts them to your [relay](/observability/relay). Render it once, next to the chat.
+
+## Import
+
+```ts
+import { consoleExporter, observeAgents } from "@webmcp-agents/telemetry";
+import type {
+  BrowserSpanExporter,
+  ObserveAgentsOptions,
+  SpanRecord,
+  StopObserving,
+} from "@webmcp-agents/telemetry";
+import { ObserveAgents } from "@webmcp-agents/telemetry/react";
+```
+
+## Example
+
+`enabled` is your consent banner's answer, read when each run starts:
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+Render `<ObserveRuns />` once, inside `<WebAgentsProvider>`. Without React, call `observeAgents()` once when the page
+starts; it returns a function that stops observing:
+
+<include meta='title="observe.ts"'>/_examples/observability/observe.ts</include>
+
+## Options
+
+`<ObserveAgents>` takes the same options as props.
+
+<AutoTypeTable path="../../packages/telemetry/src/browser/types.ts" name="ObserveAgentsOptions" />
+
+`<ObserveAgents>` takes the same options as props (`ObserveAgentsProps` is `ObserveAgentsOptions`). `enabled` is read
+at each run's start from the latest props, so an inline function is fine; the others are read once, when it mounts.
+
+### `SpanRecord`
+
+What a `spanFilter` and an exporter receive, already redacted.
+
+<AutoTypeTable path="../../packages/telemetry/src/browser/types.ts" name="SpanRecord" />
+
+## Returns
+
+- `observeAgents()` returns a `StopObserving`: call it to stop (buffered spans are sent first; no later run is
+  observed). Its `flush()` sends what is buffered now and resolves once the exporters took it; it never rejects.
+- `<ObserveAgents>` renders nothing. It stops, and sends what is buffered, when it unmounts.
+- `consoleExporter()` takes no options and returns a `BrowserSpanExporter` whose `export(spans)` logs
+  `[web-agents/telemetry] <span name>` and the span record for each span. It sends nothing.
+
+## Your backend
+
+<RememberBackend />
+
+<Tabs dropdown param="backend" syncKey="backend">
+<Tab title="Any other backend" id="other">
+
+The page's spans go through the relay, and the backend's key stays on the server.
+
+</Tab>
+<Tab title="IBM Instana" id="instana">
+
+The page's spans go through the relay like for any backend: the agent key never reaches the page. Instana's own
+website monitoring (EUM) is separate and can run beside it.
+
+</Tab>
+</Tabs>
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="What it costs the page">
+    Up front, about 0.7 KB (min+gz): the subscription. The span builder, about 3.5 KB, loads when the first run the
+    person agreed to starts. A page where no agent runs, or where consent is never given, never downloads it. A run's
+    spans (its sub-agents' included) are sent together when the run ends, parents first, in one request; a run sends
+    early once 128 spans wait or after 5 minutes. What is still buffered is sent with `keepalive` when the page is
+    hidden.
+  </AccordionItem>
+  <AccordionItem title="A page that already runs OpenTelemetry">
+    If the page registered an OpenTelemetry Web SDK provider (yours, or one from Sentry or Datadog RUM), the spans go
+    to that provider instead of the relay, and join the page's own traces. The bridge to it, and
+    `@opentelemetry/api`, load only on such a page. Pass `tracerProvider: "own"` to keep using the relay anyway.
+  </AccordionItem>
+  <AccordionItem title="While you build: print instead of send">
+    `consoleExporter()` prints each span in the browser's console, redacted, and sends nothing. Any object with an
+    `export(spans)` method works as an exporter; [`SpanRecord`](#spanrecord) is what
+    it receives.
+
+    **`observe.ts`**
+
+    <include meta='title="observe.ts"'>/_examples/observability/console.ts</include>
+  </AccordionItem>
+  <AccordionItem title="No relay">
+    A relay that answers `404` or `405` is taken as absent: nothing more is sent.
+  </AccordionItem>
+  <AccordionItem title="The sampled flag">
+    A run this page records (consent given, kept by `sampling`) is marked at its start (`ref.sampled`,
+    [`onAgentRun`](/observability/on-agent-run)), so its step requests send a `traceparent` ending in `-01` and the
+    server's step spans sit under the run span. Any other run sends `-00`, and the server keeps its own tree.
+  </AccordionItem>
+  <AccordionItem title="Content">
+    Tool inputs and results are left out unless you record them, and are redacted either way: the run events they come
+    from are redacted too.
+  </AccordionItem>
+  <AccordionItem title="On-device runs">
+    A run on the on-device model has no server. Its model steps become `chat` spans built in the browser, without
+    token counts.
+  </AccordionItem>
+</Accordion>
+
+:::warning[An OTLP target here puts its headers in the page]
+`exporters` takes an OTLP target too, posted straight to a collector as OTLP JSON. Whatever headers it carries are in
+the page: never put a key there. The relay is the default for that reason.
+:::
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="onAgentRun" href="/observability/on-agent-run" icon="list-checks">
+    The same run events, without a backend, for your own analytics.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

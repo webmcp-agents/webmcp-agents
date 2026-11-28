@@ -4,27 +4,13 @@ import { render } from "vitest-browser-react";
 import "../src/chat.css";
 import { defineWebAgent } from "../src/agent";
 import { AgentChat } from "../src/components/AgentChat";
-import type { AgentAdapter, AgentRunRequest, AgentStreamPart } from "../src/types";
-import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "./browser-utils";
+import { cleanupFixtures, echoForm, modelContext, uniqueName, until } from "@webmcp-agents/testing";
+import { mockAdapter } from "@webmcp-agents/testing/chat";
 
 const host = () => document.querySelector<HTMLElement>(".wa-chat")!;
 const q = <T extends Element = HTMLElement>(sel: string) => host().querySelector<T>(sel);
 const qa = (sel: string) => [...host().querySelectorAll<HTMLElement>(sel)];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-/** A scripted adapter: each run plays `script(req)`; the script branches on `req.agent`. */
-function fakeAdapter(script: (req: AgentRunRequest) => AsyncGenerator<AgentStreamPart>): AgentAdapter & { requests: AgentRunRequest[] } {
-  const adapter: AgentAdapter & { requests: AgentRunRequest[] } = {
-    id: "fake",
-    label: "Fake",
-    requests: [],
-    run(req) {
-      adapter.requests.push(req);
-      return script(req);
-    },
-  };
-  return adapter;
-}
 
 describe("<AgentChat agent>: sub-agents", () => {
   beforeAll(() => modelContext());
@@ -47,7 +33,7 @@ describe("<AgentChat agent>: sub-agents", () => {
     });
     const seen: { agent?: string; tools: string[] }[] = [];
 
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       seen.push({ agent: req.agent?.id, tools: req.tools.map((t) => t.name) });
       if (req.agent?.id === "checkout") {
         yield { type: "message-start", messageId: "n1" };
@@ -108,7 +94,7 @@ describe("<AgentChat agent>: sub-agents", () => {
     const slow = uniqueName("slow");
     const helper = defineWebAgent({ id: "helper", instructions: "h" });
     const parent = defineWebAgent({ id: "parent", instructions: "p", agents: [helper] });
-    const adapter = fakeAdapter(async function* (req) {
+    const adapter = mockAdapter(async function* (req) {
       if (req.agent?.id === "helper") {
         yield { type: "message-start", messageId: "n1" };
         yield { type: "tool-call", messageId: "n1", id: "c2", name: slow, input: {} };

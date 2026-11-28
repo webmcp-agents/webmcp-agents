@@ -1,0 +1,7 @@
+{
+  // The testing examples: run by `pnpm --filter @webmcp-agents/docs-examples test` (part of `pnpm check`), except
+  // e2e/, which needs a running app (the same calls run in the examples' own e2e under `pnpm e2e`).
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node"] },
+  "include": [".", "../shared/lib"]
+}

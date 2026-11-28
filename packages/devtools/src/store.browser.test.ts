@@ -2,7 +2,7 @@ import { type AgentVisuals, installAgentVisuals, type ModelContextExecuteOptions
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { createDevtoolsStore, type DevtoolsStore } from "./store";
-import { cleanupFixtures, modelContext, toolForm, uniqueName, until } from "./test-utils";
+import { cleanupFixtures, modelContext, toolForm, uniqueName, until } from "@webmcp-agents/testing";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -61,6 +61,7 @@ describe("createDevtoolsStore", () => {
     await modelContext().executeTool(name, {});
     await until(() => call(name)?.status === "ok", 3000, "agent call ok");
     expect(call(name)).toMatchObject({ origin: "agent", result: { content: [{ type: "text", text: "2 items" }] } });
+    modelContext().unregisterTool?.(name);
   });
 
   it("finishes a cancelled agent call once, without a stray record", async () => {
@@ -84,6 +85,7 @@ describe("createDevtoolsStore", () => {
         .calls.filter((c) => c.tool === name)
         .map((c) => c.status),
     ).toEqual(["cancelled"]);
+    modelContext().unregisterTool?.(name);
   });
 
   it("shows a call waiting for the user, then finishing on their click", async () => {

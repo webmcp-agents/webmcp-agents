@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { toolsSettled } from "../src/session/run-agent";
-import { cleanupFixtures, fixture, modelContext, uniqueName } from "./browser-utils";
+import { cleanupFixtures, fixture, modelContext, uniqueName } from "@webmcp-agents/testing";
 
 describe("toolsSettled", () => {
   let mc: ModelContext;

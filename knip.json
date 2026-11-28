@@ -1,0 +1,63 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/*.mjs",
+        "capture/*.{ts,mjs}",
+        "capture/backends/*.{ts,mjs}",
+        "registry/default/**/*.tsx",
+        "registry/test/*.ts",
+        "registry/*.ts"
+      ],
+      "project": ["scripts/**", "capture/**", "registry/**"],
+      "ignoreBinaries": ["ffmpeg"],
+      "ignoreDependencies": ["lucide-react", "@types/react", "streamdown", "ai"]
+    },
+    "packages/*": {
+      "entry": ["src/*/index.ts", "src/**/worker.ts", "scripts/*.mjs"],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
+    },
+    "packages/chat": {
+      "entry": ["src/locales/*.ts"],
+      "project": ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"]
+    },
+    "examples/*": {
+      "entry": ["src/main.tsx", "api/*.ts", "e2e/*.ts", "app/**/{page,layout,route}.{ts,tsx}", "vite.config.ts"],
+      "project": ["**/*.{ts,tsx,css}"],
+      "vite": false
+    },
+    "docs/_examples": {
+      "entry": ["**/*.{ts,tsx}"],
+      "project": ["**/*.{ts,tsx}"],
+      "paths": {
+        "@/components/ui/*": ["../../examples/ui/src/components/*"],
+        "@/*": ["shared/*"],
+        "langwatch/observability": ["observability/vendors/langwatch-observability.d.ts"],
+        "@langfuse/otel": ["observability/vendors/langfuse-otel.d.ts"],
+        "@posthog/ai/otel": ["observability/vendors/posthog-ai-otel.d.ts"],
+        "@braintrust/otel": ["observability/vendors/braintrust-otel.d.ts"],
+        "@opentelemetry/exporter-trace-otlp-proto": ["observability/vendors/opentelemetry-exporter-trace-otlp-proto.d.ts"],
+        "@arizeai/openinference-vercel": ["observability/vendors/arizeai-openinference-vercel.d.ts"],
+        "@sentry/node": ["observability/vendors/sentry-node.d.ts"],
+        "@vercel/otel": ["observability/vendors/vercel-otel.d.ts"],
+        "dd-trace": ["observability/vendors/dd-trace.d.ts"],
+        "@helicone/ai-sdk-provider": ["observability/vendors/helicone-ai-sdk-provider.d.ts"]
+      },
+      "vitest": false
+    },
+    "apps/docs": {
+      "entry": ["blume.config.ts", "components.ts", "pages/**/*.astro", "scripts/*.mjs", "theme.css"],
+      "project": ["**/*.{ts,tsx,css}"]
+    },
+    "packages/react": {
+      "entry": ["src/jsx.ts"]
+    }
+  },
+  "ignoreIssues": {
+    "packages/devtools/src/copy-as-code.ts": ["duplicates"],
+    "packages/local-agent/src/providers/transformers/provider.ts": ["duplicates"],
+    "packages/react/src/use-tool-answer.ts": ["duplicates"]
+  }
+}

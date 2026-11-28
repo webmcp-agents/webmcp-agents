@@ -9,7 +9,9 @@ import { Outlet, ScrollRestoration } from "react-router";
 import { CartDrawer } from "./components/cart-drawer";
 import { Footer } from "./components/footer";
 import { Header } from "./components/header";
+import { useChatLocale } from "./hooks/use-chat-locale";
 import { useUi } from "./hooks/use-ui";
+import { chatTheme } from "./lib/chat-theme";
 import { navigate } from "./lib/navigate";
 import { exportSnapshot, importSnapshot, type CartCheckpoint } from "./store/cart";
 import { ui } from "./store/ui";
@@ -27,6 +29,7 @@ const ADAPTERS = [cloud, createLocalAdapter({ models: [DEFAULT_MODEL, "onnx-comm
 
 export function Root() {
   const { cartOpen } = useUi();
+  const { locale, messages, position } = useChatLocale();
 
   return (
     <WebAgentsProvider tools={tools}>
@@ -53,8 +56,11 @@ export function Root() {
       <AgentChat
         adapters={ADAPTERS}
         agent={shopper}
-        title="Assistant"
-        position={import.meta.env.DEV ? "bottom-left" : "bottom-right"}
+        title={locale === "ar" ? undefined : "Assistant"}
+        theme={chatTheme}
+        locale={locale}
+        messages={messages}
+        position={position}
         getSnapshot={() => ({ cart: exportSnapshot(), cartOpen: ui.cartOpen })}
         applySnapshot={({ url, app }) => {
           const snap = app as { cart?: CartCheckpoint; cartOpen?: boolean } | undefined;

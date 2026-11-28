@@ -1,0 +1,53 @@
+---
+title: Test a tool on the page
+description: "Run a tool on a real page in Chromium: the cursor types into the fields and presses the button, and you check what it did with trusted input and worded matchers."
+related:
+  - /build/tools-with-input
+  - /testing/confirmations
+---
+
+On the page, a tool is more than its function. The cursor finds the control by its name, types each parameter into the
+field with that name, and presses the button. Those steps are what the person sees, and they break when the markup
+changes. Test them in a browser-mode file (`*.browser.test.tsx`), which runs in Chromium.
+
+## A complete example
+
+A form whose tool sets a quantity:
+
+<include meta='title="components/quantity-form.tsx"'>/_examples/testing/app/quantity-form.tsx</include>
+
+Its tests:
+
+<include meta='title="quantity-form.browser.test.tsx"'>/_examples/testing/tool-on-page.browser.test.tsx</include>
+
+`mount` renders the component inside the provider, and removes it after the test. `tools.call` calls the tool the way
+an agent does, through `document.modelContext`, so the cursor runs its steps. `events` records every step it took:
+`toHaveFilled("qty", "3")` checks the field it typed into, and `toHaveEventOrder` the order of the steps.
+
+## Wait for the tool
+
+A component's tools register after it mounts, not during the call to `mount`. Wait for them with
+`expect.poll(() => tools.list())` before you call one, as above, or the call fails with "no such tool".
+
+## Why the input has to be trusted
+
+The cursor gets out of the way the moment the person uses the page, and only input the browser marks as trusted counts
+as the person: a script's `element.click()` does not. So a test that checks what happens when the person acts uses the
+`user` fixture (`user.click`, `user.type`, `user.scroll`, `user.confirm`, `user.moveOn`), which sends real input
+through Playwright. A test that only checks what the agent does needs no `user` at all.
+
+## Stand-in tools and unique names
+
+`tools.mock(name, impl)` registers a tool that answers what you tell it and records its calls (a `vi.fn`). Use it for a
+tool your code under test depends on, such as a lookup the agent calls first.
+
+Each test file shares one page, so a tool name used by two tests in the same file can collide while one is still
+being released. `uniqueName("check_stock")` gives `check_stock_1`, then `check_stock_2`: use it for tools a test
+creates itself.
+
+## See also
+
+- [`tools`](/reference/testing/tools), [`events`](/reference/testing/events), [`user`](/reference/testing/user),
+  [`mount`](/reference/testing/mount)
+- [`toHaveFilled`](/reference/testing/to-have-filled), [`toHaveEventOrder`](/reference/testing/to-have-event-order)
+- [The agent cursor](/concepts/agent-cursor), what the steps are

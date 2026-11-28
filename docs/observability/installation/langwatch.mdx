@@ -1,0 +1,152 @@
+---
+title: Send traces to LangWatch
+description: "Six steps to agent traces and threads in LangWatch, through its own exporter."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: LangWatch
+---
+
+<RememberBackend name="LangWatch" />
+
+:::note[Not run by us]
+Written from LangWatch's docs and its `langwatch` package (2.3.0) on 2026-11-25. The exporter instance was type-checked against this library; nothing was sent.
+:::
+
+Six steps, from the packages to one trace per turn in LangWatch: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus LangWatch's package, whose `LangWatchExporter` (from `langwatch/observability`, an alias of `LangWatchTraceExporter`) sends protobuf.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel langwatch
+```
+
+## Set the environment
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/langwatch.env</include>
+
+- `LANGWATCH_ENDPOINT` for a self-hosted instance (default `https://app.langwatch.ai`).
+- `LANGWATCH_PROJECT_ID` for user-scoped keys.
+- The exporter also takes these as options: `apiKey`, `endpoint`, `projectId`, `filters`.
+
+<Expandable title="Without the package">
+
+OTLP to `https://app.langwatch.ai/api/otel/v1/traces` with `Authorization: Bearer <LANGWATCH_API_KEY>`. JSON and protobuf are both accepted; gRPC is not.
+
+</Expandable>
+
+## Add the server layer
+
+LangWatch's exporter, the AI SDK's own `ai.*` spans (`conventions: "legacy"`, which LangWatch's AI SDK integration is built on; its docs do not say whether plain `gen_ai.*` spans are read the same way), and the key LangWatch groups threads by.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/langwatch.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in LangWatch
+
+Start the app and send one message in the chat. The trace appears in LangWatch, grouped into a thread by `langwatch.thread.id` (people by `langwatch.user.id`). The exporter drops HTTP request spans by default (`filters`); the agent's spans are not affected.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry guide](https://langwatch.ai/docs/integration/opentelemetry/guide.md): endpoint, auth, JSON and protobuf
+- [Vercel AI SDK integration](https://langwatch.ai/docs/integration/typescript/integrations/vercel-ai-sdk.md)
+- [Semantic conventions](https://langwatch.ai/docs/integration/typescript/tutorials/semantic-conventions.md): `langwatch.thread.id`, `langwatch.user.id`
+
+Not confirmed: whether LangWatch reads `gen_ai.*` spans as it reads `ai.*` ones.
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=langwatch" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for LangWatch.
+</Card>

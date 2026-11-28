@@ -13,9 +13,12 @@ export interface CallDetailProps {
   onRerun(call: CallRecord): void;
 }
 
-/** The expanded body of a timeline row. */
-export function CallDetail({ id, call, store, onRerun }: CallDetailProps) {
+/** The expanded body of a timeline row. Values are redacted unless the panel's "Reveal values" is on (development). */
+export function CallDetail({ id, call: recorded, store, onRerun }: CallDetailProps) {
   const canCancel = useDevtools(store, (s) => s.canCancel);
+  const canReveal = useDevtools(store, (s) => s.canReveal);
+  const revealed = useDevtools(store, (s) => s.revealed);
+  const call: CallRecord = revealed ? { ...recorded, ...store.raw(recorded.id) } : recorded;
   const open = isOpen(call);
   const textParts: string[] = [];
   const otherParts: ModelContextToolResult["content"] = [];
@@ -75,6 +78,11 @@ export function CallDetail({ id, call, store, onRerun }: CallDetailProps) {
         <button type="button" className="btn" onClick={() => onRerun(call)}>
           Re-run…
         </button>
+        {canReveal && (
+          <button type="button" className="btn" aria-pressed={revealed} onClick={() => store.setRevealed(!revealed)}>
+            {revealed ? "Hide values" : "Reveal values"}
+          </button>
+        )}
         {open && (canCancel || call.origin === "devtools") && (
           <button type="button" className="btn" onClick={() => store.cancel(call.id)}>
             Cancel

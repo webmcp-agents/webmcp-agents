@@ -14,6 +14,7 @@ import { build } from "vite";
 
 const KB = 1024;
 const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
+const redact = fileURLToPath(new URL("../src/redact/index.ts", import.meta.url));
 
 /**
  * Budgets: see "Quality bar" in .agents/plans/00-web-agents-roadmap.md.
@@ -50,17 +51,36 @@ const index = fileURLToPath(new URL("../src/index.ts", import.meta.url));
  * Chat restore (2026-11-21): a `fill` event's `from` / `control` (the value a field held, kept out for a password),
  * and `getRegisteredWebTool` and `writeControl` for @webmcp-agents/chat add about 80 B to the whole package
  * (18.48 KB); the visuals stay within 10.45 KB. Whole-package budget raised to 18.5 KB.
+ *
+ * Redaction (2026-11-25, 0.5.0, plan 17 phase 1). `@webmcp-agents/core/redact` is its own entry, measured on its own:
+ * 2.74 KB. Design §8 set it at 1.5 KB, but the feature set it specifies does not fit in that: seven detectors with
+ * Luhn, key matching by trailing words, a walker that survives cycles and throwing getters, JSON inside strings, two
+ * strengths of URL redaction, the indexed style, `paths`, `custom`, `extend` and `scope`. `toolSensitivity` (0.38 KB)
+ * was moved out of it and back after measuring, since the main entry cannot carry it either. Budget: 2.75 KB.
+ * In the main entry, the cursor masks every sensitive control, not only passwords: `isSensitiveControl` is one
+ * `closest()` selector (62 B). `web-tool.ts` marks a step's parameter `secret` from `sensitive` and the schema's
+ * `x-sensitive` / `format: "password"` (75 B). Core's own console lines print no tool data and stay unredacted: a
+ * `globalThis` hook cost 40 to 60 B in either measurement. Savings in the cursor paid back 20 B: one cancel error, the
+ * confirm prompt reused, the touch point, a redundant submit selector, and the cursor's HTML whitespace. Measured
+ * 10.49 KB (10739 B) and 18.58 KB (19029 B); budgets raised to 10.55 KB and 18.6 KB (decided by the user through the
+ * lead session).
+ *
+ * PR #9 review fixes (2026-11-26): `paths` rules match inside a tool result's JSON text and `structuredContent`,
+ * untouched JSON comes back as written (big integers, formatting), a tool's `sensitive` wins over `allowKeys`, and a
+ * model URL keeps its hash (cleaned like a path and query) so hash-routed page moves read right. Measured 2.88 KB
+ * (2952 B); redact budget raised to 2.9 KB. The main entry does not change.
  */
 const CHECKS = [
-  { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.45 * KB },
-  { name: "whole package", exports: "*", budget: 18.5 * KB },
+  { name: "visuals (installAgentVisuals, onAgentEvent)", exports: "{ installAgentVisuals, onAgentEvent }", budget: 10.55 * KB },
+  { name: "whole package", exports: "*", budget: 18.6 * KB },
+  { name: "redact (@webmcp-agents/core/redact)", exports: "*", from: redact, budget: 2.9 * KB },
 ];
 
-async function size(exports) {
+async function size(exports, from = index) {
   // A real file (not a virtual module): Vite's lib mode resolves the entry from disk.
   const dir = await mkdtemp(join(tmpdir(), "web-agents-size-"));
   const entry = join(dir, "entry.js");
-  await writeFile(entry, `export ${exports} from ${JSON.stringify(index)};`);
+  await writeFile(entry, `export ${exports} from ${JSON.stringify(from)};`);
   try {
     const out = await build({
       configFile: false,
@@ -84,7 +104,7 @@ async function size(exports) {
 
 let failed = false;
 for (const check of CHECKS) {
-  const { bytes, lazy } = await size(check.exports);
+  const { bytes, lazy } = await size(check.exports, check.from);
   const ok = bytes <= check.budget;
   failed ||= !ok;
   console.log(`${ok ? "ok  " : "FAIL"} ${check.name}: ${(bytes / KB).toFixed(2)} KB min+gz, ${bytes} B (budget ${check.budget / KB} KB)`);

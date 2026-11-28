@@ -66,15 +66,41 @@ download, and tools registered before it is there wait for it. A page that regis
 calls `loadWebMCPPolyfill()`, or imports `@webmcp-agents/core/polyfill` (`installWebMCPPolyfill`) or the side-effect
 `@webmcp-agents/core/polyfill/auto`.
 
+## Redaction
+
+Passwords, card numbers, tokens, emails and the fields a tool marks stay out of what the library shows, logs or
+exports about a call: the cursor's `fill` event and live region, the devtools, the chat's tool card, URLs and console
+lines leaving the page, server logs. It is on by default. A tool marks its own fields; the page adds rules once:
+
+```ts
+import { configureRedaction } from "@webmcp-agents/core/redact";
+
+const book = defineWebTool({
+  id: "book_trip",
+  description: "Book the trip for the traveler.",
+  inputSchema: z.object({ fullName: z.string(), passport: z.string() }),
+  sensitive: { input: ["passport"], output: ["bookingReference"], hideFromModel: true },
+  execute: (traveler) => bookings.create(traveler),
+});
+
+configureRedaction({ keys: (defaults) => [...defaults, "loyaltyId"] });
+```
+
+A field that is `type="password"`, has a payment or one-time-code `autocomplete`, or sits inside
+`[data-agent-sensitive]` is masked with no option at all. What the model receives is unchanged unless a tool sets
+`hideFromModel`, and `onAgentEvent` listeners still get `args` and `result` as they are. It reduces accidental leakage;
+it is not a security boundary against a hostile page, or a model that repeats data in prose.
+`@webmcp-agents/core/redact` is its own entry and chunk (2.88 KB min+gz, budget 2.9 KB, no dependency).
+
 Bundle budgets (min+gz, `pnpm --filter @webmcp-agents/core size`): the visuals alone (`installAgentVisuals`,
-`onAgentEvent`) 10.4 KB (measured 10.38 KB); the whole package 18.3 KB (measured 18.27 KB). The polyfill chunk (2.45 KB)
-is loaded on demand and not counted.
+`onAgentEvent`) 10.55 KB (measured 10.49 KB); the whole package 18.6 KB (measured 18.58 KB); the redact entry 2.9 KB
+(measured 2.88 KB). The polyfill chunk (2.45 KB) is loaded on demand and not counted.
 
 ## Docs
 
-- [How it works](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/how-it-works.mdx): why tools never know the cursor exists
-- [The agent cursor](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/agent-cursor.mdx): options, yielding, confirmation, spotlight, styling
-- [Tools](https://github.com/mustafaskyer/web-agents/blob/main/docs/build/define-a-tool.mdx) and [Errors](https://github.com/mustafaskyer/web-agents/blob/main/docs/concepts/errors.mdx)
-- [Using it without React](https://github.com/mustafaskyer/web-agents/blob/main/docs/(get-started)/installation/no-framework.mdx): `createWebAgents`
-- [Browsers without WebMCP](https://github.com/mustafaskyer/web-agents/blob/main/docs/more/polyfill.mdx): the polyfill it loads
-- [API reference](https://github.com/mustafaskyer/web-agents/blob/main/docs/reference/core/README.md)
+- [How it works](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/how-it-works.mdx): why tools never know the cursor exists
+- [The agent cursor](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/agent-cursor.mdx): options, yielding, confirmation, spotlight, styling
+- [Tools](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/build/define-a-tool.mdx) and [Errors](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/concepts/errors.mdx)
+- [Using it without React](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/(get-started)/installation/no-framework.mdx): `createWebAgents`
+- [Browsers without WebMCP](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/more/polyfill.mdx): the polyfill it loads
+- [API reference](https://github.com/webmcp-agents/webmcp-agents/blob/main/docs/reference/core/README.md)

@@ -2,14 +2,7 @@
  * The store's catalogue (shared with the Vite example's data): seeded mock data and pure, synchronous queries. No React,
  * no DOM: Server Components, client components and tools read the same functions. Prices are integer cents.
  */
-import categoriesJson from "./categories.json";
 import productsJson from "./products.json";
-
-export interface Category {
-  slug: string;
-  name: string;
-  blurb: string;
-}
 
 export interface Product {
   slug: string;
@@ -26,10 +19,8 @@ export interface Product {
 }
 
 const PRODUCTS: readonly Product[] = productsJson;
-const CATEGORIES: readonly Category[] = categoriesJson;
 
 export const allProducts = (): readonly Product[] => PRODUCTS;
-export const allCategories = (): readonly Category[] => CATEGORIES;
 export const findProduct = (slug: string): Product | undefined => PRODUCTS.find((p) => p.slug === slug);
 
 /** Throws a readable error for an unknown slug: it becomes the agent's answer. */

@@ -350,6 +350,186 @@
       "destination": "/docs/more/deploy.mdx",
       "source": "/docs/guides/deploy.mdx",
       "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/installation",
+      "source": "/docs/observability/backends",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/installation.md",
+      "source": "/docs/observability/backends.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/installation.mdx",
+      "source": "/docs/observability/backends.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/installation/:backend.md",
+      "source": "/docs/observability/backends/:backend.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/installation/:backend.mdx",
+      "source": "/docs/observability/backends/:backend.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/installation/:backend",
+      "source": "/docs/observability/backends/:backend",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents",
+      "source": "/docs/observability/browser-spans",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.md",
+      "source": "/docs/observability/browser-spans.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.mdx",
+      "source": "/docs/observability/browser-spans.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/define-observability",
+      "source": "/docs/reference/telemetry/define-observability",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/define-observability.md",
+      "source": "/docs/reference/telemetry/define-observability.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/define-observability.mdx",
+      "source": "/docs/reference/telemetry/define-observability.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents",
+      "source": "/docs/reference/telemetry/observe-agents",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.md",
+      "source": "/docs/reference/telemetry/observe-agents.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.mdx",
+      "source": "/docs/reference/telemetry/observe-agents.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents",
+      "source": "/docs/reference/telemetry/observe-agents-component",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.md",
+      "source": "/docs/reference/telemetry/observe-agents-component.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.mdx",
+      "source": "/docs/reference/telemetry/observe-agents-component.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/relay",
+      "source": "/docs/reference/telemetry/relay",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/relay.md",
+      "source": "/docs/reference/telemetry/relay.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/relay.mdx",
+      "source": "/docs/reference/telemetry/relay.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/otlp",
+      "source": "/docs/reference/telemetry/otlp",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/otlp.md",
+      "source": "/docs/reference/telemetry/otlp.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/otlp.mdx",
+      "source": "/docs/reference/telemetry/otlp.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents",
+      "source": "/docs/reference/telemetry/console-exporter",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.md",
+      "source": "/docs/reference/telemetry/console-exporter.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/observe-agents.mdx",
+      "source": "/docs/reference/telemetry/console-exporter.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/where-spans-go",
+      "source": "/docs/reference/telemetry/resolve-target",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/where-spans-go.md",
+      "source": "/docs/reference/telemetry/resolve-target.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/where-spans-go.mdx",
+      "source": "/docs/reference/telemetry/resolve-target.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/spans",
+      "source": "/docs/reference/telemetry/semconv",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/spans.md",
+      "source": "/docs/reference/telemetry/semconv.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/spans.mdx",
+      "source": "/docs/reference/telemetry/semconv.mdx",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/spans",
+      "source": "/docs/reference/telemetry/types",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/spans.md",
+      "source": "/docs/reference/telemetry/types.md",
+      "statusCode": 301
+    },
+    {
+      "destination": "/docs/observability/spans.mdx",
+      "source": "/docs/reference/telemetry/types.mdx",
+      "statusCode": 301
     }
   ],
   "headers": [

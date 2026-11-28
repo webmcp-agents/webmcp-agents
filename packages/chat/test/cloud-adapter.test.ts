@@ -3,7 +3,7 @@ import { createCloudAdapter } from "../src/adapter/cloud";
 import { defineWebAgent, type WebAgent } from "../src/agent";
 import { createChatHandler } from "../src/server/handler";
 import type { AgentMessage, AgentRunRequest, AgentStreamPart, ToolDescriptor } from "../src/types";
-import { scriptedModel, type Step } from "./mock-model";
+import { mockModel, type Step } from "@webmcp-agents/testing/server";
 
 const user: AgentMessage = { id: "u1", role: "user", parts: [{ type: "text", text: "Add two mugs" }] };
 const tools: ToolDescriptor[] = [
@@ -12,7 +12,7 @@ const tools: ToolDescriptor[] = [
 
 /** The adapter wired to the real handler, through an in-memory fetch. */
 function setup(steps: Step[], opts: { maxSteps?: number; agents?: WebAgent[] } = {}) {
-  const model = scriptedModel(steps);
+  const model = mockModel(steps);
   const handler = createChatHandler({ model, maxSteps: opts.maxSteps, agents: opts.agents });
   const bodies: { messages: AgentMessage[]; tools: ToolDescriptor[] }[] = [];
   const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
@@ -24,25 +24,31 @@ function setup(steps: Step[], opts: { maxSteps?: number; agents?: WebAgent[] } =
 }
 
 async function collect(adapter: ReturnType<typeof createCloudAdapter>, req: Partial<AgentRunRequest> = {}) {
-  const parts: AgentStreamPart[] = [];
+  const all: AgentStreamPart[] = [];
   const callTool = vi.fn(async () => ({ content: [{ type: "text", text: "Added 2 × Mug." }] }));
-  for await (const p of adapter.run({ messages: [user], tools, signal: new AbortController().signal, callTool, ...req })) parts.push(p);
-  return { parts, callTool };
+  for await (const p of adapter.run({ messages: [user], tools, signal: new AbortController().signal, callTool, ...req })) all.push(p);
+  // `parts` without the step markers (0.5.0): what 0.4.0's tests read; `all` with them
+  const parts = all.filter((p) => p.type !== "step-start" && p.type !== "step-finish");
+  return { parts, all, callTool };
 }
 
 describe("createCloudAdapter", () => {
   it("runs the model ↔ tool loop against the real handler", async () => {
     const { adapter, bodies } = setup([{ calls: [{ id: "c1", name: "add_to_cart", input: { qty: 2 } }] }, { text: "Done: 2 mugs." }]);
-    const { parts, callTool } = await collect(adapter);
-    expect(parts.map((p) => p.type)).toEqual([
+    const { parts, all, callTool } = await collect(adapter);
+    // each step is framed by its markers, and ends (with its usage) before its tool calls run
+    expect(all.map((p) => p.type)).toEqual([
+      "step-start",
       "message-start",
       "tool-call",
-      "tool-result",
       "step-finish",
+      "tool-result",
+      "step-start",
       "message-start",
       "text-delta",
       "text-delta",
       "text-delta",
+      "step-finish",
       "finish",
     ]);
     expect(parts.at(-1)).toEqual({ type: "finish", reason: "stop" });
@@ -136,17 +142,18 @@ describe("createCloudAdapter", () => {
     const budget = respond(503, { error: "unavailable", reason: "daily_budget" });
     expect((await collect(budget)).parts[0]).toMatchObject({
       type: "error",
-      code: "rate_limited",
+      code: "daily_limit",
       error: expect.stringMatching(/daily limit/),
     });
     expect(budget.status!()).toEqual({ state: "loading" });
     const busy = respond(503, { error: "unavailable", reason: "busy" });
-    expect((await collect(busy)).parts[0]).toMatchObject({ error: expect.stringMatching(/busy/) });
+    expect((await collect(busy)).parts[0]).toMatchObject({ code: "busy", error: expect.stringMatching(/busy/) });
     const off = respond(503, { error: "chat_disabled" });
     expect((await collect(off)).parts[0]).toMatchObject({ code: "chat_disabled" });
     expect(off.status!()).toMatchObject({ state: "unavailable" });
     const daily = respond(429, { error: "rate_limited" }, { "retry-after": "40000" });
-    expect((await collect(daily)).parts[0]).toMatchObject({ error: expect.stringMatching(/today's limit/) });
+    // 0.4.0 said "You've reached today's limit…" here: now one code, `daily_limit`, and its one text
+    expect((await collect(daily)).parts[0]).toMatchObject({ code: "daily_limit", error: expect.stringMatching(/daily limit/) });
   });
 
   it("status comes from one GET", async () => {
@@ -167,7 +174,7 @@ describe("createCloudAdapter", () => {
     const shopper = defineWebAgent({ id: "shopper", instructions: ["Sells mugs.", "Open first."], agents: [checkout] });
 
     it("sends only the agent's id, never its instructions, and drops nested runs from the history", async () => {
-      const model = scriptedModel([{ text: "ok" }]);
+      const model = mockModel([{ text: "ok" }]);
       const handler = createChatHandler({ model, agents: [shopper] });
       const bodies: Record<string, unknown>[] = [];
       const fetch = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {

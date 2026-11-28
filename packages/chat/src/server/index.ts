@@ -4,7 +4,20 @@
  *   export default { fetch: createChatHandler({ agents: [shopper] }) };   // or: export const POST = createChatHandler();
  */
 export { createChatHandler, DEFAULT_MODEL } from "./handler";
-export type { BeforeModelContext, ChatHandlerOptions, Effort } from "./handler";
+export type { BeforeModelContext, ChatHandlerOptions, Effort, PrepareAgentContext } from "./handler";
+// ---------- run telemetry (0.5.0, experimental) ----------
+export { RUNTIME_CONTEXT_KEYS } from "./telemetry";
+export type {
+  ChatObservability,
+  ChatRefusal,
+  ChatRequestContext,
+  ChatTelemetryMetadata,
+  ChatTelemetryOptions,
+  ChatTelemetrySettings,
+} from "./telemetry";
+export { validTraceparent } from "../shared";
+export { SERVER_MESSAGES } from "./messages";
+export type { ChatServerMessages } from "./messages";
 export { applyAllowlist, buildAllowlist } from "./allowlist";
 export type { Allowlist, AllowedTool } from "./allowlist";
 export { createSessionKeeper, readCookie } from "./session";
@@ -12,7 +25,7 @@ export { TURNSTILE_HEADER, TURNSTILE_VERIFY_URL, turnstileVerify } from "./turns
 export type { TurnstileOptions } from "./turnstile";
 export type { ChatSession, ChatSessionOptions, SessionKeeper } from "./session";
 export { buildSystemPrompt, DEFAULT_SYSTEM_PROMPT } from "./system-prompt";
-export { chatRequestSchema, LIMITS } from "./validate";
+export { chatRequestSchema, chatTraceSchema, isCrossSite, LIMITS, TRACE_ID } from "./validate";
 export type { ChatRequest } from "./validate";
 export {
   AGENT_ID,

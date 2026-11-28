@@ -31,8 +31,16 @@ export function displayName(id: string): string {
 }
 
 let counter = 0;
-/** A unique message id: `prefix-<time>-<n>`. */
-export const newId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${(counter++).toString(36)}`;
+/**
+ * Where a test kit puts its id source (`@webmcp-agents/testing/setup` does): a function from prefix to id, so a test
+ * makes the same ids every run. `Symbol.for`, so every copy of this package (source and dist) reads the same slot.
+ */
+const ID_SLOT = Symbol.for("web-agents.ids");
+
+/** A unique message id: `prefix-<time>-<n>`, or the installed test id source's (`u-1`, `a-1`…). */
+export const newId = (prefix: string): string =>
+  (globalThis as { [ID_SLOT]?: (prefix: string) => string })[ID_SLOT]?.(prefix) ??
+  `${prefix}-${Date.now().toString(36)}-${(counter++).toString(36)}`;
 
 /** Caps on a request. Generous enough for long chats (the client trims the oldest messages past `messages`). */
 export const LIMITS = {
@@ -45,3 +53,17 @@ export const LIMITS = {
   description: 1024,
   schemaBytes: 8192,
 } as const;
+
+/** The W3C `traceparent` format; an all-zero trace or span id is invalid too. */
+const TRACEPARENT = /^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/;
+
+/**
+ * A `traceparent` header value if it is a valid W3C version-00 one, else `undefined` (a malformed header is ignored,
+ * never an error).
+ */
+export function validTraceparent(value: string | null | undefined): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const m = TRACEPARENT.exec(value.trim());
+  if (!m || /^0+$/.test(m[1]!) || /^0+$/.test(m[2]!)) return undefined;
+  return value.trim();
+}

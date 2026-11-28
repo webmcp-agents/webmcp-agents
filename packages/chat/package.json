@@ -32,6 +32,16 @@
       "types": "./dist/vite.d.ts",
       "import": "./dist/vite.js"
     },
+    "./locales/ar": {
+      "@webmcp-agents/source": "./src/locales/ar.ts",
+      "types": "./dist/locales/ar.d.ts",
+      "import": "./dist/locales/ar.js"
+    },
+    "./locales/es": {
+      "@webmcp-agents/source": "./src/locales/es.ts",
+      "types": "./dist/locales/es.d.ts",
+      "import": "./dist/locales/es.js"
+    },
     "./chat.css": {
       "@webmcp-agents/source": "./src/chat.css",
       "default": "./dist/chat.css"
@@ -94,7 +104,6 @@
     "@ai-sdk/google": "^4.0.113",
     "@ai-sdk/mistral": "^4.0.80",
     "@ai-sdk/openai": "^4.0.110",
-    "@ai-sdk/provider": "^4.0.36",
     "@ai-sdk/xai": "^5.0.39",
     "@openrouter/ai-sdk-provider": "^3.1.0",
     "@types/node": "^24.19.2",
@@ -109,9 +118,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mustafaskyer/web-agents.git",
+    "url": "git+https://github.com/webmcp-agents/webmcp-agents.git",
     "directory": "packages/chat"
   },
+  "homepage": "https://webmcp-agents.dev",
   "publishConfig": {
     "access": "public"
   }

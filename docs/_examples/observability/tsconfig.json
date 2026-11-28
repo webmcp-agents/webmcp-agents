@@ -1,0 +1,31 @@
+{
+  // The observability pages' code: server files, browser files and
+  // the backend recipes. The vendors' packages resolve to the
+  // stand-ins in vendors/, so a recipe type-checks without them.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "paths": {
+      "langwatch/observability": [
+        "./vendors/langwatch-observability.d.ts"
+      ],
+      "@langfuse/otel": ["./vendors/langfuse-otel.d.ts"],
+      "@posthog/ai/otel": ["./vendors/posthog-ai-otel.d.ts"],
+      "@braintrust/otel": ["./vendors/braintrust-otel.d.ts"],
+      "@opentelemetry/exporter-trace-otlp-proto": [
+        "./vendors/opentelemetry-exporter-trace-otlp-proto.d.ts"
+      ],
+      "@arizeai/openinference-vercel": [
+        "./vendors/arizeai-openinference-vercel.d.ts"
+      ],
+      "@sentry/node": ["./vendors/sentry-node.d.ts"],
+      "@vercel/otel": ["./vendors/vercel-otel.d.ts"],
+      "dd-trace": ["./vendors/dd-trace.d.ts"],
+      "@helicone/ai-sdk-provider": [
+        "./vendors/helicone-ai-sdk-provider.d.ts"
+      ]
+    }
+  },
+  "include": ["."]
+}

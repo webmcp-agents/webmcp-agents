@@ -5,6 +5,9 @@ related:
   - /build/tools-across-your-app
   - /build/define-an-agent
   - /examples/nextjs
+  - /more/chat-theming
+  - /more/chat-localization
+  - /security/redaction
 ---
 
 `examples/ecommerce` (**Field Store**) is a minimal, editorial storefront on mock data where every meaningful action is a
@@ -51,7 +54,7 @@ sentence.
 | `remove_from_cart` | `useWebTool` in the drawer, destructive | cart drawer open | no (reversible) |
 | `close_cart` | `useWebTool` in the drawer | cart drawer open | no |
 | `apply_promo` | `useWebTool` + React Hook Form | checkout, no code applied | no |
-| `checkout` | `useWebTool` + React Hook Form, `fill` | checkout, cart not empty | **yes**: the cursor types the details and parks on "Place order" |
+| `checkout` | `useWebTool` + React Hook Form, `fill`, `sensitive: ["cardNumber"]` | checkout, cart not empty | **yes**: the cursor types the details and parks on "Place order" |
 | `subscribe_newsletter` | `useWebTool` + React Hook Form | home page | **yes** |
 
 Promo code `WELCOME10` takes 10% off; shipping is free from $100.
@@ -62,6 +65,19 @@ Promo code `WELCOME10` takes 10% off; shipping is free from $100.
 `apply_promo`. When the person wants to buy it hands the whole purchase to **`checkout`**, a sub-agent
 (`delegate_to_checkout`) that sees only the cart and checkout tools, and the order is still confirmed by the person's click
 on the page. [Define an agent](/build/define-an-agent) teaches both shapes.
+
+## The chat: themed, in Arabic, and masked
+
+- **Themed.** `src/lib/chat-theme.ts` is a `defineChatTheme({ light, dark })` in the shop's green, passed as `theme` to `<AgentChat>`
+  ([Theme the chat](/more/chat-theming)).
+- **Arabic, right to left.** The footer's **العربية** button switches the assistant to `locale="ar"` with
+  `messages={ar}` from `@webmcp-agents/chat/locales/ar`: the panel gets `dir="rtl"` and the launcher, header and composer
+  speak Arabic, while the shop stays as it is. The choice is a small store (`src/store/chat-locale.ts`) read by
+  `useChatLocale()` ([Localize the chat](/more/chat-localization)).
+- **A secret field.** The checkout form has an optional card number, and `checkout` declares `sensitive: ["cardNumber"]`.
+  The form gets the real number; the cursor's `fill` event, the devtools' call log and the chat's tool card show it masked
+  ([Redaction](/security/redaction)). Try `await agent.invoke("checkout", { …, cardNumber: "4242 4242 4242 4242" })` with the devtools'
+  Timeline open. `e2e/chat-and-redaction.spec.ts` covers all three.
 
 ## Patterns worth copying
 

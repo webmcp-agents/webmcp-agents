@@ -5,16 +5,21 @@ related:
   - /installation/nextjs
   - /more/shadcn-chat-blocks
   - /build/add-the-chat
+  - /observability
 ---
 
 `examples/nextjs` is Field Store again, trimmed to home, product, cart and checkout, on **Next.js 16** (App Router,
-Turbopack) with **shadcn/ui** (Tailwind v4). It exists to show three things the Vite examples can't:
+Turbopack) with **shadcn/ui** (Tailwind v4). It exists to show four things the Vite examples can't:
 
 - **Server Components render the pages**; only the tools that live in a component and the chat are client components (they need the DOM).
 - **The chat is a shadcn block** (`agent-chat` from the `@webmcp-agents` registry), built on `useAgentChat` and
   shadcn/ui's AI patterns: Message Scroller, Tool (Trace), Subagent, Reasoning, Prompt Input, Model Selector.
 - **The key never reaches the client**: it lives in a `server-only` module and is tainted with React's
   `experimental_taintUniqueValue`, so a Server Component can't pass it to a client component by accident.
+- **Observability that is off until you point it somewhere.** `lib/observability.ts` is one `defineObservability()`;
+  the chat route exports each model step through it, `app/api/telemetry/route.ts` relays the page's spans
+  (`<ObserveAgents>` in `providers.tsx`) through the same layer. With no `OTEL_*` variable nothing is exported and the app
+  behaves as it did without it ([Observability](/observability)).
 
 ![Field Store on Next.js: the store front, server-rendered, with the shadcn chat block](../media/examples/nextjs.png)
 
@@ -39,12 +44,14 @@ devtools panel is on **Alt+Shift+A**, and `window.agent.invoke("open_product", {
     - page.tsx (home, a Server Component; `?q=` is what `search_products` navigates to)
     - product/[slug]/page.tsx (Server Component + the client `add_to_cart` form)
     - cart/, checkout/ (client views; checkout holds `apply_promo` and the confirm-gated `checkout`)
-    - api/chat/route.ts (`createVercelChatRoute({ app, agents, model })`, the example's guarded route)
+    - api/chat/route.ts (`createVercelChatRoute({ app, agents, model, observability })`, the example's guarded route)
+    - api/telemetry/route.ts (`createVercelTelemetryRoute({ app, observability })`: the page's spans, behind the chat's origin rule and a per-IP limit, sent where the server's go)
   - webmcp-agents/
     - agents.ts (`shopper` with the `checkout` sub-agent: shared by the client and the route)
     - tools/ (index.ts: the catalog, plain modules, one file per tool)
     - hooks/ (the forms' tools: `useWebTool` with shadcn's `Form` and React Hook Form; the forms' UI is in components/)
   - lib/env.server.ts (`server-only` + taint)
+  - lib/observability.ts (`defineObservability()`, shared by the two routes)
   - lib/catalog.ts, lib/cart-store.ts (the cart, no React), hooks/use-cart.ts (`useCart()`), lib/navigate.ts
   - components/web-agents/ (the installed registry blocks: agent-chat, agent-tool, agent-subagent, agent-reasoning, agent-model-selector)
 </FileTree>
@@ -66,6 +73,10 @@ nested tool lines inside ([Define an agent](/build/define-an-agent)).
 
 The chat route is the example's guarded one, from the private `@webmcp-agents/vercel-api` package; in your own app it is
 `createChatHandler` ([Add the chat](/build/add-the-chat)).
+
+To see the spans, run a local Collector with the debug config ([Several backends with a Collector](/observability/collector)), set
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` in `.env.local` and send a message: the run, each step and each tool
+call arrive as a trace.
 
 ## Try it
 

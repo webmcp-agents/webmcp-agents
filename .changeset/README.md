@@ -9,4 +9,4 @@ Releases run locally, from `main` (`scripts/release.mjs`; no CI job publishes):
 - `pnpm release:version` / `pnpm release:publish` split it in two (`publish` again after a half-failed publish:
   versions already on npm are skipped). `pnpm release:snapshot [tag]` publishes a throwaway prerelease (`next`).
 - `--dry-run` changes nothing; `--otp=<code>` for npm 2FA; `--skip-checks`, `--no-push`, `--allow-branch`.
-The six public packages are versioned together (`fixed`); the apps and `@webmcp-agents/vercel-api` are never published.
+The public packages are versioned together (`fixed`); the apps and `@webmcp-agents/vercel-api` are never published.

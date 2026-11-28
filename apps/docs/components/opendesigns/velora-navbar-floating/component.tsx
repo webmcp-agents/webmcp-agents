@@ -28,8 +28,7 @@ import {
 
 import "./styles.css";
 
-export { createFloatingNavStudy } from "./navigation";
-export type { FloatingNavDestinations, FloatingNavLink } from "./navigation";
+export type { FloatingNavLink } from "./navigation";
 export interface NavbarFloatingProps {
   activeHref?: string;
   className?: string;

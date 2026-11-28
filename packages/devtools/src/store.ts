@@ -7,6 +7,10 @@
  * Snapshots are immutable and serialisable (no DOM references), so React can
  * read them with `useSyncExternalStore` and the TanStack bridge can post them.
  *
+ * Redaction: what a record holds (arguments, fills, result, error) is redacted when it is recorded, by the page's
+ * redactor and the tool's `sensitive` fields, so the panel, "copy as code" and the TanStack bridge never carry a
+ * secret. In development the values as they were are kept beside the records, for the panel's "Reveal values".
+ *
  * Limitation: core events carry no call id, so an event belongs to the newest
  * unfinished call of its tool. Two concurrent calls of one tool may mix up.
  */
@@ -15,6 +19,7 @@ import {
   type AgentVisuals,
   errorText,
   executeTool,
+  getRegisteredWebTool,
   inspectTools,
   isAbortError,
   type ModelContextToolInfo,
@@ -25,6 +30,7 @@ import {
   watchPathname,
   whenModelContext,
 } from "@webmcp-agents/core";
+import { getRedactor, toolSensitivity } from "@webmcp-agents/core/redact";
 import { isFailure, NAVIGATED } from "./execute";
 import { type ControlView, controlView, type FieldView, type FlagView, fieldViews, flagViews, hintsOf, matchText } from "./inspect";
 import { parseSchema, type SchemaNode } from "./schema";
@@ -140,7 +146,14 @@ export interface DevtoolsState {
   canCancel: boolean;
   /** Spotlight and yield-to-user switches have a visuals controller to drive. */
   hasVisuals: boolean;
+  /** A development build: the panel offers "Reveal values" (the unredacted arguments, fills and results). */
+  canReveal: boolean;
+  /** The panel shows the values as they were, and copies them so. Only ever true where `canReveal`. Default false. */
+  revealed: boolean;
 }
+
+/** A call's values before redaction (`DevtoolsStore.raw`): kept in development builds only. */
+export type RawCall = Pick<CallRecord, "args" | "fills" | "result" | "error" | "prompt">;
 
 /** The part of the visuals controller the settings drive. */
 export type DevtoolsVisuals = Pick<AgentVisuals, "setSpotlight" | "setYieldToUser">;
@@ -176,8 +189,29 @@ export interface DevtoolsStore {
   setSetting<K extends keyof DevtoolsSettings>(key: K, value: DevtoolsSettings[K]): void;
   /** Dock position and size back to defaults. */
   resetLayout(): void;
+  /** Show (and copy) values as they were. Does nothing outside a development build. */
+  setRevealed(on: boolean): void;
+  /** A call's values before redaction; `undefined` outside a development build or once the call left the timeline. */
+  raw(id: string): RawCall | undefined;
+  /** `args` of `tool` as the panel shows and copies them: redacted, unless `revealed`. */
+  shown(tool: string, args: unknown): unknown;
   /** Stop listening, restore `window.agent`. Calls in flight still settle. Idempotent. */
   destroy(): void;
+}
+
+declare const process: { env: { NODE_ENV?: string } };
+
+/**
+ * A development build. Literally `process.env.NODE_ENV`: the app's bundler replaces it (this package builds with the
+ * neutral platform so the expression survives). Without a bundler there is no `process`: not development. Vitest's
+ * "test" counts as development.
+ */
+function development(): boolean {
+  try {
+    return process.env.NODE_ENV !== "production";
+  } catch {
+    return false;
+  }
 }
 
 /** Settings before anything is passed or saved. */
@@ -245,6 +279,8 @@ export function createDevtoolsStore({
     supported: !!mc,
     canCancel: !!mc?.cancelTool,
     hasVisuals: !!visuals,
+    canReveal: development(),
+    revealed: false,
   };
   const listeners = new Set<() => void>();
   const lifetime = new AbortController();
@@ -384,8 +420,34 @@ export function createDevtoolsStore({
   }
 
   // ---------- 3. calls ----------
-  const push = (call: CallRecord): CallRecord => {
+  /** The values as they were, by call id: development only, pruned with the timeline. */
+  const raws = state.canReveal ? new Map<string, RawCall>() : undefined;
+  const keepRaw = (id: string, values: Partial<RawCall>): void => {
+    raws?.set(id, { fills: [], ...raws.get(id), ...values });
+  };
+  /**
+   * The page's redactor, read at each record (a later `configureRedaction` applies to the next call), with the tool's
+   * own `sensitive` fields. A redactor that fails leaves the token, never the value.
+   */
+  const redactorFor = (tool: string) => {
+    const redact = getRedactor();
+    const marked = toolSensitivity(getRegisteredWebTool(tool));
+    return {
+      input: (value: unknown) => redact(value, { kind: "tool-input", tool, sensitive: marked.input }),
+      output: (value: ModelContextToolResult) => redact(value, { kind: "tool-output", tool, sensitive: marked.output }),
+      fill: (field: string, value: string | boolean) =>
+        redact({ [field]: value }, { kind: "fill", tool, sensitive: marked.input })[field] as string | boolean,
+      error: (text: string) => redact.text(text),
+      // a gate's prompt can quote what the agent typed (a confirm-gated form's values): the same scan as the chat's
+      prompt: (text: string) => redact.text(text),
+    };
+  };
+  const push = (call: CallRecord, raw?: RawCall): CallRecord => {
     set({ calls: [call, ...state.calls].slice(0, maxCalls) });
+    if (raws) {
+      if (raw) raws.set(call.id, raw);
+      for (const id of raws.keys()) if (!state.calls.some((c) => c.id === id)) raws.delete(id);
+    }
     return call;
   };
   const patch = (id: string, change: Partial<CallRecord> | ((c: CallRecord) => Partial<CallRecord>)): void => {
@@ -396,21 +458,47 @@ export function createDevtoolsStore({
   };
   const latestOpen = (tool: string): CallRecord | undefined => state.calls.find((c) => c.tool === tool && isOpen(c));
   const agentCall = (tool: string, startedAt = now(), args?: unknown): CallRecord =>
-    push({ id: nextId("c"), tool, origin: "agent", args, fills: [], status: "running", startedAt });
+    push(
+      {
+        id: nextId("c"),
+        tool,
+        origin: "agent",
+        args: args === undefined ? undefined : redactorFor(tool).input(args),
+        fills: [],
+        status: "running",
+        startedAt,
+      },
+      { args, fills: [] },
+    );
 
   /** Devtools calls whose `start` event hasn't arrived yet: that event is theirs, not a new agent call. */
   const awaitingStart = new Map<string, string>();
   const aborts = new Map<string, AbortController>();
 
-  async function runTool(name: string, args: Record<string, unknown> = {}): Promise<CallRecord> {
-    const call = push({ id: nextId("c"), tool: name, origin: "devtools", args, fills: [], status: "running", startedAt: now() });
+  /** A run from the panel or `window.agent`: the finished record, and the result as the tool gave it. */
+  async function run(name: string, args: Record<string, unknown> = {}): Promise<{ record: CallRecord; raw?: ModelContextToolResult }> {
+    const call = push(
+      {
+        id: nextId("c"),
+        tool: name,
+        origin: "devtools",
+        args: redactorFor(name).input(args),
+        fills: [],
+        status: "running",
+        startedAt: now(),
+      },
+      { args, fills: [] },
+    );
     const controller = new AbortController();
     aborts.set(call.id, controller);
     // Before executeTool: the polyfill announces the tool (→ `start`) inside the call.
     awaitingStart.set(name, call.id);
     let outcome: Partial<CallRecord>;
+    /** What `window.agent.invoke` resolves with: the developer's own call, so the result as the tool gave it. */
+    let raw: ModelContextToolResult | undefined;
     try {
       const result = (await executeTool(name, args, { signal: controller.signal })) ?? NAVIGATED;
+      raw = result;
       outcome = { status: isFailure(result) ? "error" : "ok", result };
     } catch (err) {
       outcome = isAbortError(err) ? { status: "cancelled" } : { status: "error", error: errorText(err) };
@@ -418,11 +506,16 @@ export function createDevtoolsStore({
       aborts.delete(call.id);
       if (awaitingStart.get(name) === call.id) awaitingStart.delete(name);
     }
+    keepRaw(call.id, { result: outcome.result, error: outcome.error });
+    const redact = redactorFor(name);
+    if (outcome.result) outcome.result = redact.output(outcome.result);
+    if (outcome.error) outcome.error = redact.error(outcome.error);
     outcome = { ...outcome, endedAt: now(), prompt: undefined };
     patch(call.id, outcome);
     // The record may have dropped off the timeline already (cap, Clear).
-    return state.calls.find((c) => c.id === call.id) ?? { ...call, ...outcome };
+    return { record: state.calls.find((c) => c.id === call.id) ?? { ...call, ...outcome }, raw };
   }
+  const runTool = (name: string, args?: Record<string, unknown>): Promise<CallRecord> => run(name, args).then((r) => r.record);
 
   function onEvent(e: AgentEvent): void {
     switch (e.type) {
@@ -432,12 +525,16 @@ export function createDevtoolsStore({
         return;
       case "fill": {
         const call = latestOpen(e.tool) ?? agentCall(e.tool);
-        patch(call.id, (c) => ({ fills: [...c.fills, { field: e.field, value: e.value, at: now() }] }));
+        const at = now();
+        const value = redactorFor(e.tool).fill(e.field, e.value);
+        keepRaw(call.id, { fills: [...(raws?.get(call.id)?.fills ?? []), { field: e.field, value: e.value, at }] });
+        patch(call.id, (c) => ({ fills: [...c.fills, { field: e.field, value, at }] }));
         return;
       }
       case "park": {
         const call = latestOpen(e.tool) ?? agentCall(e.tool);
-        patch(call.id, { status: "waiting", prompt: e.prompt });
+        keepRaw(call.id, { prompt: e.prompt });
+        patch(call.id, { status: "waiting", prompt: redactorFor(e.tool).prompt(e.prompt) });
         return;
       }
       case "result":
@@ -446,11 +543,14 @@ export function createDevtoolsStore({
         // Native Chrome can submit an autosubmit form without announcing it first: the result is the first signal.
         const call = latestOpen(e.tool) ?? agentCall(e.tool, endedAt - e.ms);
         if (call.origin === "devtools") return; // settled by runTool, with the full result
+        const redact = redactorFor(e.tool);
         if (e.type === "error") {
-          patch(call.id, { status: "error", error: e.error, endedAt, prompt: undefined });
+          keepRaw(call.id, { error: e.error });
+          patch(call.id, { status: "error", error: redact.error(e.error), endedAt, prompt: undefined });
         } else {
           const result = toToolResult(e.result);
-          patch(call.id, { status: isFailure(result) ? "error" : "ok", result, endedAt, prompt: undefined });
+          keepRaw(call.id, { result });
+          patch(call.id, { status: isFailure(result) ? "error" : "ok", result: redact.output(result), endedAt, prompt: undefined });
         }
         return;
       }
@@ -507,7 +607,8 @@ export function createDevtoolsStore({
 
   // ---------- 5. window.agent (the README's console helper) ----------
   const previousAgent = typeof window === "undefined" ? undefined : window.agent;
-  const invoke = (name: string, args?: Record<string, unknown>) => runTool(name, args).then((call) => call.result);
+  // the developer's own call: it resolves with the result as the tool gave it (the timeline shows it redacted)
+  const invoke = (name: string, args?: Record<string, unknown>) => run(name, args).then((r) => r.raw);
   const agentApi: NonNullable<Window["agent"]> = {
     invoke,
     run: invoke,
@@ -526,10 +627,18 @@ export function createDevtoolsStore({
     refreshTools,
     runTool,
     cancel,
-    clearCalls: () => set({ calls: state.calls.filter(isOpen), markers: [] }),
+    clearCalls() {
+      set({ calls: state.calls.filter(isOpen), markers: [] });
+      if (raws) for (const id of raws.keys()) if (!state.calls.some((c) => c.id === id)) raws.delete(id);
+    },
     locate,
     setSetting,
     resetLayout,
+    setRevealed(on) {
+      if (state.canReveal && state.revealed !== on) set({ revealed: on });
+    },
+    raw: (id) => raws?.get(id),
+    shown: (tool, args) => (state.revealed ? args : redactorFor(tool).input(args)),
     destroy() {
       if (destroyed) return;
       destroyed = true;

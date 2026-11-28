@@ -1,0 +1,152 @@
+---
+title: Send traces to LangSmith
+description: "Six steps to agent traces and threads in LangSmith, over OTLP as protobuf."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: LangSmith
+---
+
+<RememberBackend name="LangSmith" />
+
+:::note[Not run by us]
+Written from LangSmith's docs on 2026-11-25. Only the generic OTLP path it uses was run, against a local Collector.
+:::
+
+Six steps, from the packages to one trace per turn in LangSmith: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus the protobuf exporter: LangSmith's docs do not say whether OTLP JSON is accepted, and every example of theirs, their own JS exporter included, uses protobuf.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @opentelemetry/exporter-trace-otlp-proto
+```
+
+## Set the environment
+
+LangSmith takes OTLP at `/otel` under its API host; the exporter appends `/v1/traces`.
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/langsmith.env</include>
+
+- **Endpoint:** `https://api.smith.langchain.com/otel` (US). EU `https://eu.api.smith.langchain.com/otel`, APAC `apac.`, AWS `aws.`; self-hosted `https://<host>/api/v1/otel`.
+- **Auth:** `x-api-key: <LANGSMITH_API_KEY>`.
+- **Project:** `Langsmith-Project: <name>` (the legacy form), or the newer `Langsmith-Agent-Id` with `Langsmith-Agent-Environment`.
+
+:::warning[One project form]
+Send `Langsmith-Agent-Id` and `Langsmith-Agent-Environment` together or not at all, and never with `Langsmith-Project`: that request is refused with `400`.
+:::
+
+## Add the server layer
+
+The endpoint, headers and protocol come from the environment; the layer adds the key LangSmith groups threads by. The default `conventions: "genai"` fits: LangSmith maps `gen_ai.*` attributes (model, token counts, messages).
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/langsmith.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in LangSmith
+
+Start the app and send one message in the chat. The trace appears in the project, grouped into a thread by `langsmith.trace.session_id`.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [Trace with OpenTelemetry](https://docs.langchain.com/langsmith/trace-with-opentelemetry): endpoints, headers, `langsmith.trace.session_id`, `gen_ai.*` mapping
+- [Threads](https://docs.langchain.com/langsmith/threads)
+- [Legacy: trace with the Vercel AI SDK](https://docs.langchain.com/langsmith/legacy-trace-with-vercel-ai-sdk): installs the protobuf exporter
+
+Not confirmed: OTLP JSON acceptance; gRPC.
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=langsmith" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for LangSmith.
+</Card>

@@ -1,0 +1,16 @@
+# .github/workflows/test.yml
+name: test
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # Browser-mode tests run in Playwright's Chromium.
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec vitest run

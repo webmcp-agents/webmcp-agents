@@ -63,7 +63,7 @@ export function watchUserInput(
     });
   };
 
-  const point = (e: PointerEvent | MouseEvent): Vec => ({ x: e.clientX + scrollX, y: e.clientY + scrollY });
+  const point = (e: { clientX: number; clientY: number }): Vec => ({ x: e.clientX + scrollX, y: e.clientY + scrollY });
   const options: AddEventListenerOptions = { capture: true, passive: true, signal };
 
   addEventListener(
@@ -92,7 +92,7 @@ export function watchUserInput(
     "touchstart",
     (e) => {
       const t = e.touches[0];
-      if (e.isTrusted && !fromUi(e)) report("touch", t ? { x: t.clientX + scrollX, y: t.clientY + scrollY } : null);
+      if (e.isTrusted && !fromUi(e)) report("touch", t ? point(t) : null);
     },
     options,
   );

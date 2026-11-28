@@ -54,6 +54,24 @@ const tool = z.object({
     .refine((s) => JSON.stringify(s).length <= LIMITS.schemaBytes, `Input schemas are at most ${LIMITS.schemaBytes} bytes`),
 });
 
+/** The ids the page may send in `trace`: 1 to 64 letters, digits, `_`, `.` or `-` (a UUID fits). */
+export const TRACE_ID = /^[a-zA-Z0-9_.-]{1,64}$/;
+
+/**
+ * The run's ids a 0.5.0 page sends with every step (`trace`). Optional: a 0.4.0 page sends none, and a 0.4.0 server
+ * strips the field (the schema is not strict). Invalid ids refuse the request (400) before any model call.
+ */
+export const chatTraceSchema = z.object({
+  /** The conversation: every turn of one chat. */
+  conversation: z.string().regex(TRACE_ID, "Trace ids are 1-64 letters, digits, _ . or -"),
+  /** The run: one user turn (or one sub-agent run). */
+  run: z.string().regex(TRACE_ID, "Trace ids are 1-64 letters, digits, _ . or -"),
+  /** The model step within the run, from 1. */
+  step: z.number().int().min(1).max(64),
+  /** For a sub-agent's run: the `delegate_to_*` call id that started it. */
+  parent: z.string().regex(TRACE_ID, "Trace ids are 1-64 letters, digits, _ . or -").optional(),
+});
+
 /** The POST body of /api/chat. */
 export const chatRequestSchema = z.object({
   messages: z.array(message).min(1).max(LIMITS.messages),
@@ -65,6 +83,8 @@ export const chatRequestSchema = z.object({
   page: z.object({ url: z.string().max(2000).optional() }).optional(),
   /** The agent's id (`defineWebAgent`), looked up in the handler's registry. Never instructions: unknown keys are stripped. */
   agent: z.string().regex(AGENT_ID, "Agent ids are 1-64 letters, digits, _ . or -").optional(),
+  /** The run's ids, for telemetry (0.5.0): see `chatTraceSchema`. */
+  trace: chatTraceSchema.optional(),
 });
 
 /** A validated /api/chat request. */

@@ -38,19 +38,30 @@ const adapters = [
 | `adapter` | `AgentAdapter` | one shared `createCloudAdapter()` | What runs the model. Left out (with no `adapters`), the panel uses one shared cloud adapter that POSTs to `/api/chat`, the same one [`agent.invoke`](./define-web-agent.md#agentinvoke) and [`useWebAgent`](./use-web-agent.md) use. |
 | `adapters` | `readonly AgentAdapter[]` | — | Several adapters (cloud, on-device…). The panel shows a switcher; the first is the default. An empty list falls back to the default adapter. |
 | `agent` | `WebAgent` | — | The page's agent ([`defineWebAgent`](./define-web-agent.md)): its instructions, the tools it may use, its sub-agents. Register the same definition on the server (`createChatHandler({ agents })`). A delegate call renders as "<Name> agent" with the sub-agent's cards nested inside. |
-| `title` | `string` | `"Assistant"` | Panel title. Also used in the launcher's label ("Open assistant"). |
+| `title` | `string` | the catalog's `title` (`"Assistant"`) | Panel title. Also used in the launcher's label ("Open assistant"). Wins over `messages.title`. |
 | `defaultOpen` | `boolean` | `false` | Open on first render. |
 | `position` | `"bottom-right" \| "bottom-left"` | `"bottom-right"` | Side and corner for the launcher and panel. |
 | `layout` | `"docked" \| "floating"` | `"docked"` | `"docked"`: beside the page, full height, resizable; the page makes room. `"floating"`: a pop-over in the corner. |
 | `suggestions` | `string[] \| false` | derived from the page's tools | Starter prompts for an empty conversation. `false` hides them. |
-| `className` | `string` | — | Extra class on the host element, for theming with the `--wa-chat-*` properties. |
+| `className` | `string` | — | Extra class on the host element, for theming with the `--wa-chat-*` properties. Same as `classNames.root`. |
 | `storageKey` | `string \| false` | `"web-agents:chat"` | sessionStorage key for the conversation. Whether the panel is open is kept next to it (`<key>:open`), so after a page load (a navigation made without the app's router, a reload) the chat comes back as it was. `false` keeps both in memory only. |
 | `getSnapshot` | `() => unknown` | — | Optional JSON-serializable app state (cart, selection, …) captured per user turn and persisted with the chat. The URL is stored on the message automatically. |
 | `applySnapshot` | `(snapshot: { url?: string; app?: unknown }) => void \| Promise<void>` | default `history.replaceState` + `popstate` for `url` | Reapply a stage's checkpoint once the fills are rewound; with it, no tool `revert` runs. SPA apps should call their router (`navigate(url)`) and rehydrate store state from `app` (leave orders and bookings out: a restore never goes past a confirmed one). |
+| `theme` | `ChatThemeInput` | the built-in palette | CSS variable values as data: one [`ChatTheme`](./chat-theme.md), or `{ light, dark }`. Applied on the chat's root only. Ignored with `unstyled`. |
+| `colorScheme` | `"auto" \| "light" \| "dark"` | `"auto"` | `"auto"` is 0.4.0's behavior: `data-theme="dark"` on the chat or an ancestor forces dark, `data-theme="light"` on the chat forces light, else the OS. `"light"` / `"dark"` set `data-theme` on the chat's root. |
+| `messages` | `ChatMessagesInput` | English | Any part of the [message catalog](./chat-messages.md), as an object or plain JSON (placeholders, plurals, functions). Missing keys stay English. [Locales](./locales.md) ship separately. |
+| `locale` | `string` | `<html lang>`, else `"en"` | BCP 47. Drives plural rules, number, byte and percent formatting, and the direction. An invalid tag is `"en"`. |
+| `dir` | `"ltr" \| "rtl"` | from `locale`, else `<html dir>`, else `"ltr"` | Text direction. Arabic, Hebrew, Persian and Urdu locales are `"rtl"`; the layout mirrors (the dock side too). |
+| `classNames` | `Partial<Record<ChatPart, string>>` | — | Extra classes per [part](./chat-parts.md), added after the built-in ones. |
+| `styles` | `Partial<Record<ChatPart, CSSProperties>>` | — | Inline styles per part. |
+| `components` | `Partial<ChatComponents>` | — | Your own components in place of [parts](./chat-components.md) (`ToolCard`, `Composer`, `Icon`…). |
+| `unstyled` | `boolean` | `false` | No library styling: no `wa-chat*` class and no theme variable; only the `data-wa-part` hooks, your classes and styles, and every role, label and key binding. Do not import `chat.css` then. |
 
 ## Returns
 
-A portal into a host `<div>` appended to `document.body` (class `wa-chat`, `data-position`, `data-layout` and the `data-web-agents-ui` attribute). It renders `null` until the host exists.
+A portal into a host `<div>` appended to `document.body` (class `wa-chat`, `data-wa-part="root"`, `data-position`,
+`data-layout`, `dir`, `lang` and the `data-web-agents-ui` attribute). It renders `null` until the host exists. Every
+element inside carries `data-wa-part` and its state as data attributes ([Chat parts](./chat-parts.md)).
 
 ### Layout
 
@@ -66,32 +77,26 @@ A portal into a host `<div>` appended to `document.body` (class `wa-chat`, `data
 ### Theming
 
 Import `@webmcp-agents/chat/chat.css` once. Every rule is scoped by a `.wa-chat*` class and sits outside any cascade
-layer. Override the custom properties on `.wa-chat` (or on your `className`):
+layer, so an app's plain `button { color: inherit }` never beats it. Every color, size, radius, shadow, duration and
+z-index is a `--wa-chat-*` variable ([`ChatTheme`](./chat-theme.md) lists them all with their defaults): set it anywhere
+above the chat (`:root` works), or pass `theme`.
 
-| Property | Default (light) |
-|---|---|
-| `--wa-chat-bg` | `#ffffff` |
-| `--wa-chat-fg` | `#111111` |
-| `--wa-chat-muted` | `#5f6368` |
-| `--wa-chat-line` | `rgba(17, 17, 17, 0.1)` |
-| `--wa-chat-soft` | `rgba(17, 17, 17, 0.05)` |
-| `--wa-chat-accent` | `var(--agent, #111111)` (the cursor's colour) |
-| `--wa-chat-accent-ink` | `var(--agent-ink, #ffffff)` |
-| `--wa-chat-danger` | `#c62828` |
-| `--wa-chat-success` | `#1b7f3b` |
-| `--wa-chat-radius` | `14px` |
-| `--wa-chat-shadow` | `0 12px 40px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08)` |
-| `--wa-chat-font` | `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif` |
-| `--wa-chat-ease` | `var(--agent-ease-out, cubic-bezier(0.22, 1, 0.36, 1))` |
-| `--wa-chat-z` | `calc(var(--agent-z, 2147483000) - 2)` (below the agent cursor) |
-| `--wa-chat-gap` | `20px` (`16px` below 640 px) |
+```css
+:root {
+  --wa-chat-color-accent: oklch(0.62 0.19 255);
+  --wa-chat-radius-panel: 20px;
+}
+```
 
-Dark mode follows `prefers-color-scheme` (unless an ancestor or the host has `data-theme="light"`), or
-`data-theme="dark"` on an ancestor or the host. It changes the surfaces, and the accent with them: in dark,
-`--wa-chat-accent` is a light tint of `--agent` (its lightness raised to at least 0.8 in OKLCH, hue kept) and
-`--wa-chat-accent-ink` is the panel's background, so the default near-black agent stays readable on the dark panel.
-Browsers without relative colour syntax use the panel's text colour as the accent. The dark rules are two selectors
-deep: an override of your own for dark needs the same condition (`[data-theme="dark"] .wa-chat`, or the media query).
+The 0.4.0 names (`--wa-chat-accent`, `-accent-ink`, `-bg`, `-fg`, `-muted`, `-soft`, `-line`, `-danger`, `-success`,
+`-radius`, `-shadow`, `-font`, `-ease`, `-z`, `-gap`, `-width`, `-inset-left`, `-inset-right`) are still declared on
+`.wa-chat` as before, and each feeds its new token: a page that set them keeps what it had.
+
+Dark mode follows `prefers-color-scheme` (unless the host has `data-theme="light"`), or `data-theme="dark"` on an
+ancestor or the host; `colorScheme` forces one. It changes the surfaces, and the accent with them: in dark, the accent
+is a light tint of `--agent` (its lightness raised to at least 0.8 in OKLCH, hue kept) with the panel's background as
+its ink, so the default near-black agent stays readable on the dark panel. Browsers without relative colour syntax use
+the panel's text colour as the accent.
 
 A worked example, with the cursor: [Style the cursor and the chat](/build/style-the-cursor-and-chat).
 
@@ -106,8 +111,11 @@ A worked example, with the cursor: [Style the cursor and the chat](/build/style-
   is disabled while a run streams.
 - An adapter with `prepare()` and a `needs-download`, `downloading` or `error` status shows a download card with the
   size, Cancel, and a button to switch to another adapter.
-- "Try again" after a failed run resumes the turn (see [`resumable`](./session-reducer.md#resumable)). It is hidden for
-  `chat_disabled`.
+- A failed run shows the catalog's text for its [error code](./chat-error-codes.md), never the server's English. "Try
+  again" resumes the turn (see [`resumable`](./session-reducer.md#resumable)); it is hidden for `chat_disabled`. A turn
+  cut short by the step limit shows `max_steps`, with Try again to let it continue.
+- Every string, label and announcement comes from the [message catalog](./chat-messages.md); a tool parked on the page
+  is announced to screen readers (`live.waitingForYou`).
 - User messages that already have a reply (or a later turn) show a restore icon under the bubble, unless a confirmed
   action (a finished `requireConfirmation` or `destructive` call: an order placed, a flight booked) comes at or after
   them. The icon asks to confirm with a check and a cross (their tooltips and accessible names carry the words: “Remove
@@ -123,6 +131,7 @@ A worked example, with the cursor: [Style the cursor and the chat](/build/style-
 - [Add the chat](../../build/add-the-chat.mdx), the page that teaches it
 - [`defineWebAgent`](./define-web-agent.md), the `agent` prop
 - [`createCloudAdapter`](./create-cloud-adapter.md) and [`createChatHandler`](./create-chat-handler.md), the two ends of `/api/chat`
+- [`ChatTheme`](./chat-theme.md), [`ChatMessages`](./chat-messages.md), [Chat parts](./chat-parts.md) and [`ChatComponents`](./chat-components.md), to change how it looks and reads
 - [`useAgentSession`](./use-agent-session.md), to build your own chat UI
 - [`useWebAgent`](./use-web-agent.md), to run an agent with no chat on the page
 - [Adapter types](./adapter-types.md)

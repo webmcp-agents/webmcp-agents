@@ -164,8 +164,9 @@ export function createLocalAdapter(opts: LocalAdapterOptions = {}): AgentAdapter
         if (status.state !== "ready" || !provider) return;
       }
       const current = provider;
-      // a message-start waits for its first part: a provider that fails to start leaves no empty bubble behind
-      let held: AgentStreamPart | null = null;
+      // a step's opening parts (step-start, message-start) wait for its first content: a provider that fails to start
+      // leaves no empty bubble and no empty step behind
+      let held: AgentStreamPart[] = [];
       running = true;
       try {
         for await (const part of runLocalAgent(current, req, {
@@ -176,20 +177,19 @@ export function createLocalAdapter(opts: LocalAdapterOptions = {}): AgentAdapter
         })) {
           // Chrome's model reported "available" but can't start: drop it and answer with the next provider instead
           if (part.type === "error" && current.broken) break;
-          if (part.type === "message-start") {
-            if (held) yield held;
-            held = part;
+          if (part.type === "message-start" || part.type === "step-start") {
+            held.push(part);
             continue;
           }
-          if (held) yield held;
-          held = null;
+          yield* held;
+          held = [];
           yield part;
         }
       } finally {
         running = false;
       }
       if (!current.broken) {
-        if (held) yield held;
+        yield* held;
         return;
       }
       provider = null;

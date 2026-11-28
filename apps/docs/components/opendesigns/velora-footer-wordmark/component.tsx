@@ -15,8 +15,7 @@ import { FooterWordmarkArtwork } from "./wordmark";
 
 import "./styles.css";
 
-export { createFooterWordmarkStudy } from "./content";
-export type { WordmarkFooterDestinations, WordmarkFooterLink } from "./content";
+export type { WordmarkFooterLink } from "./content";
 export interface FooterWordmarkProps {
   auxiliaryLinks?: readonly WordmarkFooterLink[];
   blurb?: string;

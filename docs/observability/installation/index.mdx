@@ -1,0 +1,24 @@
+---
+title: Installation
+description: "Choose your backend. Every page is the same six steps, from the packages to one trace per turn in that backend."
+sidebar:
+  hidden: true
+---
+
+Pick your backend. Each page is the same six steps, and the telemetry pages after it show what differs for that
+backend. Your framework, picked in [Get started](/installation), picks the routes inside the steps.
+
+<include>/_partials/backends.mdx</include>
+
+## The six steps
+
+1. **Install the packages**: the telemetry layer, its OpenTelemetry packages, and the backend's own package where it
+   has one.
+2. **Set the environment**: the backend's URL and key, as the standard `OTEL_*` variables or the backend's own.
+3. **Add the server layer**: `lib/observability.ts`, passed to the chat route.
+4. **Add the relay route**: `/api/telemetry`, where the page posts its spans, with a per-IP limit.
+5. **Observe the page**: one component next to the chat.
+6. **Check it in the backend**: one message, one trace.
+
+Without a backend, you can still count runs and failed tools in your own analytics:
+[`onAgentRun`](/observability/on-agent-run) needs no telemetry package.

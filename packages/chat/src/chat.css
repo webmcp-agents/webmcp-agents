@@ -1,7 +1,15 @@
 /* @webmcp-agents/chat. Every rule is scoped by a .wa-chat* class. No cascade layer: unlayered app resets
    (`button { color: inherit }`) would beat any layered rule, while one class already outranks them.
-   Theme with the --wa-chat-* properties; override a part with a class selector of your own. */
+
+   Theming, three ways (docs: reference/chat/chat-theme):
+   - the tokens: --wa-chat-color-accent, --wa-chat-radius-panel, … set anywhere above the chat (`:root` works). This
+     file never declares them: it reads each one at the chat's root, falling back to its default (--wa-chat--<token>);
+   - the 0.4.0 names (--wa-chat-accent, --wa-chat-bg, --wa-chat-radius, …) declared below, exactly as before, so a
+     page that set them on .wa-chat still gets what it got; each one is the default of its new token;
+   - a part: [data-wa-part="toolCard"][data-state="awaiting-confirmation"] { … }, or your class through `classNames`.
+   Layout uses logical properties: the chat mirrors in right-to-left locales. */
 .wa-chat {
+  /* ---------- the 0.4.0 names (unchanged) ---------- */
   --wa-chat-bg: #ffffff;
   --wa-chat-fg: #111111;
   --wa-chat-muted: #5f6368;
@@ -19,15 +27,123 @@
   --wa-chat-z: calc(var(--agent-z, 2147483000) - 2);
   --wa-chat-gap: 20px;
 
+  /* ---------- every token, resolved once here: the page's value, else the default ---------- */
+  --wa-chat--color-bg: var(--wa-chat-color-bg, var(--wa-chat-bg));
+  --wa-chat--color-fg: var(--wa-chat-color-fg, var(--wa-chat-fg));
+  --wa-chat--color-muted: var(--wa-chat-color-muted, var(--wa-chat-muted));
+  --wa-chat--color-soft: var(--wa-chat-color-soft, var(--wa-chat-soft));
+  --wa-chat--color-line: var(--wa-chat-color-line, var(--wa-chat-line));
+  --wa-chat--color-accent: var(--wa-chat-color-accent, var(--wa-chat-accent));
+  --wa-chat--color-accent-ink: var(--wa-chat-color-accent-ink, var(--wa-chat-accent-ink));
+  --wa-chat--color-danger: var(--wa-chat-color-danger, var(--wa-chat-danger));
+  --wa-chat--color-success: var(--wa-chat-color-success, var(--wa-chat-success));
+  --wa-chat--color-user-bubble: var(--wa-chat-color-user-bubble, var(--wa-chat--color-accent));
+  --wa-chat--color-user-bubble-ink: var(--wa-chat-color-user-bubble-ink, var(--wa-chat--color-accent-ink));
+  --wa-chat--color-assistant-bubble: var(--wa-chat-color-assistant-bubble, var(--wa-chat--color-soft));
+  --wa-chat--color-assistant-bubble-ink: var(--wa-chat-color-assistant-bubble-ink, var(--wa-chat--color-fg));
+  --wa-chat--color-tool-bg: var(--wa-chat-color-tool-bg, transparent);
+  --wa-chat--color-tool-line: var(--wa-chat-color-tool-line, var(--wa-chat--color-line));
+  --wa-chat--color-input-bg: var(--wa-chat-color-input-bg, var(--wa-chat--color-bg));
+  --wa-chat--color-input-line: var(--wa-chat-color-input-line, var(--wa-chat--color-line));
+  --wa-chat--color-focus-ring: var(--wa-chat-color-focus-ring, var(--wa-chat--color-accent));
+  --wa-chat--color-overlay: var(--wa-chat-color-overlay, color-mix(in srgb, var(--wa-chat--color-fg) 6%, var(--wa-chat--color-bg)));
+  --wa-chat--color-error-bg: var(--wa-chat-color-error-bg, color-mix(in srgb, var(--wa-chat--color-danger) 10%, transparent));
+
+  --wa-chat--font-family: var(--wa-chat-font-family, var(--wa-chat-font));
+  --wa-chat--font-mono: var(--wa-chat-font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  --wa-chat--font-size: var(--wa-chat-font-size, 14px);
+  --wa-chat--font-size-small: var(--wa-chat-font-size-small, 13px);
+  --wa-chat--font-size-x-small: var(--wa-chat-font-size-x-small, 12px);
+  --wa-chat--font-size-title: var(--wa-chat-font-size-title, 15px);
+  --wa-chat--font-size-input: var(--wa-chat-font-size-input, 16px);
+  --wa-chat--font-line-height: var(--wa-chat-font-line-height, 1.5);
+  --wa-chat--font-line-height-tight: var(--wa-chat-font-line-height-tight, 1.4);
+  --wa-chat--font-weight: var(--wa-chat-font-weight, 500);
+  --wa-chat--font-weight-strong: var(--wa-chat-font-weight-strong, 600);
+
+  /* bubble, card and control follow the new panel token (never the 0.4.0 --wa-chat-radius, which only drew the panel) */
+  --wa-chat--radius-panel: var(--wa-chat-radius-panel, var(--wa-chat-radius));
+  --wa-chat--radius-bubble: var(--wa-chat-radius-bubble, max(0px, calc(var(--wa-chat-radius-panel, 14px) - 2px)));
+  --wa-chat--radius-card: var(--wa-chat-radius-card, max(0px, calc(var(--wa-chat-radius-panel, 14px) - 4px)));
+  --wa-chat--radius-control: var(--wa-chat-radius-control, max(0px, calc(var(--wa-chat-radius-panel, 14px) - 6px)));
+  --wa-chat--radius-launcher: var(--wa-chat-radius-launcher, 999px);
+  --wa-chat--radius-pill: var(--wa-chat-radius-pill, 999px);
+
+  --wa-chat--space-gap: var(--wa-chat-space-gap, var(--wa-chat-gap));
+  --wa-chat--space-pad: var(--wa-chat-space-pad, 16px);
+  --wa-chat--space-pad-bubble: var(--wa-chat-space-pad-bubble, 8px 12px);
+  --wa-chat--space-inset-bottom: var(--wa-chat-space-inset-bottom, var(--wa-chat--space-gap));
+  --wa-chat--space-xxs: var(--wa-chat-space-xxs, 2px);
+  --wa-chat--space-xs: var(--wa-chat-space-xs, 4px);
+  --wa-chat--space-sm: var(--wa-chat-space-sm, 6px);
+  --wa-chat--space-md: var(--wa-chat-space-md, 8px);
+  --wa-chat--space-lg: var(--wa-chat-space-lg, 10px);
+  --wa-chat--space-xl: var(--wa-chat-space-xl, 12px);
+  --wa-chat--space-xxl: var(--wa-chat-space-xxl, 14px);
+
+  --wa-chat--size-width: var(--wa-chat-size-width, 400px);
+  --wa-chat--size-max-height: var(--wa-chat-size-max-height, 620px);
+  --wa-chat--size-viewport-gap: var(--wa-chat-size-viewport-gap, 120px);
+  --wa-chat--size-dock-width: var(--wa-chat-size-dock-width, 380px);
+  --wa-chat--size-sheet-height: var(--wa-chat-size-sheet-height, min(85dvh, 640px));
+  --wa-chat--size-launcher: var(--wa-chat-size-launcher, 52px);
+  --wa-chat--size-icon: var(--wa-chat-size-icon, 36px);
+  --wa-chat--size-button: var(--wa-chat-size-button, 36px);
+  --wa-chat--size-control: var(--wa-chat-size-control, 32px);
+  --wa-chat--size-target: var(--wa-chat-size-target, 24px);
+  --wa-chat--size-input-min-height: var(--wa-chat-size-input-min-height, 40px);
+  --wa-chat--size-input-max-height: var(--wa-chat-size-input-max-height, calc(6lh + 18px));
+  --wa-chat--size-bubble-max: var(--wa-chat-size-bubble-max, 88%);
+  --wa-chat--size-dot: var(--wa-chat-size-dot, 7px);
+  --wa-chat--size-typing-dot: var(--wa-chat-size-typing-dot, 6px);
+  --wa-chat--size-progress: var(--wa-chat-size-progress, 6px);
+  --wa-chat--size-handle: var(--wa-chat-size-handle, 8px);
+  --wa-chat--size-border: var(--wa-chat-size-border, 1px);
+  --wa-chat--size-focus-ring: var(--wa-chat-size-focus-ring, 2px);
+  --wa-chat--size-focus-offset: var(--wa-chat-size-focus-offset, 2px);
+  --wa-chat--size-accent-border: var(--wa-chat-size-accent-border, 3px);
+  --wa-chat--size-underline-offset: var(--wa-chat-size-underline-offset, 3px);
+
+  --wa-chat--shadow-panel: var(--wa-chat-shadow-panel, var(--wa-chat-shadow));
+  --wa-chat--shadow-launcher: var(--wa-chat-shadow-launcher, var(--wa-chat--shadow-panel));
+  --wa-chat--shadow-card: var(--wa-chat-shadow-card, var(--wa-chat--shadow-panel));
+  --wa-chat--shadow-control: var(--wa-chat-shadow-control, 0 1px 2px rgba(15, 23, 42, 0.12));
+  --wa-chat--shadow-chip: var(--wa-chat-shadow-chip, 0 0 0 1px var(--wa-chat--color-line), 0 1px 2px rgba(15, 23, 42, 0.08));
+
+  --wa-chat--motion-ease: var(--wa-chat-motion-ease, var(--wa-chat-ease));
+  --wa-chat--motion-duration: var(--wa-chat-motion-duration, 0.18s);
+  --wa-chat--motion-duration-fast: var(--wa-chat-motion-duration-fast, 0.15s);
+  --wa-chat--motion-duration-slow: var(--wa-chat-motion-duration-slow, 0.3s);
+  --wa-chat--motion-duration-fade: var(--wa-chat-motion-duration-fade, 120ms);
+  --wa-chat--motion-duration-loop: var(--wa-chat-motion-duration-loop, 1.2s);
+  --wa-chat--motion-duration-pulse: var(--wa-chat-motion-duration-pulse, 1.6s);
+  --wa-chat--motion-offset: var(--wa-chat-motion-offset, 8px);
+  --wa-chat--motion-slide: var(--wa-chat-motion-slide, 16px);
+  --wa-chat--motion-bounce: var(--wa-chat-motion-bounce, 3px);
+  --wa-chat--motion-pulse: var(--wa-chat-motion-pulse, 12px);
+
+  --wa-chat--z-handle: var(--wa-chat-z-handle, 1);
+
+  /* direction: what "start" and "end" are for the few things CSS has no logical form of (transforms, origins) */
+  --wa-chat--dir: 1;
+  --wa-chat--x-start: left;
+  --wa-chat--x-end: right;
+
   position: fixed;
-  inset: auto var(--wa-chat-gap) var(--wa-chat-gap) auto;
+  inset-block: auto var(--wa-chat--space-inset-bottom);
+  inset-inline: auto var(--wa-chat--space-gap);
   z-index: var(--wa-chat-z);
-  font: 14px / 1.5 var(--wa-chat-font);
-  color: var(--wa-chat-fg);
+  font: var(--wa-chat--font-size) / var(--wa-chat--font-line-height) var(--wa-chat--font-family);
+  color: var(--wa-chat--color-fg);
   -webkit-font-smoothing: antialiased;
 }
+.wa-chat[dir="rtl"] {
+  --wa-chat--dir: -1;
+  --wa-chat--x-start: right;
+  --wa-chat--x-end: left;
+}
 .wa-chat[data-position="bottom-left"] {
-  inset: auto auto var(--wa-chat-gap) var(--wa-chat-gap);
+  inset-inline: var(--wa-chat--space-gap) auto;
 }
 @media (prefers-color-scheme: dark) {
   .wa-chat:not([data-theme="light"]) {
@@ -54,6 +170,18 @@
   --wa-chat-accent: var(--wa-chat-fg);
   --wa-chat-accent-ink: var(--wa-chat-bg);
 }
+/* `colorScheme="light"` (data-theme="light" on the chat itself) wins over a dark ancestor too */
+[data-theme="dark"] .wa-chat[data-theme="light"] {
+  --wa-chat-bg: #ffffff;
+  --wa-chat-fg: #111111;
+  --wa-chat-muted: #5f6368;
+  --wa-chat-line: rgba(17, 17, 17, 0.1);
+  --wa-chat-soft: rgba(17, 17, 17, 0.05);
+  --wa-chat-accent: var(--agent, #111111);
+  --wa-chat-accent-ink: var(--agent-ink, #ffffff);
+  --wa-chat-danger: #c62828;
+  --wa-chat-success: #1b7f3b;
+}
 /* Dark: the accent sits on a dark panel, so it is never darker than a light tint of the agent's colour (the
    default near-black agent becomes a light grey, a brand blue a light blue), with dark text on it. Where the
    browser cannot derive a colour, the rules above use the panel's own text colour instead. */
@@ -79,8 +207,8 @@
   color: inherit;
 }
 .wa-chat :focus-visible {
-  outline: 2px solid var(--wa-chat-accent);
-  outline-offset: 2px;
+  outline: var(--wa-chat--size-focus-ring) solid var(--wa-chat--color-focus-ring);
+  outline-offset: var(--wa-chat--size-focus-offset);
 }
 .wa-chat p {
   margin: 0;
@@ -91,19 +219,19 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  margin-left: auto;
+  inline-size: var(--wa-chat--size-launcher);
+  block-size: var(--wa-chat--size-launcher);
+  margin-inline-start: auto;
   border: 0;
-  border-radius: 999px;
-  background: var(--wa-chat-accent);
-  color: var(--wa-chat-accent-ink);
-  box-shadow: var(--wa-chat-shadow);
+  border-radius: var(--wa-chat--radius-launcher);
+  background: var(--wa-chat--color-accent);
+  color: var(--wa-chat--color-accent-ink);
+  box-shadow: var(--wa-chat--shadow-launcher);
   cursor: pointer;
-  transition: transform 0.15s var(--wa-chat-ease);
+  transition: transform var(--wa-chat--motion-duration-fast) var(--wa-chat--motion-ease);
 }
 .wa-chat[data-position="bottom-left"] .wa-chat__launcher {
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 .wa-chat__launcher:active {
   transform: scale(0.96);
@@ -111,11 +239,11 @@
 .wa-chat__launcher[data-busy]::after {
   content: "";
   position: absolute;
-  width: 52px;
-  height: 52px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 0 var(--wa-chat-accent);
-  animation: wa-chat-pulse 1.6s var(--wa-chat-ease) infinite;
+  inline-size: var(--wa-chat--size-launcher);
+  block-size: var(--wa-chat--size-launcher);
+  border-radius: var(--wa-chat--radius-launcher);
+  box-shadow: 0 0 0 0 var(--wa-chat--color-accent);
+  animation: wa-chat-pulse var(--wa-chat--motion-duration-pulse) var(--wa-chat--motion-ease) infinite;
   pointer-events: none;
 }
 
@@ -123,40 +251,48 @@
 .wa-chat__panel {
   display: flex;
   flex-direction: column;
-  width: min(400px, calc(100vw - 2 * var(--wa-chat-gap)));
-  height: min(620px, calc(100dvh - 120px));
-  margin-bottom: 12px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: var(--wa-chat-radius);
-  background: var(--wa-chat-bg);
-  box-shadow: var(--wa-chat-shadow);
+  inline-size: min(var(--wa-chat--size-width), calc(100vw - 2 * var(--wa-chat--space-gap)));
+  block-size: min(var(--wa-chat--size-max-height), calc(100dvh - var(--wa-chat--size-viewport-gap)));
+  margin-block-end: var(--wa-chat--space-xl);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
+  border-radius: var(--wa-chat--radius-panel);
+  background: var(--wa-chat--color-bg);
+  box-shadow: var(--wa-chat--shadow-panel);
   overflow: hidden;
-  transform-origin: bottom right;
+  transform-origin: bottom var(--wa-chat--x-end);
   transition:
-    opacity 0.18s var(--wa-chat-ease),
-    transform 0.18s var(--wa-chat-ease),
-    display 0.18s allow-discrete;
+    opacity var(--wa-chat--motion-duration) var(--wa-chat--motion-ease),
+    transform var(--wa-chat--motion-duration) var(--wa-chat--motion-ease),
+    display var(--wa-chat--motion-duration) allow-discrete;
 }
 .wa-chat[data-position="bottom-left"] .wa-chat__panel {
-  transform-origin: bottom left;
+  transform-origin: bottom var(--wa-chat--x-start);
 }
 .wa-chat__panel[hidden] {
   display: none;
   opacity: 0;
-  transform: translateY(8px) scale(0.98);
+  transform: translateY(var(--wa-chat--motion-offset)) scale(0.98);
 }
 @starting-style {
   .wa-chat__panel:not([hidden]) {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(var(--wa-chat--motion-offset)) scale(0.98);
   }
 }
-/* ---------- docked: beside the page, full height; the page makes room ---------- */
-html[data-wa-chat-dock="right"] body {
-  margin-right: var(--wa-chat-inset-right);
+/* ---------- docked: beside the page, full height; the page makes room ----------
+   The chat writes data-wa-chat-dock="left|right" (the physical side, its own direction applied) and the room on
+   <html>; the body's margin on that side is inline-end in a left-to-right page and inline-start in a right-to-left one. */
+html:not([dir="rtl"])[data-wa-chat-dock="right"] body {
+  margin-inline-end: var(--wa-chat-space-inset-right, var(--wa-chat-inset-right));
 }
-html[data-wa-chat-dock="left"] body {
-  margin-left: var(--wa-chat-inset-left);
+html:not([dir="rtl"])[data-wa-chat-dock="left"] body {
+  margin-inline-start: var(--wa-chat-space-inset-left, var(--wa-chat-inset-left));
+}
+html[dir="rtl"][data-wa-chat-dock="right"] body {
+  margin-inline-start: var(--wa-chat-space-inset-right, var(--wa-chat-inset-right));
+}
+html[dir="rtl"][data-wa-chat-dock="left"] body {
+  margin-inline-end: var(--wa-chat-space-inset-left, var(--wa-chat-inset-left));
 }
 html[data-wa-chat-resizing] {
   cursor: col-resize;
@@ -170,61 +306,60 @@ html[data-wa-chat-resizing] {
   }
   .wa-chat[data-layout="docked"] .wa-chat__panel {
     position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: var(--wa-chat-width, 380px);
-    height: 100dvh;
+    inset-block: 0;
+    inset-inline: auto 0;
+    inline-size: var(--wa-chat-width, var(--wa-chat--size-dock-width));
+    block-size: 100dvh;
     margin: 0;
-    border-width: 0 0 0 1px;
+    border-width: 0;
+    border-inline-start-width: var(--wa-chat--size-border);
     border-radius: 0;
     box-shadow: none;
-    transform-origin: right center;
+    transform-origin: var(--wa-chat--x-end) center;
   }
   .wa-chat[data-layout="docked"][data-position="bottom-left"] .wa-chat__panel {
-    right: auto;
-    left: 0;
-    border-width: 0 1px 0 0;
-    transform-origin: left center;
+    inset-inline: 0 auto;
+    border-inline-start-width: 0;
+    border-inline-end-width: var(--wa-chat--size-border);
+    transform-origin: var(--wa-chat--x-start) center;
   }
   .wa-chat[data-layout="docked"] .wa-chat__panel[hidden] {
-    transform: translateX(16px);
+    transform: translateX(calc(var(--wa-chat--motion-slide) * var(--wa-chat--dir)));
   }
   @starting-style {
     .wa-chat[data-layout="docked"] .wa-chat__panel:not([hidden]) {
-      transform: translateX(16px);
+      transform: translateX(calc(var(--wa-chat--motion-slide) * var(--wa-chat--dir)));
     }
   }
   .wa-chat[data-layout="docked"][data-position="bottom-left"] .wa-chat__panel[hidden] {
-    transform: translateX(-16px);
+    transform: translateX(calc(var(--wa-chat--motion-slide) * var(--wa-chat--dir) * -1));
   }
   @starting-style {
     .wa-chat[data-layout="docked"][data-position="bottom-left"] .wa-chat__panel:not([hidden]) {
-      transform: translateX(-16px);
+      transform: translateX(calc(var(--wa-chat--motion-slide) * var(--wa-chat--dir) * -1));
     }
   }
   .wa-chat__resize {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: -4px;
-    z-index: 1;
-    width: 8px;
+    inset-block: 0;
+    inset-inline-start: calc(var(--wa-chat--size-handle) / -2);
+    z-index: var(--wa-chat--z-handle);
+    inline-size: var(--wa-chat--size-handle);
     cursor: col-resize;
     touch-action: none;
   }
   .wa-chat[data-position="bottom-left"] .wa-chat__resize {
-    right: -4px;
-    left: auto;
+    inset-inline: auto calc(var(--wa-chat--size-handle) / -2);
   }
   .wa-chat__resize::after {
     content: "";
     position: absolute;
-    inset: 0 3px;
-    border-radius: 999px;
-    background: var(--wa-chat-accent);
+    inset-block: 0;
+    inset-inline: calc((var(--wa-chat--size-handle) - var(--wa-chat--size-focus-ring)) / 2);
+    border-radius: var(--wa-chat--radius-pill);
+    background: var(--wa-chat--color-accent);
     opacity: 0;
-    transition: opacity 0.15s var(--wa-chat-ease);
+    transition: opacity var(--wa-chat--motion-duration-fast) var(--wa-chat--motion-ease);
   }
   .wa-chat__resize:hover::after,
   .wa-chat__resize:focus-visible::after,
@@ -239,60 +374,64 @@ html[data-wa-chat-resizing] {
 .wa-chat__header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 10px 10px 16px;
-  border-bottom: 1px solid var(--wa-chat-line);
+  gap: var(--wa-chat--space-sm);
+  padding-block: var(--wa-chat--space-lg);
+  padding-inline: var(--wa-chat--space-pad) var(--wa-chat--space-lg);
+  border-block-end: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
 }
 .wa-chat__header h2 {
-  margin: 0 auto 0 0;
-  font-size: 15px;
-  font-weight: 600;
+  margin: 0;
+  margin-inline-end: auto;
+  font-size: var(--wa-chat--font-size-title);
+  font-weight: var(--wa-chat--font-weight-strong);
 }
 .wa-chat__switcher {
   display: flex;
-  gap: 4px;
-  margin: 8px 16px 0;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--wa-chat-soft);
+  gap: var(--wa-chat--space-xs);
+  margin-block: var(--wa-chat--space-md) 0;
+  margin-inline: var(--wa-chat--space-pad);
+  padding: calc(var(--wa-chat--space-xxs) + var(--wa-chat--size-border));
+  border-radius: var(--wa-chat--radius-card);
+  background: var(--wa-chat--color-soft);
 }
 .wa-chat__switch {
   flex: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 32px;
-  padding: 0 10px;
+  gap: var(--wa-chat--space-sm);
+  min-block-size: var(--wa-chat--size-control);
+  padding-block: 0;
+  padding-inline: var(--wa-chat--space-lg);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--wa-chat--radius-control);
   background: transparent;
-  color: var(--wa-chat-muted);
-  font-size: 13px;
-  font-weight: 500;
+  color: var(--wa-chat--color-muted);
+  font-size: var(--wa-chat--font-size-small);
+  font-weight: var(--wa-chat--font-weight);
   cursor: pointer;
 }
 .wa-chat__switch[aria-checked="true"] {
-  background: var(--wa-chat-bg);
-  color: var(--wa-chat-fg);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  background: var(--wa-chat--color-bg);
+  color: var(--wa-chat--color-fg);
+  box-shadow: var(--wa-chat--shadow-control);
 }
 .wa-chat__switch:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 .wa-chat__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--wa-chat-muted);
+  inline-size: var(--wa-chat--size-dot);
+  block-size: var(--wa-chat--size-dot);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-muted);
 }
 .wa-chat__dot[data-state="ready"] {
-  background: var(--wa-chat-success);
+  background: var(--wa-chat--color-success);
 }
 .wa-chat__dot[data-state="off"] {
   background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--wa-chat-muted);
+  box-shadow: inset 0 0 0 calc(var(--wa-chat--size-border) * 1.5) var(--wa-chat--color-muted);
 }
 
 /* ---------- model picker ---------- */
@@ -300,99 +439,103 @@ html[data-wa-chat-resizing] {
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 4px 10px;
-  margin: 0 16px 10px;
-  font-size: 13px;
+  gap: var(--wa-chat--space-xs) var(--wa-chat--space-lg);
+  margin-block: 0 var(--wa-chat--space-lg);
+  margin-inline: var(--wa-chat--space-pad);
+  font-size: var(--wa-chat--font-size-small);
 }
 .wa-chat__model label {
-  color: var(--wa-chat-muted);
+  color: var(--wa-chat--color-muted);
 }
 .wa-chat__model select {
-  min-height: 32px;
-  padding: 0 8px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 8px;
-  background: var(--wa-chat-bg);
+  min-block-size: var(--wa-chat--size-control);
+  padding-block: 0;
+  padding-inline: var(--wa-chat--space-md);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-input-line);
+  border-radius: var(--wa-chat--radius-control);
+  background: var(--wa-chat--color-input-bg);
   color: inherit;
   font: inherit;
 }
 .wa-chat__model-meta {
   grid-column: 1 / -1;
   margin: 0;
-  color: var(--wa-chat-muted);
-  font-size: 12px;
+  color: var(--wa-chat--color-muted);
+  font-size: var(--wa-chat--font-size-x-small);
 }
 
 /* ---------- model download ---------- */
 .wa-chat__download {
   display: grid;
-  gap: 8px;
-  margin: 0 16px 12px;
-  padding: 14px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 12px;
-  color: var(--wa-chat-fg);
-  font-size: 13px;
+  gap: var(--wa-chat--space-md);
+  margin-block: 0 var(--wa-chat--space-xl);
+  margin-inline: var(--wa-chat--space-pad);
+  padding: var(--wa-chat--space-xxl);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
+  border-radius: var(--wa-chat--radius-bubble);
+  color: var(--wa-chat--color-fg);
+  font-size: var(--wa-chat--font-size-small);
 }
 .wa-chat__empty .wa-chat__download {
   margin: 0;
 }
 .wa-chat__download-title {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: var(--wa-chat--font-weight-strong);
+  font-size: var(--wa-chat--font-size);
 }
 .wa-chat__download-meta {
-  color: var(--wa-chat-muted);
+  color: var(--wa-chat--color-muted);
   font-variant-numeric: tabular-nums;
 }
 .wa-chat__download-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--wa-chat--space-md);
 }
 .wa-chat__button {
   justify-self: start;
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 8px;
-  background: var(--wa-chat-bg);
-  font-weight: 600;
+  min-block-size: var(--wa-chat--size-button);
+  padding-block: 0;
+  padding-inline: var(--wa-chat--space-xxl);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
+  border-radius: var(--wa-chat--radius-control);
+  background: var(--wa-chat--color-bg);
+  font-weight: var(--wa-chat--font-weight-strong);
   cursor: pointer;
 }
 .wa-chat__button[data-primary] {
   border-color: transparent;
-  background: var(--wa-chat-accent);
-  color: var(--wa-chat-accent-ink);
+  background: var(--wa-chat--color-accent);
+  color: var(--wa-chat--color-accent-ink);
 }
 .wa-chat__progress {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--wa-chat-soft);
+  block-size: var(--wa-chat--size-progress);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-soft);
   overflow: hidden;
 }
 .wa-chat__progress span {
   display: block;
-  height: 100%;
-  background: var(--wa-chat-accent);
-  transform-origin: left;
-  transition: transform 0.3s var(--wa-chat-ease);
+  block-size: 100%;
+  background: var(--wa-chat--color-accent);
+  transform-origin: var(--wa-chat--x-start);
+  transition: transform var(--wa-chat--motion-duration-slow) var(--wa-chat--motion-ease);
 }
 .wa-chat__icon {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  inline-size: var(--wa-chat--size-icon);
+  block-size: var(--wa-chat--size-icon);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--wa-chat--radius-control);
   background: transparent;
-  color: var(--wa-chat-muted);
+  color: var(--wa-chat--color-muted);
   cursor: pointer;
 }
 @media (hover: hover) {
   .wa-chat__icon:hover {
-    background: var(--wa-chat-soft);
-    color: var(--wa-chat-fg);
+    background: var(--wa-chat--color-soft);
+    color: var(--wa-chat--color-fg);
   }
 }
 
@@ -402,32 +545,38 @@ html[data-wa-chat-resizing] {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  gap: 14px;
-  padding: 16px;
-  color: var(--wa-chat-muted);
+  gap: var(--wa-chat--space-xxl);
+  padding: var(--wa-chat--space-pad);
+  color: var(--wa-chat--color-muted);
   overflow-y: auto;
+}
+.wa-chat__empty-title {
+  margin: 0;
+  color: var(--wa-chat--color-fg);
+  font-size: var(--wa-chat--font-size-title);
+  font-weight: var(--wa-chat--font-weight-strong);
 }
 .wa-chat__suggestions {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--wa-chat--space-md);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .wa-chat__suggestions button {
-  padding: 8px 12px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 999px;
-  background: var(--wa-chat-bg);
-  color: var(--wa-chat-fg);
-  text-align: left;
+  padding: var(--wa-chat--space-pad-bubble);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-bg);
+  color: var(--wa-chat--color-fg);
+  text-align: start;
   cursor: pointer;
 }
 @media (hover: hover) {
   .wa-chat__suggestions button:hover {
-    background: var(--wa-chat-soft);
+    background: var(--wa-chat--color-soft);
   }
 }
 
@@ -435,14 +584,14 @@ html[data-wa-chat-resizing] {
 .wa-chat__scroll {
   position: relative;
   flex: 1;
-  min-height: 0;
+  min-block-size: 0;
 }
 .wa-chat__log {
-  height: 100%;
+  block-size: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
+  gap: var(--wa-chat--space-xl);
+  padding: var(--wa-chat--space-pad);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -450,7 +599,7 @@ html[data-wa-chat-resizing] {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--wa-chat--space-md);
 }
 .wa-chat__message[data-role="user"] {
   align-items: stretch;
@@ -459,59 +608,59 @@ html[data-wa-chat-resizing] {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
-  min-width: 0;
-  width: 100%;
+  gap: var(--wa-chat--space-md);
+  min-inline-size: 0;
+  inline-size: 100%;
 }
 .wa-chat__message[data-role="user"] .wa-chat__message-body {
   align-items: flex-end;
 }
 .wa-chat__bubble {
   display: grid;
-  gap: 8px;
-  max-width: 88%;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--wa-chat-soft);
+  gap: var(--wa-chat--space-md);
+  max-inline-size: var(--wa-chat--size-bubble-max);
+  padding: var(--wa-chat--space-pad-bubble);
+  border-radius: var(--wa-chat--radius-bubble);
+  background: var(--wa-chat--color-assistant-bubble);
+  color: var(--wa-chat--color-assistant-bubble-ink);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .wa-chat__message[data-role="user"] .wa-chat__bubble {
-  background: var(--wa-chat-accent);
-  color: var(--wa-chat-accent-ink);
+  background: var(--wa-chat--color-user-bubble);
+  color: var(--wa-chat--color-user-bubble-ink);
 }
-/* room for the restore chip's top half (12px), so it only ever covers padding, never the last line of text */
+/* room for the restore chip's top half, so it only ever covers padding, never the last line of text */
 .wa-chat__message[data-role="user"] .wa-chat__bubble:has(+ .wa-chat__stage) {
-  padding-bottom: 14px;
+  padding-block-end: var(--wa-chat--space-xxl);
 }
 /*
  * Restore checkpoint: a chip pinned to the user bubble's bottom edge, half over it and half below, inset from the
  * rounded corner, so it reads as part of that message rather than a row of its own. Icon-only buttons (their tooltips
- * carry the words). Sits in the bubble's column: the body's 8px gap plus half the 24px chip pulls it up by 20px.
+ * carry the words). Sits in the bubble's column: the body's gap plus half the chip pulls it up.
  */
 .wa-chat__stage {
   position: relative; /* paints over the bubble */
   display: flex;
   justify-content: flex-end;
-  margin-top: -20px;
-  margin-inline-end: 10px;
+  margin-block-start: calc(-1 * (var(--wa-chat--space-md) + var(--wa-chat--size-target) / 2));
+  margin-inline-end: var(--wa-chat--space-lg);
 }
 /* the chip: the ask button alone, or the confirm pair as one pill */
 .wa-chat__stage-ask,
 .wa-chat__stage-actions {
-  border-radius: 999px;
-  background: var(--wa-chat-bg);
-  box-shadow:
-    0 0 0 1px var(--wa-chat-line),
-    0 1px 2px rgba(15, 23, 42, 0.08);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-bg);
+  box-shadow: var(--wa-chat--shadow-chip);
 }
 .wa-chat__stage-actions {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  min-width: 0;
+  gap: var(--wa-chat--space-xxs);
+  min-inline-size: 0;
   margin: 0;
-  padding: 0 2px;
+  padding-block: 0;
+  padding-inline: var(--wa-chat--space-xxs);
   border: 0;
 }
 /* at least 24px square, so they're easy to hit (WCAG 2.5.8) */
@@ -520,32 +669,32 @@ html[data-wa-chat-resizing] {
 .wa-chat__stage-cancel {
   display: inline-grid;
   place-items: center;
-  min-width: 24px;
-  min-height: 24px;
+  min-inline-size: var(--wa-chat--size-target);
+  min-block-size: var(--wa-chat--size-target);
   padding: 0;
   border: 0;
-  color: var(--wa-chat-muted);
+  color: var(--wa-chat--color-muted);
   cursor: pointer;
 }
 .wa-chat__stage-go,
 .wa-chat__stage-cancel {
-  border-radius: 999px;
+  border-radius: var(--wa-chat--radius-pill);
   background: transparent;
 }
 .wa-chat__stage-go {
-  color: var(--wa-chat-danger);
+  color: var(--wa-chat--color-danger);
 }
 @media (hover: hover) {
   .wa-chat__stage-ask:hover {
-    background: color-mix(in srgb, var(--wa-chat-fg) 6%, var(--wa-chat-bg));
-    color: var(--wa-chat-fg);
+    background: var(--wa-chat--color-overlay);
+    color: var(--wa-chat--color-fg);
   }
   .wa-chat__stage-go:hover {
-    background: color-mix(in srgb, var(--wa-chat-danger) 12%, transparent);
+    background: color-mix(in srgb, var(--wa-chat--color-danger) 12%, transparent);
   }
   .wa-chat__stage-cancel:hover {
-    background: var(--wa-chat-soft);
-    color: var(--wa-chat-fg);
+    background: var(--wa-chat--color-soft);
+    color: var(--wa-chat--color-fg);
   }
 }
 /*
@@ -556,7 +705,7 @@ html[data-wa-chat-resizing] {
 @media (hover: hover) {
   .wa-chat__stage-ask {
     opacity: 0;
-    transition: opacity 120ms ease-out;
+    transition: opacity var(--wa-chat--motion-duration-fade) ease-out;
   }
   .wa-chat__message:hover .wa-chat__stage-ask,
   .wa-chat__stage-ask:focus-visible {
@@ -564,83 +713,89 @@ html[data-wa-chat-resizing] {
   }
 }
 .wa-chat__restored {
-  margin: 0 16px 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 8px;
-  background: var(--wa-chat-soft);
-  color: var(--wa-chat-muted);
-  font-size: 12px;
-  line-height: 1.4;
+  margin-block: 0 var(--wa-chat--space-md);
+  margin-inline: var(--wa-chat--space-pad);
+  padding: var(--wa-chat--space-pad-bubble);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
+  border-radius: var(--wa-chat--radius-control);
+  background: var(--wa-chat--color-soft);
+  color: var(--wa-chat--color-muted);
+  font-size: var(--wa-chat--font-size-x-small);
+  line-height: var(--wa-chat--font-line-height-tight);
 }
 .wa-chat__typing {
   display: flex;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: var(--wa-chat--space-xs);
+  padding-block: var(--wa-chat--space-lg);
+  padding-inline: var(--wa-chat--space-xl);
 }
 .wa-chat__typing > span:not(.wa-chat__sr) {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--wa-chat-muted);
-  animation: wa-chat-dot 1.2s infinite ease-in-out;
+  inline-size: var(--wa-chat--size-typing-dot);
+  block-size: var(--wa-chat--size-typing-dot);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-muted);
+  animation: wa-chat-dot var(--wa-chat--motion-duration-loop) infinite ease-in-out;
 }
 .wa-chat__typing > span:nth-child(2) {
-  animation-delay: 0.15s;
+  animation-delay: calc(var(--wa-chat--motion-duration-loop) / 8);
 }
 .wa-chat__typing > span:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: calc(var(--wa-chat--motion-duration-loop) / 4);
 }
 .wa-chat__jump {
   position: absolute;
-  left: 50%;
-  bottom: 10px;
+  inset-inline-start: 50%;
+  inset-block-end: var(--wa-chat--space-lg);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 999px;
-  background: var(--wa-chat-bg);
-  box-shadow: var(--wa-chat-shadow);
-  font-size: 13px;
-  transform: translateX(-50%);
+  gap: var(--wa-chat--space-xs);
+  padding-block: var(--wa-chat--space-sm);
+  padding-inline: var(--wa-chat--space-xl);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-bg);
+  box-shadow: var(--wa-chat--shadow-card);
+  font-size: var(--wa-chat--font-size-small);
+  transform: translateX(calc(-50% * var(--wa-chat--dir)));
   cursor: pointer;
 }
 
 /* ---------- tool cards ---------- */
 .wa-chat__tool {
   position: relative;
-  width: 100%;
+  inline-size: 100%;
   display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 10px;
+  gap: var(--wa-chat--space-xs);
+  padding-block: var(--wa-chat--space-lg);
+  padding-inline: var(--wa-chat--space-xl);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-tool-line);
+  border-radius: var(--wa-chat--radius-card);
+  background: var(--wa-chat--color-tool-bg);
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--wa-chat--font-size-small);
 }
 .wa-chat__tool-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--wa-chat--space-md);
 }
 .wa-chat__tool-name {
-  font-weight: 600;
+  font-weight: var(--wa-chat--font-weight-strong);
 }
 .wa-chat__chip {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: var(--wa-chat-soft);
-  color: var(--wa-chat-muted);
-  font-size: 12px;
+  padding-block: var(--wa-chat--size-border);
+  padding-inline: var(--wa-chat--space-md);
+  border-radius: var(--wa-chat--radius-pill);
+  background: var(--wa-chat--color-soft);
+  color: var(--wa-chat--color-muted);
+  font-size: var(--wa-chat--font-size-x-small);
   white-space: nowrap;
 }
 .wa-chat__tool-args {
-  color: var(--wa-chat-muted);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 12px;
+  color: var(--wa-chat--color-muted);
+  font-family: var(--wa-chat--font-mono);
+  font-size: var(--wa-chat--font-size-x-small);
   overflow-wrap: anywhere;
 }
 .wa-chat__tool-result {
@@ -656,24 +811,25 @@ html[data-wa-chat-resizing] {
 .wa-chat__tool[data-status="running"]::after {
   content: "";
   position: absolute;
-  inset: auto 0 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--wa-chat-accent), transparent);
-  animation: wa-chat-shimmer 1.2s linear infinite;
+  inset-block: auto 0;
+  inset-inline: 0;
+  block-size: var(--wa-chat--size-focus-ring);
+  background: linear-gradient(90deg, transparent, var(--wa-chat--color-accent), transparent);
+  animation: wa-chat-shimmer var(--wa-chat--motion-duration-loop) linear infinite;
 }
 .wa-chat__tool[data-status="awaiting"] {
-  border-color: var(--wa-chat-accent);
+  border-color: var(--wa-chat--color-accent);
 }
 .wa-chat__tool[data-status="awaiting"] .wa-chat__chip {
-  background: var(--wa-chat-accent);
-  color: var(--wa-chat-accent-ink);
+  background: var(--wa-chat--color-accent);
+  color: var(--wa-chat--color-accent-ink);
 }
 .wa-chat__tool[data-status="done"] .wa-chat__chip {
-  color: var(--wa-chat-success);
+  color: var(--wa-chat--color-success);
 }
 .wa-chat__tool[data-status="error"] .wa-chat__chip,
 .wa-chat__tool[data-status="error"] .wa-chat__tool-result {
-  color: var(--wa-chat-danger);
+  color: var(--wa-chat--color-danger);
 }
 .wa-chat__tool[data-status="cancelled"] {
   opacity: 0.65;
@@ -682,16 +838,16 @@ html[data-wa-chat-resizing] {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--wa-chat--space-md);
 }
 .wa-chat__link {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--wa-chat-fg);
-  font-weight: 600;
+  color: var(--wa-chat--color-fg);
+  font-weight: var(--wa-chat--font-weight-strong);
   text-decoration: underline;
-  text-underline-offset: 3px;
+  text-underline-offset: var(--wa-chat--size-underline-offset);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -701,55 +857,58 @@ html[data-wa-chat-resizing] {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  margin: 0 16px 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--wa-chat-danger) 10%, transparent);
-  color: var(--wa-chat-danger);
-  font-size: 13px;
+  gap: var(--wa-chat--space-md);
+  margin-block: 0 var(--wa-chat--space-md);
+  margin-inline: var(--wa-chat--space-pad);
+  padding: var(--wa-chat--space-pad-bubble);
+  border-radius: var(--wa-chat--radius-card);
+  background: var(--wa-chat--color-error-bg);
+  color: var(--wa-chat--color-danger);
+  font-size: var(--wa-chat--font-size-small);
 }
 .wa-chat__composer {
   display: grid;
-  gap: 6px;
-  padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--wa-chat-line);
+  gap: var(--wa-chat--space-sm);
+  padding-block: var(--wa-chat--space-lg) calc(var(--wa-chat--space-xl) + env(safe-area-inset-bottom));
+  padding-inline: var(--wa-chat--space-xl);
+  border-block-start: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
 }
 .wa-chat__offline {
-  color: var(--wa-chat-muted);
-  font-size: 13px;
+  color: var(--wa-chat--color-muted);
+  font-size: var(--wa-chat--font-size-small);
 }
 .wa-chat__field {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: var(--wa-chat--space-md);
 }
 .wa-chat__field textarea {
   flex: 1;
-  min-height: 40px;
-  max-height: calc(6lh + 18px);
-  padding: 9px 12px;
-  border: 1px solid var(--wa-chat-line);
-  border-radius: 10px;
-  background: var(--wa-chat-bg);
-  font-size: 16px; /* no zoom on iOS */
-  line-height: 1.4;
+  min-block-size: var(--wa-chat--size-input-min-height);
+  max-block-size: var(--wa-chat--size-input-max-height);
+  padding-block: calc(var(--wa-chat--space-md) + var(--wa-chat--size-border));
+  padding-inline: var(--wa-chat--space-xl);
+  border: var(--wa-chat--size-border) solid var(--wa-chat--color-input-line);
+  border-radius: var(--wa-chat--radius-card);
+  background: var(--wa-chat--color-input-bg);
+  font-size: var(--wa-chat--font-size-input); /* no zoom on iOS */
+  line-height: var(--wa-chat--font-line-height-tight);
   resize: none;
   field-sizing: content;
 }
 .wa-chat__field textarea:disabled {
-  background: var(--wa-chat-soft);
+  background: var(--wa-chat--color-soft);
 }
 .wa-chat__send {
   flex: none;
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  inline-size: var(--wa-chat--size-input-min-height);
+  block-size: var(--wa-chat--size-input-min-height);
   border: 0;
-  border-radius: 10px;
-  background: var(--wa-chat-accent);
-  color: var(--wa-chat-accent-ink);
+  border-radius: var(--wa-chat--radius-card);
+  background: var(--wa-chat--color-accent);
+  color: var(--wa-chat--color-accent-ink);
   cursor: pointer;
 }
 .wa-chat__send:disabled {
@@ -758,8 +917,8 @@ html[data-wa-chat-resizing] {
 }
 .wa-chat__sr {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inline-size: var(--wa-chat--size-border);
+  block-size: var(--wa-chat--size-border);
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
@@ -772,11 +931,14 @@ html[data-wa-chat-resizing] {
   }
   .wa-chat__panel:not([hidden]) {
     position: fixed;
-    inset: auto 0 0;
-    width: 100%;
-    height: min(85dvh, 640px);
+    inset-block: auto 0;
+    inset-inline: 0;
+    inline-size: 100%;
+    block-size: var(--wa-chat--size-sheet-height);
     margin: 0;
-    border-radius: var(--wa-chat-radius) var(--wa-chat-radius) 0 0;
+    border-radius: 0;
+    border-start-start-radius: var(--wa-chat--radius-panel);
+    border-start-end-radius: var(--wa-chat--radius-panel);
     transform-origin: bottom center;
   }
   /* the sheet has its own close button; the launcher would sit on the composer */
@@ -794,23 +956,23 @@ html[data-wa-chat-resizing] {
   }
   40% {
     opacity: 1;
-    transform: translateY(-3px);
+    transform: translateY(calc(var(--wa-chat--motion-bounce) * -1));
   }
 }
 @keyframes wa-chat-shimmer {
   from {
-    transform: translateX(-100%);
+    transform: translateX(calc(-100% * var(--wa-chat--dir)));
   }
   to {
-    transform: translateX(100%);
+    transform: translateX(calc(100% * var(--wa-chat--dir)));
   }
 }
 @keyframes wa-chat-pulse {
   from {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--wa-chat-accent) 40%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--wa-chat--color-accent) 40%, transparent);
   }
   to {
-    box-shadow: 0 0 0 12px transparent;
+    box-shadow: 0 0 0 var(--wa-chat--motion-pulse) transparent;
   }
 }
 
@@ -844,18 +1006,18 @@ html[data-wa-chat-resizing] {
 
 /* ---------- sub-agent runs, nested under their delegate call (after the cards: these refine them) ---------- */
 .wa-chat__tool[data-agent] {
-  border-left: 3px solid var(--wa-chat-accent);
+  border-inline-start: var(--wa-chat--size-accent-border) solid var(--wa-chat--color-accent);
 }
 .wa-chat__nested {
   display: grid;
-  gap: 8px;
-  margin-top: 8px;
-  padding-left: 10px;
-  border-left: 1px solid var(--wa-chat-line);
+  gap: var(--wa-chat--space-md);
+  margin-block-start: var(--wa-chat--space-md);
+  padding-inline-start: var(--wa-chat--space-lg);
+  border-inline-start: var(--wa-chat--size-border) solid var(--wa-chat--color-line);
 }
 .wa-chat__nested .wa-chat__tool {
-  font-size: 12px;
+  font-size: var(--wa-chat--font-size-x-small);
 }
 .wa-chat__tool .wa-chat__nested .wa-chat__bubble {
-  font-size: 13px;
+  font-size: var(--wa-chat--font-size-small);
 }

@@ -1,0 +1,12 @@
+{
+  // The chat theming and localization pages' code. "@/" falls back
+  // to ../shared, as in every framework folder.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "paths": { "@/*": ["../shared/*"] }
+  },
+  "include": ["."]
+}

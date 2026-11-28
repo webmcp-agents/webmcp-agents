@@ -82,9 +82,10 @@ describe("runLocalAgent", () => {
     ).toContain("out of stock");
   });
 
-  it("text only: message-start, text deltas, finish(stop)", async () => {
+  it("text only: step-start, message-start, text deltas, step-finish, finish(stop)", async () => {
     const { types, parts } = await run(fake(["Hello there."]));
-    expect(types[0]).toBe("message-start");
+    expect(types.slice(0, 2)).toEqual(["step-start", "message-start"]);
+    expect(types.slice(-2)).toEqual(["step-finish", "finish"]);
     expect(types.at(-1)).toBe("finish");
     expect(
       parts

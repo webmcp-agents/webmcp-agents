@@ -1,0 +1,64 @@
+---
+title: appIntegrations
+description: "One chat span per model step when your app registered @ai-sdk/otel itself: the layer leaves the app's integration out of the chat's calls, or keeps both."
+sidebar:
+  label: "appIntegrations"
+related:
+  - /observability/where-spans-go
+  - /observability/privacy
+  - /observability/define-observability
+---
+
+`appIntegrations` matters only when your app registered the AI SDK's OpenTelemetry integration itself
+(`registerTelemetry(new OpenTelemetry())` from `@ai-sdk/otel`) and its spans go to the same provider as the layer's.
+Both would then record every model step of the chat, so a backend would show each step twice. By default the layer
+leaves the app's integration out of the chat's own calls, and says so once.
+
+## Example
+
+To keep both, for example while you compare them:
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/app-integrations.ts</include>
+
+## Options
+
+<TypeTable
+  type={{
+    appIntegrations: {
+      type: '"dedupe" | "keep"',
+      default: '"dedupe"',
+      description:
+        "What to do with the app's own @ai-sdk/otel integrations on a sampled request whose spans go to the same provider: leave them out of that call, or pass them along.",
+    },
+  }}
+/>
+
+Every other option is on [defineObservability](/observability/define-observability#options).
+
+## Notes
+
+<Accordion>
+  <AccordionItem title="When the app's integration is always kept">
+    Other integrations the app registered always run. So does the app's `@ai-sdk/otel` one on a request the layer does
+    not sample, and whenever the layer builds its own provider (`exporters`, `spanProcessors`, or the environment
+    alone).
+  </AccordionItem>
+  <AccordionItem title="An integration with another provider's tracer">
+    An `@ai-sdk/otel` integration the app gave a tracer of another provider is left out as well. Pass `"keep"` then.
+  </AccordionItem>
+  <AccordionItem title="The app's integrations never record content">
+    An integration the app registered still runs on each step but never records prompts or answers: it cannot redact,
+    so only this layer's spans carry content ([Privacy and redaction](/observability/privacy)).
+  </AccordionItem>
+</Accordion>
+
+## Next
+
+<CardGroup cols={2}>
+  <Card title="observeAgents" href="/observability/observe-agents" icon="eye">
+    The page's side: runs and tool calls as spans.
+  </Card>
+  <Card title="Span names and types" href="/observability/spans" icon="tags">
+    Every span and attribute name as a constant, and the OpenTelemetry types the options take.
+  </Card>
+</CardGroup>

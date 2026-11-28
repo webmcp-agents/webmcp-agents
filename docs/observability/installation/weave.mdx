@@ -1,0 +1,143 @@
+---
+title: Send traces to W&B Weave
+description: "Six steps to agent traces and threads in W&B Weave, over OTLP as protobuf."
+# The page ends with its own "Next" card; the sidebar neighbours would say something else.
+pagination: false
+sidebar:
+  label: W&B Weave
+---
+
+<RememberBackend name="W&B Weave" />
+
+:::note[Not run by us]
+Written from Weave's docs on 2026-11-25.
+:::
+
+Six steps, from the packages to one trace per turn in W&B Weave: the same six on every backend's page. The framework
+picker above the code picks your routes; the backend stays picked for the pages after this one.
+
+<div class="install-steps">
+
+## Install the packages
+
+The telemetry layer and its OpenTelemetry packages, plus the protobuf exporter: Weave accepts OTLP as protobuf only.
+
+```package-install
+npm install @webmcp-agents/telemetry @opentelemetry/api @opentelemetry/sdk-trace @ai-sdk/otel @opentelemetry/exporter-trace-otlp-proto
+```
+
+## Set the environment
+
+<include lang="bash" meta='title=".env"'>/_examples/observability/env/weave.env</include>
+
+Dedicated and self-managed instances use `https://<your-subdomain>.wandb.io/traces/otel/v1/traces`.
+
+## Add the server layer
+
+Weave files traces by two resource attributes, `wandb.entity` and `wandb.project`, not by a header: set them here (or in `OTEL_RESOURCE_ATTRIBUTES=wandb.entity=my-team,wandb.project=field-store`). The layer also maps the key Weave groups threads by.
+
+<include meta='title="lib/observability.ts"'>/_examples/observability/backends/weave.ts</include>
+
+In Astro, `process.env` does not hold `.env.local` in development: read the variables with `getSecret` from `astro:env/server` and pass them as `env`, as the Astro view of the [generic layer](/observability/installation/otlp#add-the-server-layer) does. The chat route passes the layer to the handler:
+
+<View title="Vite">
+
+<include meta='title="api/chat.ts" {3,6}'>/_examples/vite/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/chat/route.ts" {4,6}'>/_examples/nextjs/app/api/chat/route.observed.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/chat.ts" {5,7}'>/_examples/tanstack-start/src/routes/api/chat.observed.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/chat.ts" {6,12}'>/_examples/astro/src/pages/api/chat.observed.ts</include>
+
+</View>
+
+## Add the relay route
+
+The page's spans come to your own endpoint, so the backend's key never reaches the browser. The relay refuses other origins and requests with no `Origin` (a script, not a page); the `guard` is the per-IP limit for the rest. Keep its counts in a shared store in production, as for the chat ([Limits and budgets](/security/limits)).
+
+<View title="Vite">
+
+<include meta='title="api/telemetry.ts"'>/_examples/vite/api/telemetry.ts</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="app/api/telemetry/route.ts"'>/_examples/nextjs/app/api/telemetry/route.ts</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/routes/api/telemetry.ts"'>/_examples/tanstack-start/src/routes/api/telemetry.ts</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/pages/api/telemetry.ts"'>/_examples/astro/src/pages/api/telemetry.ts</include>
+
+</View>
+
+## Observe the page
+
+One component turns each run and tool call on the page into spans and posts them to the relay. Render it once, inside `<WebAgentsProvider>`, next to the chat. Without React, call [`observeAgents()`](/observability/observe-agents) once instead.
+
+<View title="Vite">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Next.js">
+
+<include meta='title="components/observe-runs.tsx"'>/_examples/nextjs/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="TanStack Start">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+<View title="Astro">
+
+<include meta='title="src/components/observe-runs.tsx"'>/_examples/shared/components/observe-runs.tsx</include>
+
+</View>
+
+## Check it in W&B Weave
+
+Start the app and send one message in the chat. The trace appears under the entity and project, grouped into a thread by `wandb.thread_id`. Weave maps both `gen_ai.*` and the AI SDK's `ai.*` attributes, so the default conventions work.
+
+</div>
+
+<Expandable title="Sources, and what was not confirmed">
+
+- [OpenTelemetry in Weave](https://docs.coreweave.com/weave/guides/tracking/otel): endpoint, `wandb-api-key`, resource attributes, protobuf only
+- [Vercel AI SDK](https://docs.coreweave.com/weave/guides/integrations/vercel_ai_sdk.md)
+
+Not confirmed: whether the older form (`Authorization: Basic` with a `project_id` header), no longer in the docs, still works.
+
+</Expandable>
+
+## Next
+
+<Card title="The telemetry APIs" href="/observability/apis?backend=weave" arrow>
+  What you just set up, one API per page: the layer, where spans go, the relay, the page's observer, sampling and
+  the conversation key, each showing what differs for W&B Weave.
+</Card>

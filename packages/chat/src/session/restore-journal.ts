@@ -5,6 +5,7 @@
  * reverse is skipped and only tool `revert` (when present) still runs.
  */
 import { type FieldControl, type FieldValue, getRegisteredWebTool, onAgentEvent, writeControl } from "@webmcp-agents/core";
+import { getRedactor } from "@webmcp-agents/core/redact";
 import type { AgentMessage, AgentPart, ToolOutput } from "../types";
 import { allToolParts } from "./reducer";
 
@@ -156,7 +157,7 @@ export async function reverseToolCalls(
       });
       reverted.push(part.name);
     } catch (err) {
-      console.error(`[web-agents] revert for "${part.name}" threw`, err);
+      console.error(`[web-agents] revert for "${part.name}" threw`, getRedactor().error(err));
       skipped.push(part.name);
     }
   }

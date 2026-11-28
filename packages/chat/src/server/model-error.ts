@@ -4,6 +4,7 @@
  * Without this every provider failure reached the chat as "had a problem answering": a revoked key, an empty account
  * and a provider outage looked the same, and the cause sat in a stack trace in the server terminal.
  */
+import { getRedactor, type Redactor } from "@webmcp-agents/core/redact";
 import { APICallError, RetryError } from "ai";
 
 /** What went wrong with the model call, as the chat shows it. */
@@ -42,9 +43,15 @@ function category(err: APICallError, text: string): string {
 
 /**
  * Describes a failed model call. `dev` (default: NODE_ENV is not "production") adds the provider's message to the
- * chat's text, so a misconfigured server says why in the page; production keeps it to the category.
+ * chat's text, so a misconfigured server says why in the page; production keeps it to the category. Both texts pass
+ * through `redact` (default: the process's redactor, `getRedactor()`): a provider's message can echo an API key.
  */
-export function describeModelError(err: unknown, dev = isDev()): ModelErrorDescription {
+export function describeModelError(err: unknown, dev = isDev(), redact: Redactor = getRedactor()): ModelErrorDescription {
+  const raw = describe(err, dev);
+  return { message: redact.text(raw.message), log: redact.text(raw.log) };
+}
+
+function describe(err: unknown, dev: boolean): ModelErrorDescription {
   const cause = unwrap(err);
   if (!APICallError.isInstance(cause)) {
     const text = cause instanceof Error ? cause.message : String(cause);

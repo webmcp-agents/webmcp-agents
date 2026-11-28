@@ -30,9 +30,14 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec biome ci .
+      - run: pnpm konsistent --format github
+      - run: pnpm knip --reporter github-actions
       # Vitest browser mode needs Chromium before `test`
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm turbo run typecheck test build size check-exports
+      # after build, as in `pnpm check`: the built-registry tests read apps/docs/public/r (skipped without it)
+      - run: pnpm registry:typecheck
+      - run: pnpm registry:test
 
   e2e:
     needs: checks

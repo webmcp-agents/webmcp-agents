@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { ACTIONS, locate, locateAll, locateField, words } from "./locate";
 import { UI_HOST_ATTR } from "./user-yield";
-import { cleanupFixtures, fixture } from "./test-utils";
+import { cleanupFixtures, fixture } from "@webmcp-agents/testing";
 
 const ids = (els: readonly Element[]): string[] => els.map((el) => el.id);
 

@@ -54,6 +54,9 @@ A `DevtoolsStore`:
 | `locate` | `(name: string) => boolean` | Scroll the tool's control (the one the cursor acts on, else its `toolname` element) into view and flash it. `false` when it isn't on screen. |
 | `setSetting` | `<K extends keyof DevtoolsSettings>(key: K, value: DevtoolsSettings[K]) => void` | Change and persist one setting. `spotlight` and `yieldToUser` also go to `visuals`. |
 | `resetLayout` | `() => void` | Dock position and size back to defaults. |
+| `setRevealed` | `(on: boolean) => void` | Show (and copy) the values as they were. Does nothing outside a development build (`canReveal`). |
+| `raw` | `(id: string) => RawCall \| undefined` | A call's `args`, `fills`, `result`, `error` and `prompt` before redaction. `undefined` outside a development build, and once the call has left the timeline. |
+| `shown` | `(tool: string, args: unknown) => unknown` | `args` as the panel shows and copies them: redacted, unless `revealed`. |
 | `destroy` | `() => void` | Stop listening and restore `window.agent`. Calls in flight still settle. Idempotent. |
 
 ### `window.agent`
@@ -75,7 +78,7 @@ await agent.list();
 
 | Type | Shape |
 |---|---|
-| `DevtoolsState` | `{ tools: ToolView[]; calls: CallRecord[]; markers: TimelineMarker[]; settings: DevtoolsSettings; supported: boolean; canCancel: boolean; hasVisuals: boolean }`. `calls` and `markers` are newest first, capped at `maxCalls`. `supported`: `document.modelContext` exists. `canCancel`: `cancelTool` exists (the polyfill). |
+| `DevtoolsState` | `{ tools: ToolView[]; calls: CallRecord[]; markers: TimelineMarker[]; settings: DevtoolsSettings; supported: boolean; canCancel: boolean; hasVisuals: boolean; canReveal: boolean; revealed: boolean }`. `calls` and `markers` are newest first, capped at `maxCalls`. `supported`: `document.modelContext` exists. `canCancel`: `cancelTool` exists (the polyfill). `canReveal`: a development build (`process.env.NODE_ENV` is not `"production"`), where "Reveal values" exists. `revealed`: the panel shows values as they were. |
 | `DevtoolsSettings` | `{ open: boolean; tab: DevtoolsTab; dock: "bottom" \| "right"; size: number; spotlight: boolean; yieldToUser: boolean }`. `size` is the height (bottom dock) or width (right dock) in px. |
 | `DevtoolsTab` | `"tools" \| "timeline" \| "settings"` |
 | `DevtoolsVisuals` | `Pick<AgentVisuals, "setSpotlight" \| "setYieldToUser">` |
@@ -90,6 +93,8 @@ await agent.list();
 | `DevtoolsStoreOptions` | The options table above. |
 
 ## Notes
+
+- A record's `args`, `fills`, `result` and `error` are redacted when they are recorded, by the page's [redactor](../core/get-redactor.md) and the tool's [`sensitive`](../core/define-web-tool.md#options) fields, so the panel, "copy as code" and the TanStack bridge never carry a secret. In development the values as they were are kept beside the records, for "Reveal values" (`raw`). `window.agent.invoke` still resolves with the result as the tool gave it: it is the developer's own call.
 
 - Creating a store sets [`window.agent`](#windowagent). `destroy()` restores the previous value.
 - Without `document` (SSR) the store is inert.

@@ -1,0 +1,12 @@
+{
+  "locale": "ar",
+  "theme": {
+    "color": { "accent": "#0a7d5a" },
+    "font": { "family": "IBM Plex Sans Arabic, system-ui" }
+  },
+  "messages": {
+    "title": "مساعد المتجر",
+    "composer": { "placeholder": "اكتب رسالتك…" },
+    "steps": "{count, plural, one {خطوة واحدة} two {خطوتان} few {# خطوات} other {# خطوة}}"
+  }
+}

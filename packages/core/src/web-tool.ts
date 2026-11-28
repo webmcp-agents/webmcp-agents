@@ -35,6 +35,7 @@ import { type ExecuteToolOptions, executeTool } from "./execute";
 import { ACTIONS, type FieldTarget, locateAll, locateField, type ToolLocator, usable, words } from "./locate";
 import { polyfillLoading, whenModelContext } from "./model-context";
 import { abortError, errorResult, isAbortError, toolErrorCode, toToolResult, WebToolError } from "./result";
+import type { SensitiveOption } from "./redact/sensitive";
 import { isControl, writeControl } from "./write";
 
 /**
@@ -139,6 +140,19 @@ export interface WebToolConfig<I = unknown, O = unknown> {
    * tested against the path. Read by `createWebAgents` and `<WebAgentsProvider>`. Default: on every page.
    */
   match?: string | readonly string[] | RegExp;
+  /**
+   * Fields whose values must not be shown, logged or exported: masked in the cursor's `fill` event and live region
+   * (and the field's previous value withheld from restore), the devtools log, the chat's tool card, logs and
+   * telemetry. `execute` still receives the real values, and `onAgentEvent` listeners still get `args` and `result`.
+   * A list names fields on both sides (`["passport"]`); the object form splits them, and `hideFromModel: true` also
+   * replaces the `output` fields with the token in what the model receives (the page still shows them).
+   * Schema properties marked `x-sensitive: true` or `format: "password"` count as listed in `input`.
+   * Default: none, beyond the page's own redaction rules (`configureRedaction`).
+   *
+   * @example
+   * sensitive: { input: ["passport"], output: ["bookingReference"], hideFromModel: true }
+   */
+  sensitive?: SensitiveOption<FieldKey<I>>;
   /** Do the work. Throw for bad input or failures: the agent gets the message as an error result. */
   execute(input: I, ctx: WebToolContext): O | Promise<O>;
   /**
@@ -428,11 +442,21 @@ export function toModelContextTool(tool: WebTool, { context, calls }: ToModelCon
       const el = pick(hits);
       const fields: FieldStep[] = [];
       if (typeof document !== "undefined") {
+        // the parameters the tool marks (`sensitive`, or `x-sensitive` / `format: "password"` in its schema): the
+        // cursor masks them. The full reading, nested fields included, is `toolSensitivity` in core/redact.
+        const marked = tool.sensitive as { input?: string[] } | undefined;
+        const props = (tool.jsonSchema.properties ?? {}) as Record<string, { format?: string; "x-sensitive"?: unknown }>;
+        const secret = (name: string): boolean =>
+          !!(
+            (Array.isArray(marked) ? marked : marked?.input)?.includes(name) ||
+            props[name]?.["x-sensitive"] === true ||
+            props[name]?.format === "password"
+          );
         for (const [name, value] of Object.entries(input ?? {})) {
           // nothing to type for an absent or structured value
           if (value == null || typeof value === "object") continue;
           const field = fieldFor(name, value, el);
-          if (field) fields.push({ name, field, to: typeof value === "boolean" ? value : String(value) });
+          if (field) fields.push({ name, field, to: typeof value === "boolean" ? value : String(value), secret: secret(name) });
         }
         fields.sort((a, b) => (a.field.compareDocumentPosition(b.field) & 2 ? 1 : -1)); // 2: b comes before a
         if (!el && !tool.readOnly && isDev() && !unseen.has(tool.id)) {

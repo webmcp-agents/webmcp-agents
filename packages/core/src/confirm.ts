@@ -37,6 +37,8 @@ export interface FieldStep {
   field: Element;
   /** The value to write. */
   to: FieldValue;
+  /** The tool marks the parameter sensitive: the cursor masks it like a password field. */
+  secret?: boolean;
   /** Set by whoever writes it (the cursor, else the tool's own call), so it is written once. */
   done?: boolean;
 }

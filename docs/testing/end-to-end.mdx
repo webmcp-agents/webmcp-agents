@@ -1,0 +1,32 @@
+---
+title: End to end
+description: "Drive the running app's tools from Playwright through window.agent: wait for the tools, run one, assert a parked confirmation, click it."
+related:
+  - /build/devtools
+  - /testing/ci
+---
+
+The other pages test pieces. An end-to-end test runs the app as people use it: the router, the real components, the
+real styles. With Playwright, you call the app's tools the same way the devtools do, through `window.agent`, and check
+the page.
+
+## A complete example
+
+<include meta='title="e2e/booking.spec.ts"'>/_examples/testing/e2e/flights.spec.ts</include>
+
+`openApp` opens the page and waits until `window.agent` and the tools are there. `runTool` calls a tool in the page
+and resolves with the text the agent would read. `parkedOn(page, button)` waits until the cursor waits on that button;
+`confirm` clicks it as the person.
+
+## What it needs
+
+- `window.agent` exists where the devtools are installed: development builds (`vite dev`, `next dev`), or a build
+  with the devtools turned on. Point Playwright's `webServer` at one of those.
+- `reducedMotion: "reduce"` makes the cursor snap, so tests do not wait for it to glide.
+- This example is type-checked here but not run: it needs a running app. The example apps in this repository run the
+  same calls in their own end-to-end tests.
+
+## See also
+
+- [`openApp`, `runTool`, `listTools`, `parkedOn`, `confirm`](/reference/testing/playwright)
+- [Devtools](/build/devtools), where `window.agent` comes from

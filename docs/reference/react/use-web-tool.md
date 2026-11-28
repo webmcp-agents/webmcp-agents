@@ -39,7 +39,7 @@ component's:
 
 | Name | Type | Default | Description |
 |---|---|---|---|
-| `tool` | `WebToolConfig \| WebTool` | required | The definition, with every option of [`defineWebTool`](../core/define-web-tool.md#options): `id`, `title`, `description`, `inputSchema`, `execute`, and optionally `target`, `fields`, `fill`, `requireConfirmation` and the flags. One difference: `match` is ignored here, because the tool is on while the component is. A tool already made with `defineWebTool` is used as it is. |
+| `tool` | `WebToolConfig \| WebTool` | required | The definition, with every option of [`defineWebTool`](../core/define-web-tool.md#options): `id`, `title`, `description`, `inputSchema`, `execute`, and optionally `target`, `fields`, `fill`, `requireConfirmation`, `sensitive` (fields to [mask](../core/redact.md)) and the flags. One difference: `match` is ignored here, because the tool is on while the component is. A tool already made with `defineWebTool` is used as it is. |
 | `enabled` | `boolean` | `true` | Register only while true, to switch the tool by state: `useWebTool(tool, { enabled: cart.items.length > 0 })`. While false the tool is released like an unmount releases it. |
 
 ## Returns
