@@ -1,6 +1,6 @@
 {
   "name": "@webmcp-agents/telemetry",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Send WebMCP agent runs to any OpenTelemetry backend: model steps from the chat handler, runs and tool calls from the browser through a relay, with standard OTEL_* env, no vendor code and redaction on by default.",
   "license": "MIT",

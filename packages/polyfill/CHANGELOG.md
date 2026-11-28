@@ -1,5 +1,12 @@
 # @webmcp-agents/polyfill
 
+## 0.5.0
+
+### Patch Changes
+
+- Updated dependencies [[`9c79b78`](https://github.com/webmcp-agents/webmcp-agents/commit/9c79b78b7d20ae70527dfce61d2e9ab2d335969a)]:
+  - @webmcp-agents/core@0.5.0
+
 ## 0.4.0
 
 ### Patch Changes
